@@ -111,7 +111,7 @@ html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) { line-height
 html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) * { font-size: inherit !important; color: inherit !important; }
 
 /* ---------- card view: rows in narrow columns, equal-height tiles in wide ones ---------- */
-html.gccx .pt_ResourcesPortlet .card-block-layout { container: gccxqlset / inline-size; padding: 0 !important; margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-block-layout { container: gccxqlset / inline-size; padding: 0 !important; margin: 0 !important; height: auto !important; }
 html.gccx .pt_ResourcesPortlet .card-block-layout > .sortable-list { display: grid !important; grid-template-columns: 1fr; gap: 0; margin: 0; padding: 0; height: auto !important; }
 /* JICS masonry script absolutely positions each card; the grid takes over layout instead */
 html.gccx .pt_ResourcesPortlet .card-block-layout .card.item { position: static !important; left: auto !important; top: auto !important; transform: none !important; }
@@ -123,7 +123,8 @@ html.gccx .pt_ResourcesPortlet .card-block-layout .card.item + .card.item { bord
 html.gccx .pt_ResourcesPortlet .card-block-layout :is(.card-contents-container, .card-contents) { padding: 0 !important; margin: 0 !important; height: auto !important; background: transparent !important; border: 0 !important; }
 html.gccx .pt_ResourcesPortlet .card-block-layout .resource-header { margin: 0 !important; }
 html.gccx .pt_ResourcesPortlet .card-description { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 4px; margin-top: 4px; padding: 0 !important; }
-html.gccx .pt_ResourcesPortlet .card-description > .row { margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-description > .row { margin: 0 !important; display: flex; align-items: center; min-height: 18px; }
+html.gccx .pt_ResourcesPortlet .card-description > .resource-description { display: block; }
 html.gccx .pt_ResourcesPortlet .card-description > .resource-description { flex: 1 0 100%; }
 html.gccx .pt_ResourcesPortlet .card-description > .resource-source::before { content: none; }
 html.gccx .pt_ResourcesPortlet .card-description > .resource-status ~ .resource-source::before { content: "·"; margin-right: 6px; color: var(--x-faint); }
