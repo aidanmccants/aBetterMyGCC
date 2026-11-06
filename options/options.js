@@ -2,11 +2,11 @@
 const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
 chrome.storage.local.get('settings', ({ settings }) => {
   const st = { ...DEFAULTS, ...(settings || {}) };
-  const save = () => chrome.storage.local.set({ settings: st });
+  const save = async (key, value) => { const { settings: latest } = await chrome.storage.local.get('settings'); await chrome.storage.local.set({ settings: { ...(latest || {}), [key]: value } }); };
   document.querySelectorAll('.prefs [data-key]').forEach((el) => {
     const k = el.dataset.key;
     if (el.type === 'checkbox') el.checked = !!st[k]; else el.value = st[k];
-    el.addEventListener('change', () => { st[k] = el.type === 'checkbox' ? el.checked : el.value; save(); });
+    el.addEventListener('change', () => { st[k] = el.type === 'checkbox' ? el.checked : el.value; save(k, st[k]); });
   });
 });
 

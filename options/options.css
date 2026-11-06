@@ -3,21 +3,6 @@
    waive 24b: spacing kept from the existing layout.
    waive 39a: fields also get the 2px :focus-visible outline; the border tint on :focus is additive. */
 
-@font-face {
-  font-family: "Host Grotesk";
-  font-style: normal;
-  font-weight: 500 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/hostgrotesk/v5/co3BmWBnlCJ3U42vbbfdwMjZpFjm.woff2) format("woff2");
-}
-@font-face {
-  font-family: "Instrument Sans";
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2) format("woff2");
-}
-
 /* Grove City College palette; same tokens as src/theme.css */
 :root {
   --bg: #f5f5f6; --surface: #ffffff; --ink: #1e1e1e; --muted: #504f54; --faint: #6d6c71;

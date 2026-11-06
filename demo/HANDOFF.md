@@ -34,3 +34,17 @@ Tested in an isolated Playwright Chromium with the extension unpacked, driven ov
 - Find open sections for in-progress courses (for example HUMA 210) finds no sections. Only the required courses are in next term's catalog.
 - On first install, background.js still opens my.gcc.edu (reviewers will see the college login). Consider opening the demo when no myGCC tab exists, or leave it.
 - Cosmetic: the plan drawer covers the avatar circle.
+
+## v1.1.0 continuation (2026-11-06)
+- Manifest asset parity restored, including loading, forums, Quick Links and home portlets.
+- Home has fictional event/announcement fixtures. Need help includes a link to sample Forums (Main, TopicView, PostView, AddPost); posts are never saved or sent.
+- Forums and What's New now honor the demo's virtual URL.
+- Feedback prepares a prefilled GCC-only Microsoft Form. Reviewers without a GCC account can inspect the local panel but cannot submit; QA intercepts the outgoing URL without contacting Forms.
+- Browser QA harness: `node store/src/qa-release.cjs` from the workspace root. Output images live in store/qa and are not packaged.
+- Live JICS pagination, resource toggles, authenticated registration dry run and actual form submission still need real-browser verification.
+
+### Theme and campus-hours additions
+- Demo loads compiled theme catalog/runtime, shared fonts/tokens and facility data in production order.
+- All 35 campus facilities use the published student-facing source; hours are not sample student data. No authenticated source page is fetched in the background.
+- Theme browser tests: `node store/src/qa-themes.cjs`. Tests cover hierarchy, custom install/editor/export, reload persistence, disable/enable behavior and responsive views.
+- The top chapel statistic is intentionally absent per user request; At a glance retains chapel attendance.

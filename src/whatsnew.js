@@ -13,6 +13,9 @@
     '1.1.0': {
       sub: 'A few things should feel a little easier this week.',
       features: [
+        { title: 'Make myGCC feel like you', desc: 'Choose a design, or let the pixel-art autumn theme appear for the holiday season. Light and dark mode still work.' },
+        { title: 'Another way to send feedback', desc: 'Write a note and continue to the GCC-only feedback form with your extension and browser details filled in.' },
+        { title: 'Campus updates at a glance', desc: 'Announcements and upcoming events are easier to scan, with readable titles and quieter links.' },
         { title: 'Calmer Forums', desc: 'Forums that feel calm, not cluttered: type to find the topic you want, spot what’s unread at a glance, and read posts without squinting.' },
         { title: 'Faster-feeling page changes', desc: 'Click and you instantly see your next page taking shape, so moving around myGCC feels quicker and never frozen.' },
         { title: 'Know what’s open', desc: 'See which buildings are open right now and grab a library study room, so you never walk across campus to a locked door.' },
@@ -114,7 +117,7 @@
   window.gccxWhatsNew = preview;
 
   function init() {
-    if (/[?&]gccxWhatsNew=1\b/.test(location.search)) return preview();
+    if (/[?&]gccxWhatsNew=1\b/.test(typeof GCCX !== 'undefined' ? GCCX.loc().search : location.search)) return preview();
     if (!hasChrome()) return;
     const v = version();
     chrome.storage.local.get([KEY, 'onboarding'], (r) => {

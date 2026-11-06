@@ -43,6 +43,8 @@
         "https://my.gcc.edu/ics/*"
       ],
       "css": [
+        "src/theme-engine/fonts.css",
+        "src/theme-engine/tokens.css",
         "src/theme.css",
         "src/loading.css",
         "src/signedout.css",
@@ -54,12 +56,16 @@
         "src/community.css",
         "src/forums.css",
         "src/quicklinks.css",
+        "src/home-portlets.css",
         "src/feedback.css"
       ],
       "js": [
+        "src/theme-engine/default-theme.js",
+        "src/theme-engine/runtime.js",
         "src/loading.js",
         "src/lib.js",
         "src/terms.js",
+        "src/facilities.js",
         "src/content.js",
         "src/builder.js",
         "src/degree.js",
@@ -70,6 +76,7 @@
         "src/links.js",
         "src/community.js",
         "src/forums.js",
+        "src/home-portlets.js",
         "src/feedback.js"
       ],
       "run_at": "document_start"

@@ -2,9 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settings · aBetterMyGCC</title>
+  <link rel="stylesheet" href="../src/theme-engine/fonts.css">
   <link rel="stylesheet" href="options.css">
+  <link rel="stylesheet" href="../src/theme-engine/shell.css">
+  <script src="../src/theme-engine/default-theme.js"></script>
+  <script src="../src/theme-engine/runtime.js"></script>
 </head>
 <body>
   <main>
@@ -20,6 +25,16 @@
       <label class="pref"><span>Default dining hall</span>
         <select data-key="hall"><option value="hicks-cafe">Hicks</option><option value="map-cafe">MAP</option></select>
       </label>
+    </section>
+
+    <section class="theme-tools" aria-labelledby="themes-title">
+      <h2 id="themes-title">Design themes</h2>
+      <label class="field"><span>Your theme</span><select data-theme-select></select></label>
+      <label class="pref"><span>Enable holiday themes automatically</span><input type="checkbox" id="holiday-themes" checked></label>
+      <label class="pref"><span>Animate theme artwork</span><input type="checkbox" id="animate-themes" checked></label>
+      <p>Reduced-motion preferences keep animated artwork still.</p>
+      <p id="theme-active" role="status"></p>
+      <p>Holiday themes appear on their scheduled dates when enabled. Your chosen theme returns afterward. Light, Dark and Auto still control brightness.</p>
     </section>
 
     <h2 id="ai">Plan with AI</h2>
@@ -59,5 +74,6 @@
     <p class="intro">No myGCC account? Once a key is saved, try Plan with AI and Ask AI on a sample student in the <a href="../demo/index.html" target="_blank">demo</a>.</p>
   </main>
   <script src="options.js"></script>
+  <script src="../src/theme-engine/settings.js"></script>
 </body>
 </html>

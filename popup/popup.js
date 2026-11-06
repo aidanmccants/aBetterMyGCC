@@ -5,16 +5,16 @@ const $ = (s) => document.querySelector(s);
 // ---------- look settings ----------
 chrome.storage.local.get('settings', ({ settings }) => {
   const s = { ...DEFAULTS, ...(settings || {}) };
-  const save = () => chrome.storage.local.set({ settings: s });
+  const save = async (key, value) => { const { settings: latest } = await chrome.storage.local.get('settings'); await chrome.storage.local.set({ settings: { ...(latest || {}), [key]: value } }); };
   document.querySelectorAll('input[data-key]').forEach((el) => {
     el.checked = !!s[el.dataset.key];
-    el.addEventListener('change', () => { s[el.dataset.key] = el.checked; save(); });
+    el.addEventListener('change', () => { s[el.dataset.key] = el.checked; save(el.dataset.key, el.checked); });
   });
   const btns = document.querySelectorAll('[data-theme]');
   const mark = () => btns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.theme === s.theme)));
   btns.forEach((b) => {
     b.setAttribute('role', 'radio');
-    b.addEventListener('click', () => { s.theme = b.dataset.theme; mark(); save(); });
+    b.addEventListener('click', () => { s.theme = b.dataset.theme; mark(); save('theme', s.theme); });
   });
   mark();
 });
