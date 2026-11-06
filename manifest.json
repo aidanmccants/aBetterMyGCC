@@ -48,7 +48,9 @@
         "src/onboarding.css",
         "src/builder-split.css",
         "src/degree.css",
-        "src/search.css"
+        "src/search.css",
+        "src/community.css",
+        "src/feedback.css"
       ],
       "js": [
         "src/lib.js",
@@ -58,7 +60,10 @@
         "src/degree.js",
         "src/signedout.js",
         "src/onboarding.js",
-        "src/contrast.js"
+        "src/contrast.js",
+        "src/links.js",
+        "src/community.js",
+        "src/feedback.js"
       ],
       "run_at": "document_start"
     },

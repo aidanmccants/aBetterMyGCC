@@ -5,6 +5,16 @@
 
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
+  // After the extension reloads or updates, scripts already on the page are orphaned:
+  // chrome.runtime/storage throw "Extension context invalidated". Check before calling.
+  const alive = () => { try { return !!(root.chrome && chrome.runtime && chrome.runtime.id); } catch (e) { return false; } };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (e) => {
+      const m = String((e.reason && e.reason.message) || e.reason || '');
+      if (!alive() || /Extension context invalidated/i.test(m)) e.preventDefault();
+    });
+  }
+
   // ---------- generic table helpers ----------
   function headerCells(table) {
     const head = table.tHead ? table.tHead.rows[0] : table.querySelector('tr');
@@ -211,7 +221,66 @@
       .filter((v, i, arr) => arr.findIndex((x) => x.href === v.href) === i);
   }
 
+  // ---------- live log (nothing is stored; the background only forwards to an open log page) ----------
+  function logSafe(d) {
+    if (d === undefined) return undefined;
+    try {
+      return JSON.parse(JSON.stringify(d, (k, v) => (typeof v === 'string' && v.length > 20000 ? v.slice(0, 20000) + `… [${v.length - 20000} more chars]` : v)));
+    } catch (e) { return String(d); }
+  }
+  // level: info | warn | error | ai ; source: ask | plan | content | background
+  function log(level, source, message, data) {
+    if (!alive()) return;
+    try {
+      chrome.runtime.sendMessage({ type: 'log', level, source, message: String(message), data: logSafe(data), ts: Date.now() }, () => { void chrome.runtime.lastError; });
+    } catch (e) { /* extension reloading */ }
+  }
+  // Friendly, specific text for a failed AI call (kind comes from ai.js)
+  function aiErrorText(r, what) {
+    const raw = (r && r.error) || 'no response';
+    switch (r && r.kind) {
+      case 'auth': return 'Your AI key was rejected (invalid, expired or out of credit). Check it in the aBetterMyGCC popup.';
+      case 'rate': return 'The AI service is rate-limiting this key. Wait a minute and try again.';
+      case 'network': return 'Could not reach the AI service. Check your internet connection (or that the browser allowed access to it), then try again.';
+      case 'server': return `The AI service had a problem (${raw}). Try again in a moment.`;
+      default: return /reload|context invalidated/i.test(raw) ? 'The extension was updated or reloaded. Refresh this page.' : `The AI service rejected the request: ${raw}`;
+    }
+  }
+  // One-line "what the AI is doing now" with a pulsing dot (styles injected once; no css file needed)
+  function pulseHTML(text, esc) {
+    if (typeof document !== 'undefined' && !document.getElementById('gccx-pulse-css')) {
+      const st = document.createElement('style');
+      st.id = 'gccx-pulse-css';
+      st.textContent = '.gccx-pulse{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px;font-style:italic;color:var(--x-muted,#6b625b);min-width:0}'
+        + '.gccx-pulse i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--x-accent,#a60000);animation:gccx-pulse 1.1s ease-in-out infinite}'
+        + '.gccx-pulse span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+        + '@keyframes gccx-pulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}'
+        + '@media (prefers-reduced-motion:reduce){.gccx-pulse i{animation:none}}';
+      (document.head || document.documentElement).appendChild(st);
+    }
+    return `<div class="gccx-pulse" role="status"><i></i><span>${esc(text)}</span></div>`;
+  }
+  if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+    const mine = (f) => !f || /^(chrome|moz)-extension:/.test(f);
+    window.addEventListener('error', (e) => { if (e.filename && mine(e.filename)) log('error', 'content', e.message, { file: e.filename, line: e.lineno, stack: e.error && e.error.stack }); });
+    window.addEventListener('unhandledrejection', (e) => {
+      const st = e.reason && e.reason.stack;
+      if (st && /extension:/.test(st)) log('error', 'content', 'Unhandled rejection: ' + (e.reason.message || e.reason), { stack: st });
+    });
+  }
+
+  // ---------- demo mode ----------
+  // The extension's own demo page (demo/index.html) stands in for a myGCC page and
+  // sets window.__gccxDemo before this file loads. It is never set on my.gcc.edu
+  // (and is ignored outside extension pages), so there loc() is the real location
+  // and go() is a plain navigation.
+  const demo = typeof window !== 'undefined' && typeof location !== 'undefined' && /-extension:$/.test(location.protocol) && window.__gccxDemo ? window.__gccxDemo : null;
+  const loc = () => (demo ? new URL(demo.url, location.origin) : location);
+  const go = (href) => { if (demo) demo.go(href); else location.href = href; };
+
   root.GCCX = {
+    demo: !!demo, loc, go, alive,
+    log, aiErrorText, pulseHTML,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };

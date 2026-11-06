@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>aBetterMyGCC live log</title>
+  <link rel="stylesheet" href="log.css">
+</head>
+<body>
+  <header>
+    <h1>Live log</h1>
+    <span id="status" class="status">Connecting…</span>
+    <label>Level
+      <select id="level"><option value="">All</option><option value="ai">AI</option><option value="info">Info</option><option value="warn">Warnings</option><option value="error">Errors</option></select>
+    </label>
+    <label>Source
+      <select id="source"><option value="">All</option><option value="ask">Ask AI</option><option value="plan">Plan with AI</option><option value="content">Page scripts</option><option value="background">Background</option></select>
+    </label>
+    <button type="button" id="copy">Copy all</button>
+    <button type="button" id="clear">Clear</button>
+  </header>
+  <p class="note">Nothing here is saved. Entries only appear while this tab is open, and disappear when you close it. API keys are never logged.</p>
+  <main id="out" aria-live="off"></main>
+  <script src="log.js"></script>
+</body>
+</html>

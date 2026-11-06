@@ -1,0 +1,65 @@
+/* aBetterMyGCC demo page only (demo/index.html, demo/chapel.html). Never loaded on my.gcc.edu.
+   myGCC's own stylesheet gives the page its skeleton (masthead, nav, sidebar, columns);
+   this stands in for that skeleton so src/theme.css lands the way it does on the real site. */
+
+html, body { margin: 0; }
+html.gccx-demo { padding-top: var(--gccx-demo-h, 44px); } /* banner height, kept current by shim.js */
+html.gccx-demo body { position: relative; min-height: calc(100vh - var(--gccx-demo-h, 44px)); }
+
+/* ---------- the demo banner (always visible) ---------- */
+#gccx-demo-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 2147483600 !important; box-sizing: border-box;
+  min-height: 44px; display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap;
+  padding: 6px 16px; background: #fff4cc; color: #3d2f00; border-bottom: 2px solid #c99a00;
+  font: 14px/1.35 "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+}
+#gccx-demo-banner strong { font-weight: 700; white-space: nowrap; }
+#gccx-demo-banner .gccx-demo-text { flex: 1 1 320px; min-width: 0; }
+#gccx-demo-banner .gccx-demo-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+#gccx-demo-banner button {
+  all: unset; cursor: pointer; padding: 3px 10px; border: 1px solid #c99a00; border-radius: 6px;
+  background: #fffaf0; color: #3d2f00; font: 600 13px/1.4 "Instrument Sans", "Segoe UI", system-ui, sans-serif; white-space: nowrap;
+}
+#gccx-demo-banner button:hover { background: #ffe8a3; }
+#gccx-demo-banner button:focus-visible { outline: 2px solid #3d2f00; outline-offset: 2px; }
+#gccx-demo-banner, #gccx-demo-banner * { color: #3d2f00 !important; font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif !important; }
+#gccx-demo-banner .gccx-demo-btn { background: #fffaf0 !important; }
+#gccx-demo-banner .gccx-demo-btn:hover { background: #ffe8a3 !important; }
+/* fixed panels start below the banner */
+html.gccx-demo #gccx-plan { top: var(--gccx-demo-h, 44px) !important; }
+
+/* ---------- portal skeleton ---------- */
+#sitemasthead { position: relative; display: flex; align-items: center; padding: 0 22px; height: 56px; }
+#logo-heading a.gccx-demo-logo { color: #fff !important; font: 600 19px "Host Grotesk", "Instrument Sans", "Segoe UI", sans-serif; text-decoration: none; letter-spacing: 0.01em; }
+/* JICS keeps the name in #welcomeBackBar (read by the scripts); like the real masthead, show an avatar instead */
+#welcomeBackBar { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+a.gccx-demo-avatar { position: absolute; right: 26px; top: 12px; width: 32px; height: 32px; border-radius: 50%; background: #f7e8e8 !important; color: #a60000 !important; font: 600 13px/32px "Instrument Sans", "Segoe UI", sans-serif; text-align: center; text-decoration: none !important; }
+nav.top-nav-bar { position: absolute; left: 0; right: 0; z-index: 5; }
+#main-nav { list-style: none; margin: 0; padding: 0 8px; display: flex; flex-wrap: wrap; }
+#main-nav > li > a { display: block; }
+#mainLayout { padding-top: 64px; }
+#mainLayout .row { display: flex; gap: 34px; padding: 0 40px; max-width: 1320px; margin: 0 auto; }
+#sideBar { width: 210px; flex: none; }
+#sideBar h2 { margin: 18px 0 6px; padding: 0 10px; }
+#sideBar ul { list-style: none; margin: 0; padding: 0; }
+#portlets { flex: 1; min-width: 0; padding-bottom: 80px; }
+#portlets .portlet { margin-bottom: 20px; }
+.portlet-header-bar h3 { margin: 0; }
+.pSection { padding: 4px 0 6px; }
+.portlet table { width: 100%; }
+.portlet .row { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; }
+.pt_CourseSchedules .contentTabs .tabbox[hidden] { display: none !important; }
+.portlet .hint { padding: 10px 14px; }
+.portlet .feedbackMessage { padding: 2px 14px; margin-bottom: 12px; }
+html.gccx-plan-open #sideBar { display: none; }
+html.gccx-plan-open #mainLayout .row { padding: 0 28px; }
+@media (max-width: 900px) {
+  #mainLayout .row { flex-direction: column; padding: 0 16px; gap: 8px; }
+  #sideBar { width: auto; }
+}
+
+/* ---------- the chapel frame ---------- */
+body.gccx-demo-frame { font: 14px/1.4 "Instrument Sans", "Segoe UI", system-ui, sans-serif; background: transparent; color: #504f54; }
+body.gccx-demo-frame table { border-collapse: collapse; }
+body.gccx-demo-frame :is(th, td) { padding: 6px 12px; border-bottom: 1px solid rgba(128, 128, 128, 0.35); text-align: left; }
+@media (prefers-color-scheme: dark) { body.gccx-demo-frame { color: #b4b3b8; } }

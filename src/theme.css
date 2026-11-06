@@ -1,38 +1,105 @@
-/* aBetterMyGCC theme. Everything is scoped to html.gccx so the extension can be
-   switched off from the popup without reloading styles. */
+/* Hallmark · audit + polish · built: the project · redesign: polish · brand: Grove City College (gcc.edu skin.css) · scope: app
+   critique: a crimson-on-neutral app shell; the brand red carries actions and selection only, type does the rest.
+   waive 24b: spacing values are tuned against JICS markup we do not own; off-scale steps are deliberate.
+   waive 7b: white text on GCC crimson is the brand's own button, 8:1 contrast.
+   waive 48: the token block is html.gccx (not :root) on purpose, so turning the extension off restores stock myGCC.
+   waive 47a: .page-title-bar is JICS's own page header, not re-drawn chrome.
+   waive 39a: inputs also get the global 2px :focus-visible outline below; the border tint on :focus is additive. */
 
-html.gccx {
-  --x-bg: #f8f6f2;
-  --x-surface: #ffffff;
-  --x-ink: #1d1a17;
-  --x-muted: #6b645d;
-  --x-faint: #9a928a;
-  --x-rule: #e6e0d8;
-  --x-rule-strong: #d6cec4;
+/* aBetterMyGCC theme. Everything is scoped to html.gccx so the extension can be
+   switched off from the popup without reloading styles.
+   Palette: Grove City College brand (gcc.edu): crimson #a60000, red #cc0000, hover #990000,
+   charcoal #464646, gray #6d6c71, light gray #f3f3f3; secondary gold #e8982e, green #53682b, blue #005a8b.
+   Type: Host Grotesk (display) + Instrument Sans (text), per modernDesign.md. */
+
+@font-face {
+  font-family: "Host Grotesk";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/hostgrotesk/v5/co3BmWBnlCJ3U42vbbfdwMjZpFjm.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* the token block also covers the signed-out and welcome overlays, which can paint before the gccx class lands */
+html.gccx,
+html:not(.gccx) :is(#gccx-signedout, #gccx-onboarding) {
+  /* surfaces */
+  --x-bg: #f5f5f6;            /* ground */
+  --x-surface: #ffffff;       /* panel */
+  --x-ground-muted: #efeff1;  /* shared pale field */
+  /* text: GCC charcoal family. ink 15:1, muted 8:1, faint (GCC gray) 4.8:1 on --x-bg */
+  --x-ink: #1e1e1e;
+  --x-muted: #504f54;
+  --x-faint: #6d6c71;
+  --x-rule: #e1e1e4;
+  --x-rule-strong: #cdcdd2;
+  /* GCC crimson: 8:1 on white, white on it 8:1 */
   --x-accent: #a60000;
+  --x-accent-hover: #8a0000;
   --x-accent-ink: #ffffff;
-  --x-accent-soft: #f6e9e7;
+  --x-accent-soft: #f7e8e8;
   --x-bar: #a60000;
-  --x-ok: #2f6b45;
-  --x-serif: "Source Serif 4", "Source Serif Pro", Charter, "Iowan Old Style", Georgia, serif;
-  --x-radius: 10px;
-  --x-shadow: 0 1px 2px rgba(29, 26, 23, 0.04), 0 4px 16px rgba(29, 26, 23, 0.04);
+  --x-bar-ink: #ffffff;
+  --x-bar-line: rgba(255, 255, 255, 0.4);
+  --x-bar-hover: rgba(255, 255, 255, 0.12);
+  /* status, from the GCC secondary palette */
+  --x-ok: #53682b;            /* GCC green, 6.2:1 */
+  --x-bad: #cc0000;           /* GCC red, 5.9:1 */
+  --x-bad-deep: #990000;
+  --x-bad-ink: #ffffff;
+  --x-bad-soft: rgba(204, 0, 0, 0.16);
+  --x-bad-ring: rgba(204, 0, 0, 0.22);
+  --x-info: #005a8b;          /* GCC blue, 7.4:1 */
+  --x-scrim: rgba(30, 30, 30, 0.45);
+  --x-shadow: 0 1px 2px rgba(30, 30, 30, 0.05), 0 2px 8px rgba(30, 30, 30, 0.04);
+  --x-shadow-pop: 0 16px 48px rgba(30, 30, 30, 0.2);
+  /* type */
+  --x-sans: "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --x-display: "Host Grotesk", "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --x-serif: var(--x-sans); /* legacy name, kept for scripts that still read it */
+  /* shape and motion */
+  --x-radius: 12px;           /* panels */
+  --x-radius-control: 6px;    /* buttons, inputs */
+  --x-radius-chip: 4px;
+  --x-speed: 160ms;
+  --x-ease: ease-out;
   color-scheme: light;
 }
 html.gccx.gccx-dark {
-  --x-bg: #141211;
-  --x-surface: #1c1a18;
-  --x-ink: #ece6df;
-  --x-muted: #a8a097;
-  --x-faint: #7c746c;
-  --x-rule: #3a3531;
-  --x-rule-strong: #554e48;
-  --x-accent: #e2645b;
-  --x-accent-ink: #1a0b0a;
-  --x-accent-soft: #2c1b19;
-  --x-bar: #7d0d0d;
-  --x-ok: #7fbf93;
+  --x-bg: #161618;
+  --x-surface: #1f1f22;
+  --x-ground-muted: #26262a;
+  --x-ink: #ececee;
+  --x-muted: #b4b3b8;
+  --x-faint: #96959a;         /* 5.5:1 on surface */
+  --x-rule: #333337;
+  --x-rule-strong: #47474c;
+  --x-accent: #ef6b62;        /* 5.4:1 on surface */
+  --x-accent-hover: #ff8a80;
+  --x-accent-ink: #1a0606;    /* 6.5:1 on accent */
+  --x-accent-soft: #2e1c1c;
+  --x-bar: #8a0000;
+  --x-bar-ink: #ffffff;
+  --x-ok: #a9c47f;
+  --x-bad: #ff8a80;
+  --x-bad-deep: #c4453b;
+  --x-bad-ink: #1a0606;
+  --x-bad-soft: rgba(255, 138, 128, 0.18);
+  --x-bad-ring: rgba(255, 138, 128, 0.25);
+  --x-info: #7fb8dd;
+  --x-scrim: rgba(0, 0, 0, 0.6);
   --x-shadow: none;
+  --x-shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
 
@@ -40,19 +107,31 @@ html.gccx.gccx-dark {
 html.gccx body {
   background: var(--x-bg) !important;
   color: var(--x-ink) !important;
-  font-family: var(--x-serif) !important;
+  font-family: var(--x-sans) !important;
   font-size: 16px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "kern", "liga", "onum";
+  font-feature-settings: normal;
 }
-html.gccx body :is(p, li, td, th, label, span, div, input, select, textarea, button, h1, h2, h3, h4, h5, h6, a):not(.fa):not([class*="glyphicon"]):not([class*="fa-"]) {
-  font-family: var(--x-serif) !important;
+html.gccx body :is(p, li, td, th, label, span, div, input, select, textarea, button, h1, h2, h3, h4, h5, h6, a):not(.fa):not([class*="glyphicon"]):not([class*="fa-"]):not([class*="ui-icon"]) {
+  font-family: var(--x-sans) !important;
+}
+/* display face for headings (same specificity as the rule above, so it must stay after it) */
+html.gccx body :is(h1, h2, h3, h4, .portlet-header-bar h3 a, #PageBar_pageTitle a, .ui-dialog-title):not(.fa):not([class*="glyphicon"]):not([class*="fa-"]):not([class*="ui-icon"]) {
+  font-family: var(--x-display) !important;
 }
 html.gccx a { color: var(--x-accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
-html.gccx a:hover { color: var(--x-ink); }
-html.gccx :is(h1, h2, h3, h4) { color: var(--x-ink) !important; font-weight: 600; letter-spacing: -0.005em; }
-html.gccx ::selection { background: var(--x-accent-soft); }
+html.gccx a:hover { color: var(--x-accent-hover); }
+html.gccx :is(h1, h2, h3, h4) { color: var(--x-ink) !important; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; text-wrap: balance; overflow-wrap: break-word; }
+html.gccx ::selection { background: var(--x-accent-soft); color: var(--x-ink); }
+html.gccx :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--x-accent) !important;
+  outline-offset: 2px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.gccx *, html.gccx *::before, html.gccx *::after { transition: none !important; }
+  html.gccx :is(button, .btn, input[type=submit], input[type=button]):active { transform: none !important; }
+}
 
 /* ---------- header: replace the 150px photo with a slim crimson bar ---------- */
 html.gccx #sitemasthead {
@@ -61,7 +140,18 @@ html.gccx #sitemasthead {
   background: var(--x-bar) !important;
 }
 html.gccx #sitemasthead * { background-color: transparent; }
+/* the account pop-over lives inside the masthead; give it its surface back so its text is not crimson on crimson */
+html.gccx #sitemasthead .popover, html.gccx #sitemasthead .popover .popover-content { background-color: var(--x-surface) !important; color: var(--x-ink) !important; border-color: var(--x-rule) !important; }
+html.gccx #sitemasthead .popover :is(span, p, div):not(.sr-only) { color: var(--x-ink) !important; }
+html.gccx #sitemasthead .popover a { color: var(--x-accent) !important; }
 html.gccx #sitemasthead img[src*="logo" i], html.gccx #sitemasthead .logo img { max-height: 36px !important; width: auto !important; }
+/* narrow widths: JICS drops the logo below the menu button, outside the 56px bar, over the breadcrumbs */
+@media (max-width: 991px) {
+  /* ...so put it in the fixed 43px mobile bar, beside the menu button */
+  html.gccx #sitemasthead #logo-heading { position: fixed !important; top: 6px; left: 64px; height: 31px !important; margin: 0 !important; padding: 0 !important; z-index: 11; }
+  html.gccx #sitemasthead #logo-heading a { display: block; height: 31px; top: 0 !important; margin: 0 !important; }
+  html.gccx #sitemasthead #logo-heading img { max-height: 31px !important; }
+}
 html.gccx nav.top-nav-bar {
   top: 56px !important;
   background: var(--x-surface) !important;
@@ -74,9 +164,11 @@ html.gccx #main-nav > li > a {
   color: var(--x-muted) !important;
   font-size: 15px !important;
   font-weight: 500 !important;
-  padding: 12px 14px !important;
+  line-height: 20px !important;
+  padding: 9px 12px !important; /* 40px tall with the underline, the height JICS gives the bar */
   background: transparent !important;
   border-bottom: 2px solid transparent;
+  white-space: nowrap;
 }
 html.gccx #main-nav > li > a { text-decoration: none !important; }
 html.gccx #main-nav > li > a:hover { color: var(--x-ink) !important; }
@@ -88,6 +180,8 @@ html.gccx #mainCrumbs {
   color: var(--x-faint);
 }
 html.gccx #mainCrumbs a { color: var(--x-muted) !important; text-decoration: none; }
+html.gccx #mainCrumbs .breadcrumbs-title { color: var(--x-faint) !important; font-weight: 500 !important; }
+html.gccx #sideBar .sidebar-link-title a, html.gccx #thisContext .sidebar-link-title a { color: var(--x-accent) !important; text-decoration: none !important; }
 
 /* ---------- layout ---------- */
 html.gccx #mainLayout, html.gccx .main-layout, html.gccx #siteWrapper, html.gccx .custom-grid, html.gccx #MAINFORM {
@@ -113,11 +207,22 @@ html.gccx #slide-menu-toggle-btns, html.gccx #slide-menu-toggle-btns li, html.gc
 html.gccx #slide-menu-toggle-btns a, html.gccx #slide-menu-toggle-btns a * { color: var(--x-ink) !important; font-weight: 600 !important; border: 0 !important; box-shadow: none !important; }
 html.gccx #slide-menu-toggle-btns a::after, html.gccx #slide-menu-toggle-btns li::after { display: none !important; }
 html.gccx #PageBar_pageTitleButtons { background: transparent !important; }
+/* Home: the page-title bar is hidden, so JICS's -26px pull-up (meant to tuck the buttons beside the title) slid the
+   print/settings buttons under the fixed nav bar. Give them their own right-aligned row above the dashboard instead. */
+html.gccx:has(#gccx-dash) #PageBar_pageTitleButtons {
+  float: none !important;
+  margin: 8px 0 0 !important;
+  height: auto !important;
+  text-align: right;
+  position: relative;
+  z-index: 1;
+}
 html.gccx .portlet .pToolbar { background: transparent !important; border: 0 !important; min-height: 0 !important; }
 html.gccx .portlet .pToolbar:empty { display: none !important; }
-html.gccx .portlet :is(.GrayBordered, .container.GrayBordered) { background: var(--x-bg) !important; border: 1px solid var(--x-rule) !important; border-radius: 8px; padding: 12px 14px !important; }
+/* a notice inside a portlet is a pale field, not a second card */
+html.gccx .portlet .hint { background: var(--x-ground-muted) !important; color: var(--x-ink) !important; border: 0 !important; border-radius: var(--x-radius-control); }
+html.gccx .portlet :is(.GrayBordered, .container.GrayBordered) { background: var(--x-ground-muted) !important; border: 0 !important; border-radius: var(--x-radius-control); padding: 12px 16px !important; color: var(--x-ink) !important; width: auto !important; max-width: 100%; box-sizing: border-box; }
 html.gccx .portlet :is(ul.tabs, .tabs) li, html.gccx .portlet [role=tablist] li { background: transparent !important; border-color: var(--x-rule) !important; }
-html.gccx #PageBar_pageTitleButtons .btn, html.gccx #PageBar_pageTitleButtons button { background: transparent !important; color: var(--x-faint) !important; border: 1px solid var(--x-rule) !important; }
 html.gccx.gccx-home #mainCrumbs { display: none !important; }
 html.gccx #PageBar_pageTitle a, html.gccx #contextName { color: var(--x-ink) !important; text-decoration: none !important; }
 html.gccx #slide-menu-toggle-btns a { text-decoration: none; }
@@ -126,7 +231,7 @@ html.gccx #sideBar ul li a {
   color: var(--x-muted) !important;
   font-size: 14.5px !important;
   padding: 5px 10px !important;
-  border-radius: 6px;
+  border-radius: var(--x-radius-control);
   text-decoration: none !important;
   border: 0 !important;
 }
@@ -139,18 +244,23 @@ html.gccx #sideBar .fa-link, html.gccx #sideBar .fa-external-link { opacity: 0.3
 
 /* page title */
 html.gccx #PageBar_pageTitle h2, html.gccx .page-title h2 {
-  font-size: 30px !important;
-  font-weight: 600 !important;
-  margin: 18px 0 14px !important;
+  font-size: 32px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.15 !important;
+  margin: 20px 0 16px !important;
   border: 0 !important;
 }
 html.gccx .page-title-bar { border: 0 !important; }
-html.gccx #PageBar_pageTitleButtons .btn, html.gccx .portlet-header-bar .btn {
+html.gccx #PageBar_pageTitleButtons .btn, html.gccx #PageBar_pageTitleButtons button, html.gccx .portlet-header-bar .btn {
   background: transparent !important;
   color: var(--x-faint) !important;
   border: 1px solid var(--x-rule) !important;
-  border-radius: 8px !important;
+  border-radius: var(--x-radius-control) !important;
+  padding: 4px 8px !important;
+  min-width: 32px; min-height: 32px;
 }
+html.gccx #PageBar_pageTitleButtons .btn:hover, html.gccx .portlet-header-bar .btn:hover { color: var(--x-ink) !important; border-color: var(--x-rule-strong) !important; }
 
 /* ---------- portlets as quiet cards ---------- */
 html.gccx .portlet {
@@ -158,10 +268,17 @@ html.gccx .portlet {
   border: 1px solid var(--x-rule) !important;
   border-radius: var(--x-radius) !important;
   box-shadow: var(--x-shadow);
-  padding: 4px 20px 18px !important;
-  margin-bottom: 20px !important;
-  overflow: hidden;
+  padding: 4px 24px 20px !important;
+  margin-bottom: 24px !important;
+  overflow: visible;
 }
+/* wide tables scroll inside their portlet instead of being cut off at its edge or pushing the page sideways */
+html.gccx .portlet div:not([class*="fc-"]):not([class*="ui-datepicker"]):has(> table) { overflow-x: auto; max-width: 100%; }
+html.gccx .portlet .wysiwygtext { overflow-x: auto; max-width: 100%; overflow-wrap: break-word; }
+/* tables pasted from Word carry fixed point widths; let them shrink to the column first */
+html.gccx .portlet .wysiwygtext table { width: auto !important; max-width: 100%; height: auto !important; }
+html.gccx .portlet .wysiwygtext img { max-width: 100%; height: auto; }
+html.gccx .portlet .pSection > iframe { max-width: 100%; }
 html.gccx .portlet-header-bar {
   background: transparent !important;
   border: 0 !important;
@@ -170,6 +287,8 @@ html.gccx .portlet-header-bar {
 html.gccx .portlet-header-bar h3, html.gccx .portlet-header-bar h3 a {
   font-size: 20px !important;
   font-weight: 600 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.25 !important;
   color: var(--x-ink) !important;
   text-decoration: none !important;
   text-transform: none !important;
@@ -179,21 +298,26 @@ html.gccx .portlet-header-bar .fa-question-circle { opacity: 0.25; }
 html.gccx .portlet :is(.pSection, .portlet-padding) { background: transparent !important; border: 0 !important; }
 
 /* tables */
-html.gccx .portlet table { border-collapse: collapse !important; background: transparent !important; }
+html.gccx .portlet table { border-collapse: collapse !important; background: transparent !important; font-variant-numeric: lining-nums tabular-nums; }
 html.gccx .portlet :is(th, thead td) {
   background: transparent !important;
   color: var(--x-muted) !important;
   font-weight: 600 !important;
   font-size: 13.5px !important;
+  line-height: 1.3 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  vertical-align: bottom;
   border: 0 !important;
   border-bottom: 1px solid var(--x-rule-strong) !important;
-  padding: 8px 10px !important;
+  padding: 8px 12px !important;
 }
 html.gccx .portlet td:not([class*="color-"]):not([class*="activeTimeBlock"]) {
   border: 0 !important;
   border-bottom: 1px solid var(--x-rule) !important;
   background: transparent !important;
-  padding: 10px !important;
+  padding: 10px 12px !important;
+  line-height: 1.45;
   vertical-align: top;
 }
 html.gccx .portlet tr:last-child td:not([class*="color-"]):not([class*="activeTimeBlock"]) { border-bottom: 0 !important; }
@@ -207,26 +331,76 @@ html.gccx .portlet td[class*="activeTimeBlock"] {
 html.gccx .portlet td[class*="activeTimeBlock"] * { color: inherit !important; }
 html.gccx .portlet :is(tr, tbody, thead, table, .groupedGrid, .alternatingRow, .alt, .even, .odd) { background: transparent !important; }
 html.gccx .portlet :is(td, th) { color: var(--x-ink) !important; }
-html.gccx .portlet td a { color: var(--x-accent) !important; }
-html.gccx .portlet :is(.feedbackMessage, .validation-summary, .notification) { background: var(--x-accent-soft) !important; color: var(--x-ink) !important; border: 0 !important; border-radius: 8px; }
+html.gccx .portlet td a:not(.btn) { color: var(--x-accent) !important; }
+/* JICS link-buttons (btn-success, btn-info...) keep a legible label on their own fill */
+html.gccx a.btn:is(.btn-success, .btn-info, .btn-warning, .btn-danger) { color: var(--x-bar-ink) !important; text-decoration: none !important; }
+html.gccx :is(.btn-success, .btn-info, .btn-warning, .btn-danger) { border-radius: var(--x-radius-control) !important; white-space: normal !important; height: auto !important; }
+html.gccx .portlet :is(.feedbackMessage, .validation-summary, .notification) { background: var(--x-accent-soft) !important; color: var(--x-ink) !important; border: 0 !important; border-radius: var(--x-radius-control); }
 html.gccx .portlet td ul { margin: 0; padding: 0; list-style: none; }
 
 /* forms */
-html.gccx :is(input[type=text], input[type=search], input[type=password], select, textarea) {
+html.gccx :is(input[type=text], input[type=search], input[type=password], input[type=email], input[type=tel], input[type=number], input[type=date], select, textarea) {
   background: var(--x-surface) !important;
   color: var(--x-ink) !important;
   border: 1px solid var(--x-rule-strong) !important;
-  border-radius: 8px !important;
+  border-radius: var(--x-radius-control) !important;
   padding: 6px 10px !important;
   box-shadow: none !important;
+  max-width: 100%;
 }
-html.gccx :is(input[type=submit], input[type=button], button.btn-primary, .btn-primary, .btn-default) {
+html.gccx :is(input[type=text], input[type=search], input[type=password], input[type=email], input[type=tel], input[type=number], input[type=date], select, textarea):focus {
+  border-color: var(--x-accent) !important;
+}
+/* primary: GCC crimson fill. Labels never clip: auto height, wrapping allowed, no fixed width */
+html.gccx :is(input[type=submit], input[type=button], button.btn-primary, .btn-primary, .btn-primary-jquery-ui-override) {
   background: var(--x-accent) !important;
   color: var(--x-accent-ink) !important;
-  border: 0 !important;
-  border-radius: 8px !important;
-  padding: 7px 14px !important;
+  border: 1px solid var(--x-accent) !important;
+  border-radius: var(--x-radius-control) !important;
+  padding: 8px 16px !important;
   font-weight: 600 !important;
+  font-size: 15px !important;
+  line-height: 1.3 !important;
+  height: auto !important;
+  min-height: 36px;
+  max-width: 100%;
+  white-space: normal !important;
+  text-shadow: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: background-color var(--x-speed) var(--x-ease), border-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease);
+}
+html.gccx :is(input[type=submit], input[type=button], button.btn-primary, .btn-primary, .btn-primary-jquery-ui-override):hover {
+  background: var(--x-accent-hover) !important;
+  border-color: var(--x-accent-hover) !important;
+  color: var(--x-accent-ink) !important;
+  transform: translateY(-1px);
+}
+/* secondary: pale outlined */
+html.gccx :is(.btn-default, button.btn-secondary, .btn-secondary) {
+  background: var(--x-surface) !important;
+  color: var(--x-ink) !important;
+  border: 1px solid var(--x-rule-strong) !important;
+  border-radius: var(--x-radius-control) !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  height: auto !important;
+  white-space: normal !important;
+  text-shadow: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  transition: background-color var(--x-speed) var(--x-ease), border-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease);
+}
+html.gccx :is(.btn-default, button.btn-secondary, .btn-secondary):hover { background: var(--x-ground-muted) !important; border-color: var(--x-faint) !important; color: var(--x-ink) !important; transform: translateY(-1px); }
+html.gccx :is(input[type=submit], input[type=button], .btn, button):active { transform: none; }
+html.gccx :is(input[type=submit], input[type=button], .btn-primary, .btn-default, .btn-secondary):is(:disabled, [disabled], .aspNetDisabled) {
+  background: var(--x-ground-muted) !important;
+  border-color: var(--x-rule) !important;
+  color: var(--x-faint) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
 }
 
 /* promo banner area */
@@ -235,14 +409,99 @@ html.gccx #TargetedMessage, html.gccx .targeted-message {
   border: 0 !important;
   margin: 0 auto 8px !important;
 }
-html.gccx #TargetedMessage img { border-radius: var(--x-radius); max-height: 120px; width: auto; }
+html.gccx #TargetedMessage img { border-radius: var(--x-radius-control); max-height: 120px; width: auto; max-width: 100%; }
 html.gccx.gccx-nobanner #TargetedMessage { display: none !important; }
 
 /* footer */
 html.gccx #foot, html.gccx #GRCbottombar { background: transparent !important; color: var(--x-faint) !important; border: 0 !important; }
+html.gccx #list-version-info, html.gccx #list-version-info * { color: var(--x-faint) !important; }
+
+/* ---------- jQuery UI dialogs (JICS pop-ups) ---------- */
+html.gccx .ui-widget-overlay { background: var(--x-scrim) !important; opacity: 1 !important; }
+html.gccx .ui-dialog {
+  background: var(--x-surface) !important;
+  color: var(--x-ink) !important;
+  border: 1px solid var(--x-rule) !important;
+  border-radius: var(--x-radius) !important;
+  box-shadow: var(--x-shadow-pop) !important;
+  padding: 0 !important;
+}
+html.gccx .ui-dialog .ui-dialog-titlebar {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 20px 56px 4px 24px !important;
+  color: var(--x-ink) !important;
+}
+html.gccx .ui-dialog .ui-dialog-title {
+  float: none !important;
+  width: auto !important;
+  white-space: normal !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.015em;
+  line-height: 1.25 !important;
+  color: var(--x-ink) !important;
+}
+html.gccx .ui-dialog .ui-dialog-titlebar-close {
+  top: 16px !important; right: 16px !important; margin: 0 !important;
+  width: 32px !important; height: 32px !important;
+  background: transparent !important; border: 1px solid transparent !important; border-radius: var(--x-radius-control) !important;
+}
+html.gccx .ui-dialog .ui-dialog-titlebar-close:hover { background: var(--x-ground-muted) !important; border-color: var(--x-rule) !important; }
+html.gccx .ui-dialog .ui-dialog-titlebar-close .ui-icon { left: 50% !important; top: 50% !important; margin: -8px 0 0 -8px !important; }
+html.gccx .ui-dialog .ui-dialog-content {
+  background: transparent !important;
+  color: var(--x-ink) !important;
+  padding: 8px 24px 4px !important;
+  font-size: 16px !important;
+  line-height: 1.55 !important;
+}
+html.gccx .ui-dialog .ui-dialog-buttonpane {
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 16px 24px 24px !important;
+}
+html.gccx .ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {
+  float: none !important;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 12px;
+}
+html.gccx .ui-dialog .ui-dialog-buttonpane button { margin: 0 !important; }
+
+/* "Still there?" idle warning (#twModal): centred, fixed, one clear action.
+   The first button keeps the session (primary), the second logs out (secondary). */
+html.gccx .ui-dialog:has(> #twModal) {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100% - 32px)) !important;
+  height: auto !important;
+  max-height: calc(100% - 32px);
+  z-index: 100001 !important;
+}
+html.gccx .ui-dialog:has(> #twModal) #twModal { height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; width: auto !important; }
+html.gccx .ui-dialog:has(> #twModal) .ui-resizable-handle { display: none !important; }
+html.gccx .ui-dialog:has(> #twModal) .ui-dialog-buttonset button { flex: 0 1 auto; min-width: 0; }
+html.gccx .ui-dialog:has(> #twModal) .ui-dialog-buttonset button:last-child:not(:first-child) {
+  order: -1;
+  background: var(--x-surface) !important;
+  color: var(--x-ink) !important;
+  border-color: var(--x-rule-strong) !important;
+  font-weight: 500 !important;
+}
+html.gccx .ui-dialog:has(> #twModal) .ui-dialog-buttonset button:last-child:not(:first-child):hover {
+  background: var(--x-ground-muted) !important;
+  border-color: var(--x-faint) !important;
+  color: var(--x-ink) !important;
+}
+@media (max-width: 420px) {
+  html.gccx .ui-dialog:has(> #twModal) .ui-dialog-buttonset button { flex: 1 1 100%; }
+}
 
 /* dark-mode fixes for JICS surfaces that hard-code white */
-html.gccx.gccx-dark :is(.popover, .modal-content, .dropdown-menu, .ui-widget-content, .well, .panel, .panel-body, .ui-dialog) {
+html.gccx.gccx-dark :is(.popover, .modal-content, .dropdown-menu, .ui-widget-content, .well, .panel, .panel-body) {
   background: var(--x-surface) !important;
   color: var(--x-ink) !important;
   border-color: var(--x-rule) !important;
@@ -254,7 +513,7 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash { margin: 6px 0 28px; color: var(--x-ink); }
 #gccx-dash * { box-sizing: border-box; }
 #gccx-dash .x-hello { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 4px 0 20px; }
-#gccx-dash .x-hello h2 { font-size: 34px !important; margin: 0 !important; font-weight: 600; }
+#gccx-dash .x-hello h2 { font-size: 36px !important; margin: 0 !important; font-weight: 650; letter-spacing: -0.025em; }
 #gccx-dash .x-date { color: var(--x-muted); font-size: 16px; }
 #gccx-dash .x-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; }
 @media (max-width: 1000px) { #gccx-dash .x-grid { grid-template-columns: 1fr; } }
@@ -282,8 +541,8 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash .x-class .x-title a { color: var(--x-ink); text-decoration: none; }
 #gccx-dash .x-class .x-title a:hover { color: var(--x-accent); }
 #gccx-dash .x-class .x-sub { color: var(--x-muted); font-size: 14.5px; }
-#gccx-dash .x-class .x-room { color: var(--x-ink); font-size: 15px; white-space: nowrap; }
-#gccx-dash .x-class.is-past { opacity: 0.45; }
+#gccx-dash .x-class .x-room { color: var(--x-ink); font-size: 15px; text-align: right; }
+#gccx-dash .x-class.is-past :is(.x-time, .x-title a, .x-sub, .x-room) { color: var(--x-faint); }
 #gccx-dash .x-class.is-now .x-time, #gccx-dash .x-class.is-next .x-time { color: var(--x-accent); font-weight: 600; }
 #gccx-dash .x-when { display: block; font-size: 13px; color: var(--x-accent); font-weight: 400; }
 
@@ -294,7 +553,7 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash .x-stat .x-label { font-size: 16px; }
 #gccx-dash .x-stat .x-label a { color: var(--x-ink); text-decoration: none; }
 #gccx-dash .x-stat .x-label a:hover { color: var(--x-accent); }
-#gccx-dash .x-stat .x-value { font-size: 22px; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+#gccx-dash .x-stat .x-value { font-family: var(--x-display); font-size: 22px; font-weight: 650; font-variant-numeric: lining-nums tabular-nums; }
 #gccx-dash .x-stat .x-value small { font-size: 14px; font-weight: 400; color: var(--x-muted); }
 #gccx-dash .x-stat .x-note { color: var(--x-muted); font-size: 14px; margin-top: 2px; }
 #gccx-dash .x-good { color: var(--x-ok); }
@@ -306,8 +565,9 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash .x-reqs li.is-met { color: var(--x-faint); text-decoration: line-through; text-decoration-color: var(--x-rule-strong); }
 
 /* dining */
-#gccx-dash .x-seg { display: inline-flex; border: 1px solid var(--x-rule); border-radius: 8px; overflow: hidden; }
-#gccx-dash .x-seg button { all: unset; cursor: pointer; padding: 3px 10px; font-size: 14px; color: var(--x-muted); font-family: var(--x-serif); }
+#gccx-dash .x-seg { display: inline-flex; border: 1px solid var(--x-rule); border-radius: var(--x-radius-control); overflow: hidden; }
+#gccx-dash .x-seg button { all: unset; cursor: pointer; padding: 4px 10px; font-size: 14px; color: var(--x-muted); font-family: var(--x-sans); white-space: nowrap; }
+#gccx-dash .x-seg button:focus-visible, #gccx-dash .x-foot button:focus-visible { outline: 2px solid var(--x-accent); outline-offset: -2px; }
 #gccx-dash .x-seg button + button { border-left: 1px solid var(--x-rule); }
 #gccx-dash .x-seg button[aria-pressed="true"] { background: var(--x-accent-soft); color: var(--x-ink); }
 #gccx-dash .x-meal { color: var(--x-muted); font-size: 14.5px; margin: -4px 0 10px; }
@@ -316,7 +576,7 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash .x-station p { margin: 0; color: var(--x-muted); font-size: 14.5px; line-height: 1.45; }
 
 #gccx-dash .x-foot { margin-top: 12px; font-size: 13px; color: var(--x-faint); display: flex; gap: 14px; flex-wrap: wrap; }
-#gccx-dash .x-foot button { all: unset; cursor: pointer; color: var(--x-muted); text-decoration: underline; text-underline-offset: 2px; font-family: var(--x-serif); }
+#gccx-dash .x-foot button { all: unset; cursor: pointer; color: var(--x-muted); text-decoration: underline; text-underline-offset: 2px; font-family: var(--x-sans); }
 #gccx-chapel-frame { position: absolute; width: 1px; height: 1px; left: -9999px; top: 0; border: 0; visibility: hidden; }
 
 /* original home portlets go under a heading when the dashboard is on */
@@ -326,26 +586,28 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 html.gccx #siteNavBar_searchBox_SearchButton { visibility: hidden; }
 #gccx-search-btn {
   all: unset; cursor: pointer; position: absolute; z-index: 1031; top: 10px; right: 160px;
-  font: 15px var(--x-serif); color: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 8px; padding: 5px 12px; min-width: 200px;
+  font: 15px var(--x-sans); color: var(--x-bar-ink); white-space: nowrap;
+  border: 1px solid var(--x-bar-line); border-radius: var(--x-radius-control); padding: 6px 12px; min-width: 200px; box-sizing: border-box;
+  transition: background-color var(--x-speed) var(--x-ease);
 }
-#gccx-search-btn kbd { float: right; font: 12px var(--x-serif); opacity: 0.7; margin-left: 16px; padding-top: 2px; }
-#gccx-search-btn:hover { background: rgba(255, 255, 255, 0.1); }
+#gccx-search-btn:focus-visible { outline: 2px solid var(--x-bar-ink); outline-offset: 2px; }
+#gccx-search-btn kbd { float: right; font: 12px var(--x-sans); opacity: 0.7; margin-left: 16px; padding-top: 2px; }
+#gccx-search-btn:hover { background: var(--x-bar-hover); }
 @media (max-width: 900px) { #gccx-search-btn { min-width: 0; } #gccx-search-btn kbd { display: none; } }
 
-#gccx-palette { position: fixed; inset: 0; z-index: 100000; background: rgba(20, 18, 17, 0.38); display: none; }
+#gccx-palette { position: fixed; inset: 0; z-index: 100000; background: var(--x-scrim); display: none; }
 #gccx-palette.is-open { display: block; }
 #gccx-palette .x-box {
-  width: min(620px, calc(100vw - 32px)); margin: 12vh auto 0; background: var(--x-surface); color: var(--x-ink);
-  border: 1px solid var(--x-rule); border-radius: 12px; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22); overflow: hidden;
-  font-family: var(--x-serif);
+  width: min(620px, calc(100% - 32px)); margin: 12vh auto 0; background: var(--x-surface); color: var(--x-ink);
+  border: 1px solid var(--x-rule); border-radius: var(--x-radius); box-shadow: var(--x-shadow-pop); overflow: hidden;
+  font-family: var(--x-sans);
 }
 #gccx-palette input {
-  all: unset; box-sizing: border-box; width: 100%; padding: 16px 20px; font: 19px var(--x-serif) !important;
+  all: unset; box-sizing: border-box; width: 100%; padding: 16px 20px; font: 19px var(--x-sans) !important;
   color: var(--x-ink); border-bottom: 1px solid var(--x-rule) !important;
 }
 #gccx-palette ul { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow: auto; }
-#gccx-palette li a { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; border-radius: 8px; color: var(--x-ink); text-decoration: none; font-size: 16px; }
+#gccx-palette li a { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; border-radius: var(--x-radius-control); color: var(--x-ink); text-decoration: none; font-size: 16px; }
 #gccx-palette li a span { color: var(--x-faint); font-size: 14px; white-space: nowrap; }
 #gccx-palette li.is-active a { background: var(--x-accent-soft); }
 #gccx-palette .x-hint { padding: 8px 20px 10px; color: var(--x-faint); font-size: 13px; border-top: 1px solid var(--x-rule); }
@@ -353,47 +615,51 @@ html.gccx #siteNavBar_searchBox_SearchButton { visibility: hidden; }
 /* ---------- schedule builder (Add/Drop) ---------- */
 .gccx-save {
   all: unset; cursor: pointer; display: inline-block; margin: 4px 0 0 6px;
-  font: 14px var(--x-serif, Georgia, serif); color: var(--x-accent, #a60000);
-  border: 1px solid var(--x-rule-strong, #d6cec4); border-radius: 6px; padding: 1px 9px;
+  font: 14px var(--x-sans); color: var(--x-accent);
+  border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control); padding: 2px 10px; line-height: 1.4; white-space: nowrap;
 }
-.gccx-save:hover { border-color: var(--x-accent, #a60000); }
-.gccx-save[aria-pressed="true"] { background: var(--x-accent, #a60000); border-color: var(--x-accent, #a60000); color: var(--x-accent-ink, #fff); }
+.gccx-save:hover { border-color: var(--x-accent); }
+.gccx-save:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+.gccx-save[aria-pressed="true"] { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink); }
 .gccx-save-detail { margin: 0 14px 0 0; padding: 3px 12px; }
 
 .gccx-fit { font-size: 13px; margin-top: 3px; line-height: 1.3; white-space: normal; }
-.gccx-fit.is-fit { color: #2f6b45 !important; }
-.gccx-fit.is-clash { color: #b42318 !important; }
-html.gccx-dark .gccx-fit.is-fit { color: #7fbf93 !important; }
-html.gccx-dark .gccx-fit.is-clash { color: #f08a80 !important; }
+.gccx-fit.is-fit { color: var(--x-ok) !important; }
+.gccx-fit.is-clash { color: var(--x-bad) !important; }
 
-#gccx-fit-filter { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; font: 15px var(--x-serif, Georgia, serif); color: var(--x-ink, #1d1a17); cursor: pointer; font-weight: 400; }
-#gccx-fit-filter input { accent-color: var(--x-accent, #a60000); width: 16px; height: 16px; margin: 0; }
-#gccx-fit-filter span { color: var(--x-muted, #6b645d); font-size: 14px; }
+#gccx-fit-filter { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; font: 15px var(--x-sans); color: var(--x-ink); cursor: pointer; font-weight: 400; }
+#gccx-fit-filter input { accent-color: var(--x-accent); width: 16px; height: 16px; margin: 0; }
+#gccx-fit-filter span { color: var(--x-muted); font-size: 14px; }
 
 #gccx-plan-toggle {
   all: unset; cursor: pointer; position: fixed; z-index: 1040; right: 20px; bottom: 20px;
-  background: var(--x-accent, #a60000); color: var(--x-accent-ink, #fff); font: 600 15px var(--x-serif, Georgia, serif);
-  padding: 10px 16px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  background: var(--x-accent); color: var(--x-accent-ink); font: 600 15px var(--x-sans);
+  padding: 10px 16px; border-radius: var(--x-radius-control); box-shadow: var(--x-shadow-pop);
+  transition: background-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease);
 }
+#gccx-plan-toggle:hover { background: var(--x-accent-hover); transform: translateY(-1px); }
+#gccx-plan-toggle:active { transform: none; }
+#gccx-plan-toggle:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 3px; }
 html.gccx-plan-open #gccx-plan-toggle { display: none; }
 html.gccx-plan-open body { margin-right: 380px !important; }
 html.gccx-plan-open #gccx-search-btn { right: 540px; }
 
 #gccx-plan {
   position: fixed; z-index: 1035; top: 0; right: 0; bottom: 0; width: 380px; overflow-y: auto;
-  background: var(--x-surface, #fff); color: var(--x-ink, #1d1a17); border-left: 1px solid var(--x-rule, #e6e0d8);
-  font: 15px/1.45 var(--x-serif, Georgia, serif); padding: 20px 22px 28px; display: none;
+  background: var(--x-surface); color: var(--x-ink); border-left: 1px solid var(--x-rule);
+  font: 15px/1.45 var(--x-sans); padding: 20px 22px 28px; display: none;
 }
 #gccx-plan.is-open { display: block; }
-#gccx-plan * { box-sizing: border-box; font-family: var(--x-serif, Georgia, serif) !important; }
+#gccx-plan * { box-sizing: border-box; font-family: var(--x-sans) !important; }
 #gccx-plan .x-head { display: flex; justify-content: space-between; align-items: baseline; }
 #gccx-plan h3 { font-size: 22px !important; margin: 0 !important; font-weight: 600; color: var(--x-ink) !important; }
-#gccx-plan .x-close, #gccx-plan .x-link, #gccx-plan .x-remove { all: unset; cursor: pointer; color: var(--x-muted, #6b645d); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
-#gccx-plan .x-remove:disabled { opacity: 0.4; cursor: default; }
+#gccx-plan .x-close, #gccx-plan .x-link, #gccx-plan .x-remove { all: unset; cursor: pointer; color: var(--x-muted); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
+#gccx-plan .x-remove:disabled { color: var(--x-faint); text-decoration: none; cursor: not-allowed; }
+#gccx-plan :is(.x-close, .x-link, .x-remove, .x-terms button, .x-primary):focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
 #gccx-plan .x-term { color: var(--x-muted); margin: 2px 0 14px; }
 #gccx-plan .x-terms { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
-#gccx-plan .x-terms button { all: unset; cursor: pointer; font-size: 14px; padding: 2px 10px; border: 1px solid var(--x-rule); border-radius: 6px; color: var(--x-muted); }
-#gccx-plan .x-terms button[aria-pressed="true"] { color: var(--x-ink); background: var(--x-accent-soft, #f6e9e7); border-color: transparent; }
+#gccx-plan .x-terms button { all: unset; cursor: pointer; font-size: 14px; padding: 2px 10px; border: 1px solid var(--x-rule); border-radius: var(--x-radius-control); color: var(--x-muted); white-space: nowrap; }
+#gccx-plan .x-terms button[aria-pressed="true"] { color: var(--x-ink); background: var(--x-accent-soft); border-color: transparent; }
 #gccx-plan .x-empty { color: var(--x-muted); margin-top: 14px; }
 
 #gccx-plan .x-cal { margin: 4px 0 16px; }
@@ -401,12 +667,12 @@ html.gccx-plan-open #gccx-search-btn { right: 540px; }
 #gccx-plan .x-cal-days span { text-align: center; font-size: 13px; color: var(--x-muted); padding-bottom: 4px; }
 #gccx-plan .x-cal-body { position: relative; height: 260px; border-top: 1px solid var(--x-rule); }
 #gccx-plan .x-cal-hours { grid-column: 1; position: relative; }
-#gccx-plan .x-cal-hours i { position: absolute; left: 0; transform: translateY(-50%); font-style: normal; font-size: 11px; color: var(--x-faint, #9a928a); }
-#gccx-plan .x-cal-col { position: relative; background: var(--x-bg, #f8f6f2); border-radius: 4px; }
-#gccx-plan .x-blk { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 1px 3px; overflow: hidden; font-size: 10.5px; line-height: 1.2; }
-#gccx-plan .x-blk.is-plan { background: var(--x-accent, #a60000); color: var(--x-accent-ink, #fff); }
-#gccx-plan .x-blk.is-reg { background: var(--x-rule-strong, #d6cec4); color: var(--x-ink); }
-#gccx-plan .x-blk.is-clash { background: repeating-linear-gradient(135deg, #b42318 0 5px, #8e1b12 5px 10px); color: #fff; }
+#gccx-plan .x-cal-hours i { position: absolute; left: 0; transform: translateY(-50%); font-style: normal; font-size: 11px; color: var(--x-faint); }
+#gccx-plan .x-cal-col { position: relative; background: var(--x-bg); border-radius: var(--x-radius-chip); }
+#gccx-plan .x-blk { position: absolute; left: 2px; right: 2px; border-radius: var(--x-radius-chip); padding: 1px 3px; overflow: hidden; font-size: 10.5px; line-height: 1.2; }
+#gccx-plan .x-blk.is-plan { background: var(--x-accent); color: var(--x-accent-ink); }
+#gccx-plan .x-blk.is-reg { background: var(--x-rule-strong); color: var(--x-ink); }
+#gccx-plan .x-blk.is-clash { background: repeating-linear-gradient(135deg, var(--x-bad) 0 5px, var(--x-bad-deep) 5px 10px); color: var(--x-bad-ink); }
 #gccx-plan .x-cal-key { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--x-muted); margin-top: 8px; }
 #gccx-plan .x-cal-key span { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-left: 6px; }
 #gccx-plan .x-cal-key span:first-child { margin-left: 0; }
@@ -415,18 +681,20 @@ html.gccx-plan-open #gccx-search-btn { right: 540px; }
 
 #gccx-plan .x-items { list-style: none; margin: 0; padding: 0; }
 #gccx-plan .x-items li { padding: 12px 0; border-top: 1px solid var(--x-rule); }
-#gccx-plan .x-line { display: flex; justify-content: space-between; align-items: baseline; }
+#gccx-plan .x-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+#gccx-plan .x-line > :first-child { min-width: 0; }
 #gccx-plan .x-title { font-size: 16px; }
 #gccx-plan .x-sub { color: var(--x-muted); font-size: 14px; }
-#gccx-plan .x-conflict { color: #b42318; font-size: 14px; margin-top: 2px; }
-html.gccx-dark #gccx-plan .x-conflict { color: #f08a80; }
+#gccx-plan .x-conflict { color: var(--x-bad); font-size: 14px; margin-top: 2px; }
 #gccx-plan .x-export { display: flex; gap: 16px; margin: -6px 0 14px; }
 #gccx-plan .x-total { color: var(--x-muted); font-size: 14px; border-top: 1px solid var(--x-rule); padding-top: 10px; margin: 0 0 14px; }
 
 #gccx-plan .x-primary {
   all: unset; cursor: pointer; display: block; text-align: center; width: 100%; box-sizing: border-box;
-  background: var(--x-accent, #a60000); color: var(--x-accent-ink, #fff); font-weight: 600; font-size: 16px; padding: 10px 14px; border-radius: 8px;
+  background: var(--x-accent); color: var(--x-accent-ink); font-weight: 600; font-size: 16px; line-height: 1.3; padding: 10px 14px; border-radius: var(--x-radius-control);
+  transition: background-color var(--x-speed) var(--x-ease);
 }
+#gccx-plan .x-primary:hover:not([disabled]) { background: var(--x-accent-hover); }
 #gccx-plan .x-confirm { display: none; }
 #gccx-plan .x-actions.is-confirming > .x-primary { display: none; }
 #gccx-plan .x-actions.is-confirming .x-confirm { display: block; }
@@ -436,42 +704,46 @@ html.gccx-dark #gccx-plan .x-conflict { color: #f08a80; }
 #gccx-plan .x-job p { margin: 0 0 8px; }
 #gccx-plan .x-job ul { list-style: none; margin: 0 0 10px; padding: 0; }
 #gccx-plan .x-job li { display: flex; justify-content: space-between; font-size: 14.5px; padding: 3px 0; }
-#gccx-plan .x-ok { color: #2f6b45; }
-#gccx-plan .x-bad { color: #b42318; }
-@media (max-width: 1100px) { html.gccx-plan-open body { margin-right: 0 !important; } html.gccx-plan-open #gccx-search-btn { right: 160px; } #gccx-plan { box-shadow: -12px 0 40px rgba(0,0,0,.15); } }
+#gccx-plan .x-ok { color: var(--x-ok); }
+#gccx-plan .x-bad { color: var(--x-bad); }
+@media (max-width: 1100px) { html.gccx-plan-open body { margin-right: 0 !important; } html.gccx-plan-open #gccx-search-btn { right: 160px; } #gccx-plan { box-shadow: var(--x-shadow-pop); } }
+@media (max-width: 480px) { #gccx-plan { width: 100%; } }
 
 /* ---------- term dropdowns: color by season ---------- */
-html.gccx { --t-fall: #b4451a; --t-winter: #1f5fa8; --t-spring: #2f7d3a; --t-summer: #8a6200; }
-html.gccx.gccx-dark { --t-fall: #f39a6b; --t-winter: #8db9ef; --t-spring: #86cf93; --t-summer: #f0cf6a; }
+/* season colours lean on the GCC secondary palette: blue #005a8b, green #53682b, gold #e8982e darkened for text */
+html.gccx { --t-fall: #b4451a; --t-winter: #005a8b; --t-spring: #53682b; --t-summer: #8a6200; }
+html.gccx.gccx-dark { --t-fall: #f39a6b; --t-winter: #7fb8dd; --t-spring: #a9c47f; --t-summer: #f0c46a; }
 html.gccx option.gccx-term-fall, html.gccx select.gccx-term-fall { color: var(--t-fall) !important; }
 html.gccx option.gccx-term-winter, html.gccx select.gccx-term-winter { color: var(--t-winter) !important; }
 html.gccx option.gccx-term-spring, html.gccx select.gccx-term-spring { color: var(--t-spring) !important; }
 html.gccx option.gccx-term-summer, html.gccx select.gccx-term-summer { color: var(--t-summer) !important; }
 html.gccx option.gccx-term { font-weight: 600; background: var(--x-surface); }
 html.gccx option.gccx-term-sep { color: var(--x-faint) !important; font-weight: 400; }
-html.gccx select.gccx-term-select { font-weight: 600 !important; border-left: 4px solid currentColor !important; }
+html.gccx select.gccx-term-select { font-weight: 600 !important; border-color: currentColor !important; }
 
 /* ---------- Plan with AI ---------- */
 #gccx-plan .x-ai { border-top: 1px solid var(--x-rule); margin-top: 18px; padding-top: 14px; }
 #gccx-plan .x-ai h4 { font-size: 17px !important; margin: 0 0 6px !important; color: var(--x-ink) !important; }
 #gccx-plan .x-ai textarea {
   width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px; margin: 4px 0 10px;
-  font: 15px/1.45 var(--x-serif) !important; color: var(--x-ink) !important; background: var(--x-bg) !important;
-  border: 1px solid var(--x-rule-strong) !important; border-radius: 8px !important; padding: 8px 10px !important;
+  font: 15px/1.45 var(--x-sans) !important; color: var(--x-ink) !important; background: var(--x-bg) !important;
+  border: 1px solid var(--x-rule-strong) !important; border-radius: var(--x-radius-control) !important; padding: 8px 10px !important;
 }
-#gccx-plan .x-ai .x-primary[disabled] { opacity: 0.6; cursor: default; }
+#gccx-plan .x-ai .x-primary[disabled] { background: var(--x-ground-muted); color: var(--x-faint); cursor: not-allowed; }
 #gccx-plan .x-ai-note { margin-top: 8px; font-size: 13px !important; }
 #gccx-plan .x-ai-log { list-style: none; margin: 12px 0 0; padding: 0; font-size: 14px; color: var(--x-muted); }
 #gccx-plan .x-ai-log li { padding: 2px 0; }
 #gccx-plan .x-ai-log li.x-bad { color: var(--x-accent); }
-#gccx-plan .x-ai-summary { margin-top: 12px; padding: 10px 12px; background: var(--x-bg); border-radius: 8px; font-size: 14.5px; line-height: 1.5; }
+#gccx-plan .x-ai-summary { margin-top: 12px; padding: 10px 12px; background: var(--x-bg); border-radius: var(--x-radius-control); font-size: 14.5px; line-height: 1.5; }
 .gccx-ai-btn {
   all: unset; cursor: pointer; display: inline-block; box-sizing: border-box;
-  font: 600 14px var(--x-serif, Georgia, serif) !important; color: var(--x-accent, #a60000) !important;
-  border: 1px solid var(--x-accent, #a60000); border-radius: 8px; padding: 5px 12px; line-height: 1.3; white-space: nowrap;
+  font: 600 14px var(--x-sans) !important; color: var(--x-accent) !important;
+  border: 1px solid var(--x-accent); border-radius: var(--x-radius-control); padding: 6px 12px; line-height: 1.3; white-space: nowrap;
+  transition: background-color var(--x-speed) var(--x-ease), color var(--x-speed) var(--x-ease);
 }
-.gccx-ai-btn:hover { background: var(--x-accent, #a60000); color: var(--x-accent-ink, #fff) !important; }
-.gccx-ai-btn.is-head { float: right; margin: -2px 34px 0 0; }
+.gccx-ai-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+.gccx-ai-btn:hover { background: var(--x-accent); color: var(--x-accent-ink) !important; }
+.gccx-ai-btn.is-head { float: right; margin: -2px 40px 0 12px; max-width: calc(100% - 52px); }
 .gccx-ai-btn.is-inline { margin-left: 10px; vertical-align: middle; }
 
 /* ---------- Add/Drop tabs and forms: real spacing ---------- */
@@ -540,6 +812,9 @@ html.gccx .pt_CourseSchedules .tabbox:has([id$="tbRefNum1"]) > .row > .col-xs-12
 /* term status box above the tabs */
 html.gccx .pt_CourseSchedules :is(.GrayBordered, [id$="divDropDowns"]) { line-height: 1.6; }
 html.gccx .pt_CourseSchedules [id$="divDropDowns"] select { margin-left: 8px; }
+/* the term picker sits in a col-sm-3 that is narrower than "Spring Semester 2027" */
+html.gccx .pt_CourseSchedules [id$="divDropDowns"] [class*="col-"]:has(> select) { width: auto !important; min-width: 0; }
+html.gccx .pt_CourseSchedules [id$="divDropDowns"] select { width: auto !important; max-width: 100%; }
 
 @media (max-width: 760px) {
   html.gccx .pt_CourseSchedules .tabbox > .row { grid-template-columns: 1fr; row-gap: 6px; }
@@ -570,7 +845,7 @@ html.gccx .pt_CourseSchedules [id$="tabRef_Panel2"] { display: none !important; 
 }
 #gccx-dash .x-hero-stat { display: block; min-width: 0; padding: 24px 28px 22px; color: var(--x-ink); text-decoration: none; }
 #gccx-dash .x-hero-stat + .x-hero-stat { border-left: 1px solid var(--x-rule); }
-#gccx-dash .x-hero-num { display: block; font-size: 28px; font-weight: 600; line-height: 1.15; color: var(--x-ink); font-variant-numeric: lining-nums tabular-nums; }
+#gccx-dash .x-hero-num { display: block; font-family: var(--x-display); font-size: 30px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.15; color: var(--x-ink); font-variant-numeric: lining-nums tabular-nums; }
 #gccx-dash .x-hero-num small { font-size: 16px; font-weight: 400; color: var(--x-muted); }
 #gccx-dash .x-hero-label { display: block; margin-top: 6px; font-size: 14px; color: var(--x-muted); }
 #gccx-dash a.x-hero-stat:hover .x-hero-num { color: var(--x-accent); }
@@ -584,5 +859,46 @@ html.gccx .pt_CourseSchedules [id$="tabRef_Panel2"] { display: none !important; 
 #gccx-dash .x-reg { background: var(--x-accent-soft); border-color: transparent; }
 #gccx-dash .x-reg h3 { margin: 0 0 6px !important; }
 #gccx-dash .x-reg p { margin: 0 0 14px; color: var(--x-ink); font-size: 15.5px; line-height: 1.5; }
-#gccx-dash .x-reg-btn { display: inline-block; padding: 9px 16px; border-radius: 8px; font-size: 15px; font-weight: 600; line-height: 1.2; text-decoration: none; background: var(--x-accent); color: var(--x-accent-ink); }
-#gccx-dash .x-reg-btn:hover { opacity: 0.9; color: var(--x-accent-ink); }
+#gccx-dash .x-reg-btn { display: inline-block; padding: 9px 16px; border-radius: var(--x-radius-control); font-size: 15px; font-weight: 600; line-height: 1.2; text-decoration: none; background: var(--x-accent); color: var(--x-accent-ink); }
+#gccx-dash .x-reg-btn:hover { background: var(--x-accent-hover); color: var(--x-accent-ink); }
+
+/* ---------- Student Schedule (Academics > Student_Schedule) ----------
+   Stock markup squeezes a ten-column grid into a 75% wrapper and breaks words
+   mid-name (ju-word-wrap uses break-all). Give it the full width, normal word
+   breaking, and a horizontal scroll if it still does not fit. */
+html.gccx .pt_StudentSchedule .pSection > div[style*="width: 75%"] { width: auto !important; }
+html.gccx .pt_StudentSchedule .groupedGrid { width: 100% !important; min-width: 760px; }
+html.gccx .portlet .groupedGrid :is(ul.ju-word-wrap, ul.ju-word-wrap li) { word-break: normal !important; overflow-wrap: break-word !important; }
+html.gccx .portlet .groupedGrid td li + li { margin-top: 4px; }
+html.gccx .portlet .groupedGrid td a[id$="lnkCourse"] { white-space: nowrap; }
+html.gccx .pt_StudentSchedule .groupedGrid td { font-size: 14px; }
+html.gccx .pt_StudentSchedule .groupedGrid th { font-size: 13px !important; }
+html.gccx .portlet .groupedGrid td :is(ul, li) { margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+html.gccx .pt_StudentSchedule .groupedGrid :is(th, td) { padding-left: 6px !important; padding-right: 6px !important; }
+html.gccx .portlet.pt_StudentSchedule { padding-left: 16px !important; padding-right: 16px !important; }
+html.gccx .pt_StudentSchedule .groupedGrid :is(th, td):first-child { width: 1%; }
+/* Meets and Room may wrap (Dates already breaks after the dash); the course code stays on one line */
+html.gccx .pt_StudentSchedule .groupedGrid :is(td:last-child, td:nth-last-child(3)), html.gccx .pt_StudentSchedule .groupedGrid :is(td:last-child, td:nth-last-child(3)) * { white-space: normal !important; }
+html.gccx .pt_StudentSchedule .groupedGrid td:nth-last-child(3) { min-width: 8.6em; } /* Meets: keep "2:00 PM - 3:15" on one line */
+
+/* ---------- nothing truncated with an ellipsis: JICS cuts event and course names at 200px ---------- */
+html.gccx .portlet :is(.truncateShort, .truncateMedium, .truncateLong, .truncate) {
+  display: inline !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+  width: auto !important;
+}
+html.gccx .portlet .calendar-list-view a { overflow-wrap: anywhere; }
+/* link-list "cards" (Student Life, Financial) are a fixed 300px tall and hide long descriptions */
+html.gccx .portlet .sortable-list .card.item { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+html.gccx .portlet .sortable-list .card.item .wysiwygtext { max-height: none !important; overflow: visible !important; }
+/* month calendar (Events): event names wrap instead of being cut at the cell edge */
+html.gccx :is(.fc-daygrid-event, .fc-day-grid-event) { white-space: normal !important; align-items: flex-start; }
+html.gccx :is(.fc-daygrid-event, .fc-day-grid-event) :is(.fc-event-main-frame) { flex-wrap: wrap; }
+html.gccx :is(.fc-daygrid-event, .fc-day-grid-event) :is(.fc-event-title, .fc-event-time, .fc-content, .fc-title) { white-space: normal !important; overflow: visible !important; overflow-wrap: anywhere; }
+/* Add/Drop "Your Schedule": keep course codes (second column) on one line */
+html.gccx .pt_CourseSchedules .groupedGrid td:nth-child(2) > a { white-space: nowrap; }
+/* JICS footer row spills 4px past the viewport on narrow screens */
+html.gccx .footer-container { overflow-x: clip; }

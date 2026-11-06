@@ -1,0 +1,25 @@
+:root { --bg: #f8f6f2; --surface: #fff; --ink: #1d1a17; --muted: #6b645d; --rule: #e6e0d8; --accent: #a60000; --ai: #1f5fa8; --warn: #9a6200; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) { :root { --bg: #141211; --surface: #1c1a18; --ink: #ece6df; --muted: #a8a097; --rule: #2e2a27; --accent: #e2645b; --ai: #7db4f0; --warn: #e0b050; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+h1 { font-size: 17px; margin: 0; }
+.status { color: var(--muted); font-size: 13px; margin-right: auto; }
+.status.on { color: #2a7d3b; }
+label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+select, button { font: inherit; padding: 3px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); }
+button { cursor: pointer; }
+.note { margin: 0; padding: 6px 16px; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--rule); }
+main { flex: 1; overflow: auto; padding: 8px 16px 24px; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+.e { padding: 3px 0; border-bottom: 1px solid var(--rule); }
+.e .t { color: var(--muted); margin-right: 8px; }
+.e .lv { display: inline-block; min-width: 46px; font-weight: 700; text-transform: uppercase; font-size: 11px; }
+.e .src { color: var(--muted); margin-right: 8px; }
+.e.error .lv, .e.error .m { color: var(--accent); }
+.e.warn .lv { color: var(--warn); }
+.e.ai .lv { color: var(--ai); }
+.e.info .lv { color: var(--muted); }
+.e .m { white-space: pre-wrap; overflow-wrap: anywhere; }
+details { margin: 2px 0 2px 16px; }
+summary { cursor: pointer; color: var(--muted); }
+pre { margin: 4px 0; padding: 6px 8px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 400px; overflow: auto; }

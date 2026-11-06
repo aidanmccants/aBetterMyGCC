@@ -9,7 +9,10 @@
     'src/onboarding.js', 'src/degree.js', 'src/signedout.js', 'src/theme.css', 'src/chapel.js',
     'src/signedout.css', 'src/onboarding.css', 'src/builder-split.css', 'src/degree.css', 'src/search.css',
     'src/background.js', 'src/ai.js', 'src/devreload.js',
+    'src/links.js', 'src/community.js', 'src/community.css', 'src/feedback.js', 'src/feedback.css',
+    'logs/log.html', 'logs/log.js', 'logs/log.css', 'options/options.html', 'options/options.js', 'options/options.css',
     'popup/popup.html', 'popup/popup.js', 'popup/popup.css',
+    'demo/index.html', 'demo/chapel.html', 'demo/server.js', 'demo/shim.js', 'demo/demo.css',
   ];
   let isDev = false;
   let last = null;

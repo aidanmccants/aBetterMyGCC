@@ -1,35 +1,82 @@
+/* Hallmark · polish · brand: Grove City College · scope: app (extension options page)
+   critique: a single reading column, crimson only on the one action.
+   waive 24b: spacing kept from the existing layout.
+   waive 39a: fields also get the 2px :focus-visible outline; the border tint on :focus is additive. */
+
+@font-face {
+  font-family: "Host Grotesk";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/hostgrotesk/v5/co3BmWBnlCJ3U42vbbfdwMjZpFjm.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2) format("woff2");
+}
+
+/* Grove City College palette; same tokens as src/theme.css */
 :root {
-  --bg: #f8f6f2; --surface: #fff; --ink: #1d1a17; --muted: #6b645d; --rule: #e6e0d8; --accent: #a60000; --soft: #f6e9e7;
+  --bg: #f5f5f6; --surface: #ffffff; --ink: #1e1e1e; --muted: #504f54; --faint: #6d6c71;
+  --rule: #cdcdd2; --rule-soft: #e1e1e4; --accent: #a60000; --accent-hover: #8a0000; --on-accent: #ffffff; --soft: #f7e8e8;
+  --bad: #cc0000;
+  --sans: "Instrument Sans", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --display: "Host Grotesk", "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --radius: 6px; --speed: 160ms;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #141211; --surface: #1c1a18; --ink: #ece6df; --muted: #a8a097; --rule: #2e2a27; --accent: #e2645b; --soft: #2c1b19; }
+  :root {
+    --bg: #161618; --surface: #1f1f22; --ink: #ececee; --muted: #b4b3b8; --faint: #96959a;
+    --rule: #47474c; --rule-soft: #333337; --accent: #ef6b62; --accent-hover: #ff8a80; --on-accent: #1a0606; --soft: #2e1c1c;
+    --bad: #ff8a80;
+  }
 }
 * { box-sizing: border-box; }
+html, body { overflow-x: clip; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: 17px/1.55 "Source Serif 4", Charter, "Iowan Old Style", Georgia, serif;
+  font: 17px/1.6 var(--sans);
 }
 main { max-width: 560px; margin: 0 auto; padding: 64px 24px 80px; }
-h1 { font-size: 30px; font-weight: 600; line-height: 1.2; margin: 0 0 14px; }
-.intro { margin: 0 0 32px; }
+h1 { font: 650 32px/1.15 var(--display); letter-spacing: -0.025em; margin: 0 0 16px; text-wrap: balance; }
+.intro { margin: 0 0 32px; color: var(--muted); }
 a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-hover); }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.field { display: block; margin: 0 0 18px; }
-.field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.field { display: block; margin: 0 0 20px; }
+.field span { display: block; font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
 .field input, .field select {
   width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--rule); border-radius: 7px; padding: 8px 10px;
+  border: 1px solid var(--rule); border-radius: var(--radius); padding: 8px 12px;
+  transition: border-color var(--speed) ease-out;
 }
-.actions { display: flex; align-items: center; gap: 18px; margin: 8px 0 0; }
+.field input:hover, .field select:hover { border-color: var(--faint); }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input:disabled, .field select:disabled { background: var(--bg); color: var(--faint); border-color: var(--rule-soft); cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 8px 0 0; }
 button.primary {
-  all: unset; cursor: pointer; background: var(--accent); color: #fff; font-weight: 600; font-size: 15px;
-  padding: 8px 16px; border-radius: 7px;
+  all: unset; cursor: pointer; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 15px; line-height: 1.3;
+  padding: 8px 16px; border-radius: var(--radius);
+  transition: background-color var(--speed) ease-out, transform var(--speed) ease-out;
 }
+button.primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+button.primary:active { transform: none; }
+button.primary:disabled { background: var(--rule-soft); color: var(--muted); cursor: not-allowed; transform: none; }
 button.link { all: unset; cursor: pointer; color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
-.msg { font-size: 14px; min-height: 1.4em; margin: 10px 0 0; color: var(--muted); }
-.msg.bad { color: var(--accent); }
-.sources { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 14px; }
-.sources p { margin: 0 0 6px; }
-.sources ul { margin: 0; padding-left: 18px; }
+button.link:hover { color: var(--ink); }
+button.link:active { color: var(--accent); }
+button.link:disabled { color: var(--faint); text-decoration: none; cursor: not-allowed; }
+.msg { font-size: 14px; min-height: 1.4em; margin: 12px 0 0; color: var(--muted); }
+.msg.bad { color: var(--bad); }
+.sources { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--rule-soft); color: var(--muted); font-size: 14px; }
+.sources p { margin: 0 0 8px; }
+.sources ul { margin: 0; padding-left: 20px; }
 .sources a { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  button.primary, .field input, .field select { transition: none; }
+  button.primary:hover { transform: none; }
+}

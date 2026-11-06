@@ -2,41 +2,35 @@
 
 /* ghost preview of the section under the pointer */
 #gccx-plan .x-blk.is-ghost {
-  background: color-mix(in srgb, var(--x-accent, #a60000) 18%, transparent);
-  border: 1.5px dashed var(--x-accent, #a60000);
-  color: var(--x-accent, #a60000);
+  background: color-mix(in srgb, var(--x-accent) 18%, transparent);
+  border: 1.5px dashed var(--x-accent);
+  color: var(--x-accent);
   pointer-events: none;
   z-index: 2;
 }
 #gccx-plan .x-blk.is-ghost.is-ghost-clash {
-  background: rgba(180, 35, 24, 0.18);
-  border-color: #b42318;
-  color: #b42318;
-}
-html.gccx-dark #gccx-plan .x-blk.is-ghost.is-ghost-clash {
-  background: rgba(240, 138, 128, 0.18);
-  border-color: #f08a80;
-  color: #f08a80;
+  background: var(--x-bad-soft);
+  border-color: var(--x-bad);
+  color: var(--x-bad);
 }
 
 /* existing blocks that the hovered section overlaps */
 #gccx-plan .x-blk.is-hit {
-  outline: 2px solid #b42318;
+  outline: 2px solid var(--x-bad);
   outline-offset: 1px;
-  box-shadow: 0 0 0 4px rgba(180, 35, 24, 0.22);
+  box-shadow: 0 0 0 4px var(--x-bad-ring);
   z-index: 1;
-}
-html.gccx-dark #gccx-plan .x-blk.is-hit {
-  outline-color: #f08a80;
-  box-shadow: 0 0 0 4px rgba(240, 138, 128, 0.25);
 }
 
 /* Save button on a section that conflicts with your schedule */
 .pt_CourseSchedules .gccx-save.is-locked,
 .pt_CourseSchedules .gccx-save.is-locked:hover {
-  color: var(--x-muted, #6b645d);
-  background: transparent;
-  border-color: var(--x-rule, #e6e0d8);
+  color: var(--x-faint);
+  background: var(--x-ground-muted);
+  border-color: var(--x-rule);
   cursor: not-allowed;
-  opacity: 0.85;
 }
+
+/* per-course Copy sits just left of Remove */
+#gccx-plan .x-line .x-copy-one { margin-left: auto; }
+#gccx-plan .x-cal-note { margin: 6px 0 0; }

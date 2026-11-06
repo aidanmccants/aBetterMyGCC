@@ -1,0 +1,64 @@
+/* sit in the tab row exactly like the JICS tabs: same float/height, never wrap to a hidden second row */
+html.gccx #main-nav { display: flex !important; flex-wrap: nowrap !important; align-items: flex-start; }
+html.gccx #main-nav > li { float: none; flex: 0 0 auto; }
+html.gccx #main-nav > li.more-toggle-link { order: 2; }
+html.gccx #main-nav > li.gccx-community-tab { display: block; list-style: none; order: 1; margin: 0; padding: 0; height: 40px; }
+html.gccx .gccx-community-btn {
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  height: 40px;
+  margin: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--x-muted) !important;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 9px 12px;
+  cursor: pointer;
+  line-height: 20px;
+  white-space: nowrap;
+  text-align: left;
+}
+html.gccx .gccx-community-btn:hover { color: var(--x-ink) !important; }
+html.gccx .gccx-community-btn[aria-expanded="true"] { color: var(--x-ink) !important; border-bottom-color: var(--x-accent); }
+html.gccx .gccx-community-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: -2px; }
+html.gccx .gccx-community-btn::after { content: ""; display: inline-block; margin-left: 6px; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; vertical-align: middle; }
+
+html.gccx .gccx-community-panel {
+  position: fixed;
+  z-index: 100000;
+  box-sizing: border-box;
+  background: var(--x-surface);
+  color: var(--x-ink);
+  border: 1px solid var(--x-rule);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(29, 26, 23, 0.12), 0 1px 3px rgba(29, 26, 23, 0.06);
+  padding: 8px;
+  font-size: 14px;
+}
+html.gccx .gccx-community-panel[hidden] { display: none; }
+html.gccx .gccx-community-list { list-style: none; margin: 0; padding: 0; }
+html.gccx .gccx-community-list li { margin: 0; padding: 0; list-style: none; }
+html.gccx a.gccx-community-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none !important;
+  color: var(--x-ink) !important;
+}
+html.gccx a.gccx-community-item:hover,
+html.gccx a.gccx-community-item:focus-visible { background: var(--x-accent-soft); outline: none; }
+html.gccx a.gccx-community-item:focus-visible { box-shadow: inset 0 0 0 2px var(--x-accent); }
+html.gccx .gccx-community-name { display: block; font-weight: 600; }
+html.gccx .gccx-community-desc { display: block; margin-top: 2px; font-size: 13px; color: var(--x-muted); }
+html.gccx .gccx-community-foot {
+  margin: 6px 0 0;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--x-rule);
+  font-size: 12px;
+  color: var(--x-faint);
+}
