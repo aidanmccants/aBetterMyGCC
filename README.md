@@ -1,0 +1,45 @@
+# aBetterMyGCC
+
+An unofficial Chrome extension that gives Grove City College's myGCC portal a cleaner look and puts the things students check most in one place. It is not affiliated with or endorsed by Grove City College.
+
+It works for anyone signed in to myGCC. Everything it shows comes from that person's own myGCC pages, and it stays in Chrome on their computer.
+
+## What it does
+
+- **Home dashboard:** today's classes with times, rooms and professors (or tomorrow's, once today is over), chapel credits, student account balance, unmet degree requirements, and what's being served at Hicks or MAP right now.
+- **Course planner (Academics → Add/Drop Courses):**
+  - Press **Save** on any search result to add that section to your plan.
+  - Each result is tagged **Fits your schedule** or **Conflicts with …**, checked against what you're registered for plus your plan. A checkbox hides the sections that conflict.
+  - The plan panel shows a week calendar, the professor, days, times, seats and any overlaps for each section.
+  - **Add N courses** looks up each section's reference number and submits them through myGCC's "Add by Reference #" form, six at a time, until all are added.
+  - **Load my plan** fills the six boxes and stops, so you can check them and press "Add Course(s)" yourself.
+  - **Copy** puts the plan on your clipboard as text. **Download CSV** saves it as a spreadsheet file.
+  - Sections you get registered for drop out of the plan automatically.
+- **Plan with AI (optional):** paste the courses you need in plain English and an AI model searches myGCC, picks sections that fit your schedule, and adds them to your plan. Bring your own API key from Anthropic (Claude), OpenAI, xAI (Grok) or Google (Gemini). Add it from the extension's toolbar icon. It only builds the plan; you still register.
+- **Term dropdowns:** the current term comes first, then upcoming terms, then past terms under a divider, colored by season (spring green, winter blue, fall amber-red, summer gold).
+- **Search:** press Ctrl K (⌘ K on a Mac) or / on any myGCC page to jump to any page, course or service.
+- **Look:** serif type, GCC crimson, light and dark mode. In dark mode, a contrast pass lightens any dark text or line and darkens any white box that myGCC hard-codes, including text staff paste into pages. Promo banners and decorative boxes are hidden; you can show the banners again from the popup.
+
+## Install
+
+1. Open `chrome://extensions` in Chrome.
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose this `abettermygcc` folder.
+
+After changing any file here, click the reload arrow on the extension's card in `chrome://extensions`, then refresh myGCC.
+4. Open https://my.gcc.edu and sign in.
+
+Click the extension's icon to turn the look, the dashboard or the promo banners on or off, and to pick light, dark or automatic.
+
+## Privacy
+
+- Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, so on a shared computer one person's data never shows for another.
+- The only request to a site other than myGCC is for public dining menus from Nutrislice (`gcc.api.nutrislice.com`), the service the dining halls use for their menus. Nothing about you is sent.
+- The Source Serif 4 font loads from Google Fonts.
+- Plan with AI is off until you add a key. When you use it, your request, your registered/planned course codes and times, and course search results go to the AI service you chose, using your key. The key is stored locally and only the extension's background worker reads it.
+
+## Notes
+
+- Chapel attendance is read from the chapel frame on `custom.gcc.edu`, which myGCC itself embeds.
+- The account balance sits behind a "Please wait" step in myGCC. If the background fetch doesn't get it, the dashboard picks it up the next time you open My Account Balances.
+- Batch add uses only myGCC's own forms. It never touches the Drop checkboxes. Clicking **Add N courses** asks you to confirm before anything is submitted.
