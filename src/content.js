@@ -70,8 +70,8 @@
   const DEGREE_URL = '/ICS/Academics/Home.jnz?portlet=My_Degree_Progress';
   const CHAPEL_URL = '/ICS/My_Info/Student.jnz?portlet=Universal_Portlet';
   const BALANCE_URL = '/ICS/Financial/Student_Accounts.jnz?portlet=CASHNet_My_Account_Info';
-  // CashNet e-payment site for GCC (student account payments and CrimsonCash deposits)
-  const CASHNET_URL = 'https://commerce.cashnet.com/GCUPay';
+  // myGCC's SSO hand-off into CashNet (student account payments and CrimsonCash deposits)
+  const CASHNET_URL = '/ICS/Portlets/CRM/Student/Portlet.CASHNetAccountInfo/CashNetLink.aspx';
   const REG_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
 
   // Post an ASP.NET form the way the browser would (optionally firing a postback).
@@ -419,7 +419,7 @@
     const left = todayCard(now);
     const glance = glanceCard();
     const dining = diningCard(now);
-    const cash = `<div class="x-quick"><a class="x-quick-btn" href="${CASHNET_URL}" target="_blank" rel="noopener noreferrer">CashNet <span>Student financials and CrimsonCash</span></a></div>`;
+    const cash = `<div class="x-quick"><a class="x-quick-btn" href="${CASHNET_URL}" target="_blank" rel="noopener">CashNet <span>Student financials and CrimsonCash</span></a></div>`;
     return `
       <div class="x-hello"><h2>${greet}${user && user.first ? ', ' + esc(user.first) : ''}</h2><span class="x-date">${dateStr}</span></div>
       ${hero}
