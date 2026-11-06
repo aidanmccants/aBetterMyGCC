@@ -123,6 +123,7 @@
 
   let wasDark = false;
   function sync() {
+    if (!document.body) return; // document_start can toggle dark mode before body exists
     const dark = root.classList.contains('gccx-dark');
     if (dark && !wasDark) {
       wasDark = true;
@@ -140,5 +141,11 @@
   new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['class'] });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
   else sync();
+  window.addEventListener('gccx-theme-changed', () => {
+    if (!document.body || !root.classList.contains('gccx-dark')) return;
+    restore();
+    document.querySelectorAll('*').forEach((e) => done.delete(e));
+    queue(document.body);
+  });
   window.addEventListener('load', () => wasDark && sweep(document.body));
 })();

@@ -143,3 +143,13 @@ html.gccx .gccx-fb-manual:focus-visible {
   html.gccx .gccx-fb-btn, html.gccx .gccx-fb-copy { transition: none; }
 }
 @media print { html.gccx .gccx-fb { display: none; } }
+
+/* The GCC-only form owns submission; this panel prepares the note locally. */
+html.gccx .gccx-fb-details { margin: 12px 0; color: var(--x-muted); }
+html.gccx .gccx-fb-details summary { cursor: pointer; padding-block: 4px; }
+html.gccx .gccx-fb-system { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 var(--x-sans); color: var(--x-muted); background: var(--x-ground-muted); padding: 10px; border-radius: var(--x-radius-control); }
+html.gccx .gccx-fb-details summary:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx .gccx-fb-copy { display: inline-block; line-height: 1.4; }
+html.gccx .gccx-fb-note::placeholder { color: var(--x-faint); opacity: 1; }
+
+html.gccx .gccx-fb-actions { flex-wrap: wrap; }

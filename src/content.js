@@ -6,7 +6,7 @@
   const X = window.GCCX;
   const root = document.documentElement;
 
-  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const TTL = { schedule: 6 * 3600e3, degree: 24 * 3600e3, chapel: 3 * 3600e3, balance: 6 * 3600e3, nav: 24 * 3600e3, pageIndex: 24 * 3600e3, standing: 24 * 3600e3, registration: 6 * 3600e3 };
 
   // ---- apply look synchronously (mirrored to localStorage to avoid a flash) ----
@@ -33,6 +33,7 @@
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     root.classList.toggle('gccx-dark', settings.enabled && dark);
     root.classList.toggle('gccx-nobanner', settings.enabled && settings.hidePromos);
+    window.GCCXThemes?.apply(settings);
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);
 
@@ -346,17 +347,11 @@
   function heroHTML() {
     const stats = [];
     const sg = state.standing;
-    const ch = state.chapel;
     if (sg && sg.gpa != null) stats.push({ href: DEGREE_URL, num: esc(sg.gpa.toFixed(2)), label: 'GPA', gpa: settings.hideGpa && !gpaShown });
     if (sg && sg.earned != null) stats.push({ href: DEGREE_URL, num: `${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}`, label: 'Credits earned' });
     if (state.schedule && state.schedule.courses.length) {
       const credits = state.schedule.courses.reduce((s, c) => s + (c.credits || 0), 0);
       stats.push({ href: SCHEDULE_URL, num: esc(credits), label: 'credits registered', title: 'This term' });
-    }
-    if (ch && ch.required != null) {
-      const done = (ch.attended || 0) + (ch.special || 0);
-      const need = (ch.required || 0) + (ch.rollover || 0);
-      stats.push({ href: CHAPEL_URL, num: `${esc(done)}<small> of ${esc(need)}</small>`, label: 'Chapel' });
     }
     if (!stats.length) return '';
     return `<div class="x-hero">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
@@ -504,23 +499,10 @@
   }
 
   // ---------------- building hours ----------------
-  // Regular in-session hours from each building's official gcc.edu Facilities page.
-  // Last verified 2026-11-06. Breaks and holidays are not modeled; the card says so.
-  // Times are minutes after midnight, US Eastern; a close past 1440 runs into the next day.
-  const FAC_URL = 'https://www.gcc.edu/Home/Experience-the-Grove/Facilities';
+  // Student-facing SharePoint schedules, published July 17, verified November 6, 2026.
+  const FAC_URL = window.GCCXFacilities.source;
+  const BUILDINGS = window.GCCXFacilities.buildings;
   const hm = (h, m = 0) => h * 60 + m;
-  const wk = (sun, mon, tue, wed, thu, fri, sat) => [sun, mon, tue, wed, thu, fri, sat];
-  const BUILDINGS = [
-    { name: 'Buhl Library', url: 'https://hbl.gcc.libcal.com/', reserve: 'https://hbl.gcc.libguides.com/reserverooms',
-      hours: wk([hm(14), hm(24)], ...Array(4).fill([hm(7, 30), hm(24)]), [hm(7, 30), hm(19, 30)], [hm(8), hm(18)]) },
-    { name: 'Staley Hall (HAL)', url: FAC_URL + '/Staley-Hall-of-Arts-and-Letters',
-      hours: wk([hm(17), hm(24, 50)], ...Array(4).fill([hm(7, 30), hm(24, 50)]), [hm(7, 30), hm(18)], [hm(8), hm(12)]) },
-    { name: 'Breen Student Union', url: FAC_URL + '/Breen-Student-Union', always: true },
-    { name: 'STEM Hall', url: FAC_URL + '/STEM-Hall',
-      hours: wk(null, ...Array(5).fill([hm(7, 30), hm(18)]), null) },
-    { name: 'Pew Fine Arts Center', url: FAC_URL + '/Pew-Fine-Arts-Center',
-      hours: wk(null, ...Array(5).fill([hm(7, 20), hm(21)]), [hm(7, 20), hm(12)]) },
-  ];
   function easternNow(d) {
     const p = {};
     new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
@@ -538,30 +520,45 @@
     if (b.always) return { open: true, text: '24 hours during the semester' };
     const { day, min } = easternNow(d);
     if (!b.hours || day < 0) return null;
-    const prev = b.hours[(day + 6) % 7];
-    if (prev && prev[1] > 1440 && min < prev[1] - 1440) return { open: true, text: `until ${fmtMin(prev[1])}` };
-    const t = b.hours[day];
-    if (t && min >= t[0] && min < t[1]) return { open: true, text: `until ${fmtMin(t[1])}` };
-    if (t && min < t[0]) return { open: false, text: `opens ${fmtMin(t[0])}` };
-    for (let i = 1; i <= 7; i++) {
-      const n = b.hours[(day + i) % 7];
-      if (n) return { open: false, text: `opens ${i === 1 ? 'tomorrow' : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(day + i) % 7]} ${fmtMin(n[0])}` };
+    const slots = (value) => !value ? [] : typeof value[0] === 'number' ? [value] : value;
+    for (const prior of slots(b.hours[(day + 6) % 7])) {
+      if (prior[1] > 1440 && min < prior[1] - 1440) return { open: true, text: `until ${fmtMin(prior[1])}` };
     }
-    return null;
+    const today = slots(b.hours[day]);
+    const current = today.find(t => min >= t[0] && min < t[1]);
+    if (current) return { open: true, text: `until ${fmtMin(current[1])}` };
+    const next = today.find(t => min < t[0]);
+    if (next) return { open: false, text: `opens ${fmtMin(next[0])}` };
+    for (let i = 1; i <= 7; i++) {
+      const ranges = slots(b.hours[(day + i) % 7]);
+      if (ranges.length) return { open: false, text: `opens ${i === 1 ? 'tomorrow' : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(day + i) % 7]} ${fmtMin(ranges[0][0])}` };
+    }
+    return { open: false, text: 'closed' };
   }
   function buildingsCard() {
     const now = new Date();
-    const rows = BUILDINGS.map((b) => {
+    const row = (b) => {
       let s = null;
       try { s = buildingStatus(b, now); } catch (e) { /* fall through */ }
-      const status = s ? `<span class="${s.open ? 'x-bld-open' : 'x-bld-closed'}">${s.open ? 'Open now' : 'Closed'}</span> · ${esc(s.text)}`
+      const card = b.keycard ? buildingStatus({ hours: b.keycard }, now) : null;
+      const publicLabel = b.always ? s?.text : s ? `Public ${s.text}` : '';
+      const cardLabel = card ? `Keycard ${card.text}` : '';
+      const { day, min } = easternNow(now);
+      const restricted = b.name === 'Pew Fine Arts Center' && day === 0 && min >= hm(13, 30) && min < hm(16, 30);
+      const openLabel = s?.open ? 'Open now' : card?.open ? (restricted ? 'Music students only' : 'Keycard access') : 'Closed';
+      const status = s ? `<span class="${s.open || card?.open ? 'x-bld-open' : 'x-bld-closed'}">${openLabel}</span> &middot; ${esc([publicLabel, cardLabel].filter(Boolean).join(' / '))}`
         : `<a href="${b.url}" target="_blank" rel="noopener">Check hours</a>`;
       const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener">Reserve a room</a>` : '';
       return `<li><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
-        <span class="x-bld-meta">${status}</span></div>${res}</li>`;
+        <span class="x-bld-meta">${status}</span>${b.accessNote ? `<span class="x-bld-meta">${esc(b.accessNote)}</span>` : ''}</div>${res}</li>`;
+    };
+    const rows = BUILDINGS.slice(0, 5).map(row).join('');
+    const more = ['Academic', 'Administrative', 'Athletic', 'Dining'].map(group => {
+      const items = BUILDINGS.slice(5).filter(b => b.group === group);
+      return `<h4>${group}</h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
     }).join('');
     return `<div class="x-card x-bld"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
-      <ul class="x-bld-list">${rows}</ul><p class="x-bld-note">Regular semester hours. Breaks and holidays may differ.</p></div>`;
+      <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length})</summary>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
   }
 
   function glanceCard() {

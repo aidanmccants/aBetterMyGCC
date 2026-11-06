@@ -7,7 +7,7 @@
 
   function screenName() {
     try {
-      const p = new URL(location.href).searchParams;
+      const p = new URL(typeof GCCX !== 'undefined' ? GCCX.loc().href : location.href).searchParams;
       if (!/forum/i.test(p.get('portlet') || '')) return '';
       return (p.get('screen') || 'Main').toLowerCase();
     } catch (e) { return ''; }
@@ -71,7 +71,10 @@
     const anchor = early === 'main' ? (body.querySelector('.main-content') || grids[0]) : grids[0];
     anchor.parentNode.insertBefore(wrap, anchor);
 
+    const mainEmpty = early === 'main' ? el('p', 'gccx-fx-empty', 'Nothing matches that filter.') : null;
+    if (mainEmpty) { mainEmpty.hidden = true; wrap.after(mainEmpty); }
     grids.forEach((g) => {
+      if (mainEmpty) return;
       const e = el('p', 'gccx-fx-empty', 'Nothing matches that filter.');
       e.hidden = true;
       g.appendChild(e);
@@ -88,7 +91,8 @@
           if (hit) n++;
         });
         shown += n;
-        g.querySelector('.gccx-fx-empty').hidden = !(q && n === 0);
+        const empty = g.querySelector('.gccx-fx-empty');
+        if (empty) empty.hidden = !(q && n === 0);
         // on the main screen, collapse whole forum sections with no matches
         if (early === 'main') {
           const off = !!q && n === 0;
@@ -101,6 +105,7 @@
           }
         }
       });
+      if (mainEmpty) mainEmpty.hidden = !(q && shown === 0);
       count.textContent = q ? shown + ' of ' + total : '';
     });
   }

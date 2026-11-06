@@ -1,9 +1,13 @@
 // aBetterMyGCC feedback: a small fixed button (bottom left) that opens a panel
 // where students write a note, optionally attach a screenshot of the page, copy
 // both to the clipboard, and then paste them into a Telegram chat with the author.
-// Nothing is sent anywhere by the extension; the student sends it themselves.
+// The GCC-only Microsoft Form is an additional option; screenshots remain local.
+// Continuing to Forms shares the prefilled draft; submission stays with the student.
 (function () {
   'use strict';
+  const FORM = 'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=YImRgxgi00yB_jAqjncdqWqev6TQoOlBr4NaXEioiUFUMEMxODY2QlBJUkFZNk85S1dKODZYU1FRSS4u';
+  const NOTE_FIELD = 'r60e0cb519cc1463bbbf75f622ae219bc';
+  const TYPE_FIELD = 'r0a6edc657ec44e20a9fb02ed8a4b3fdb';
   const TELEGRAM = 'https://t.me/aidanmccants';
   const EMAIL = 'abettergcc@aidanmccants.com';
   const EMAIL_SUBJECT = 'aBetterMyGCC feedback';
@@ -50,7 +54,7 @@
       body,
       '',
       '---',
-      'Page: ' + location.pathname,
+      'Page: ' + (typeof GCCX !== 'undefined' ? GCCX.loc().pathname : location.pathname),
       'aBetterMyGCC: v' + version(),
       'Browser: ' + shortUA(),
       'Time: ' + new Date().toISOString(),
@@ -247,9 +251,10 @@
     closeBtn.addEventListener('click', () => close(true));
 
     const scope = el('p', { className: 'gccx-fb-scope', textContent: 'This is feedback for aBetterMyGCC (the extension), not for myGCC or Grove City College.' });
-    const help = el('p', { className: 'gccx-fb-help', textContent: 'Write your note, press Copy, then open Telegram and paste it into the chat.' });
+    const help = el('p', { id: WRAP_ID + '-help', className: 'gccx-fb-help', textContent: 'Write your note here first, then continue to the GCC-only Microsoft Form to review and send it. GCC student sign-in is required. You can also copy your note and screenshot, email them, or send them on Telegram.' });
 
     note = el('textarea', { id: WRAP_ID + '-note', className: 'gccx-fb-note', rows: 4, maxLength: 2000, placeholder: 'What happened, or what would help?' });
+    note.setAttribute('aria-describedby', WRAP_ID + '-help');
     const noteLabel = el('label', { className: 'gccx-fb-label', htmlFor: note.id, textContent: 'Your note' });
 
     shotChk = el('input', { type: 'checkbox', id: WRAP_ID + '-shot' });
@@ -268,6 +273,21 @@
     const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email' });
     mail.setAttribute('aria-label', 'Email feedback (opens your email app)');
     mail.addEventListener('click', emailAll);
+    const next = el('button', { type: 'button', className: 'gccx-fb-copy', textContent: 'Continue to feedback form' });
+    next.addEventListener('click', () => {
+      note.setCustomValidity(note.value.trim() ? '' : 'Write a note before continuing.');
+      if (!note.reportValidity()) return;
+      const url = new URL(FORM);
+      url.searchParams.set(TYPE_FIELD, JSON.stringify('Issue'));
+      url.searchParams.set(NOTE_FIELD, buildText());
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+      say(shotChk.checked
+        ? 'Your note and system details open in the GCC-only form. Screenshots cannot transfer automatically: use Copy, Email, or Telegram below to send the screenshot separately.'
+        : 'Review your note in the GCC-only form and press Submit. If no tab opened, allow pop-ups and try again.', 'ok');
+    });
+    note.addEventListener('input', () => note.setCustomValidity(''));
+    const privacy = el('p', { className: 'gccx-fb-help', textContent: 'Continuing shares your note, extension version, browser/OS, page path and timestamp with Microsoft Forms in a prefilled URL. Your draft is not saved by the extension.' });
+    const alternatives = el('p', { className: 'gccx-fb-help', textContent: 'Other ways to send your note and screenshot:' });
     const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, tg, mail]);
 
     status = el('p', { className: 'gccx-fb-status' });
@@ -276,7 +296,7 @@
 
     panel = el('div', { id: WRAP_ID + '-panel', className: 'gccx-fb-panel', hidden: true }, [
       el('div', { className: 'gccx-fb-head' }, [title, closeBtn]),
-      scope, help, noteLabel, note, shotBox, actions, status, thumb, manual,
+      scope, help, noteLabel, note, privacy, next, shotBox, alternatives, actions, status, thumb, manual,
     ]);
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-labelledby', title.id);

@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <title>aBetterMyGCC</title>
+  <link rel="stylesheet" href="../src/theme-engine/fonts.css">
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="../src/theme-engine/shell.css">
+  <script src="../src/theme-engine/default-theme.js"></script>
+  <script src="../src/theme-engine/runtime.js"></script>
 </head>
 <body>
   <header>
@@ -25,6 +30,12 @@
     </div>
   </div>
 
+  <label class="row"><span>Design theme</span><select data-theme-select aria-label="Design theme"></select></label>
+  <label class="row"><span>Automatic holiday themes</span><input type="checkbox" id="holiday-themes" checked></label>
+      <label class="row"><span>Animate theme artwork</span><input type="checkbox" id="animate-themes" checked></label>
+  <p class="note" id="theme-active" role="status"></p>
+  <p class="tools"><a href="../options/options.html#themes-title" target="_blank">Customize or install themes</a></p>
+
   <div class="row plan">
     <span class="plan-text"><span>Plan with AI</span><small id="ai-state">Not set up</small></span>
     <button type="button" class="primary" id="ai-btn">Set up</button>
@@ -39,5 +50,6 @@
   <p class="tools"><button type="button" class="link" id="welcome">Show welcome screen again</button></p>
   <p class="tools"><button type="button" class="link" id="openlog">Open live log</button></p>
   <script src="popup.js"></script>
+  <script src="../src/theme-engine/settings.js"></script>
 </body>
 </html>
