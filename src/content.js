@@ -425,7 +425,7 @@
       ${hero}
       <div class="x-grid">
         <div>${reg}${left}${dining}</div>
-        <div>${glance}${cash}</div>
+        <div>${glance}${cash}${buildingsCard()}</div>
       </div>
       <div class="x-foot"><span>${state.loading ? 'Updating…' : 'Up to date'}</span><button type="button" data-refresh>Refresh</button></div>`;
   }
@@ -501,6 +501,67 @@
     const first = s.split(';')[0];
     const m = /^([^,]+),\s*(Dr\.|Prof\.|Mr\.|Mrs\.|Ms\.)?/.exec(first);
     return m ? `${m[2] ? m[2] + ' ' : ''}${m[1].trim()}` : first;
+  }
+
+  // ---------------- building hours ----------------
+  // Regular in-session hours from each building's official gcc.edu Facilities page.
+  // Last verified 2026-11-06. Breaks and holidays are not modeled; the card says so.
+  // Times are minutes after midnight, US Eastern; a close past 1440 runs into the next day.
+  const FAC_URL = 'https://www.gcc.edu/Home/Experience-the-Grove/Facilities';
+  const hm = (h, m = 0) => h * 60 + m;
+  const wk = (sun, mon, tue, wed, thu, fri, sat) => [sun, mon, tue, wed, thu, fri, sat];
+  const BUILDINGS = [
+    { name: 'Buhl Library', url: 'https://hbl.gcc.libcal.com/', reserve: 'https://hbl.gcc.libguides.com/reserverooms',
+      hours: wk([hm(14), hm(24)], ...Array(4).fill([hm(7, 30), hm(24)]), [hm(7, 30), hm(19, 30)], [hm(8), hm(18)]) },
+    { name: 'Staley Hall (HAL)', url: FAC_URL + '/Staley-Hall-of-Arts-and-Letters',
+      hours: wk([hm(17), hm(24, 50)], ...Array(4).fill([hm(7, 30), hm(24, 50)]), [hm(7, 30), hm(18)], [hm(8), hm(12)]) },
+    { name: 'Breen Student Union', url: FAC_URL + '/Breen-Student-Union', always: true },
+    { name: 'STEM Hall', url: FAC_URL + '/STEM-Hall',
+      hours: wk(null, ...Array(5).fill([hm(7, 30), hm(18)]), null) },
+    { name: 'Pew Fine Arts Center', url: FAC_URL + '/Pew-Fine-Arts-Center',
+      hours: wk(null, ...Array(5).fill([hm(7, 20), hm(21)]), [hm(7, 20), hm(12)]) },
+  ];
+  function easternNow(d) {
+    const p = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+      .formatToParts(d).forEach((x) => { p[x.type] = x.value; });
+    return { day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday), min: (+p.hour % 24) * 60 + +p.minute };
+  }
+  function fmtMin(m) {
+    m %= 1440;
+    if (m === 0) return 'midnight';
+    if (m === 720) return 'noon';
+    const h = Math.floor(m / 60), mm = m % 60;
+    return `${h % 12 || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`;
+  }
+  function buildingStatus(b, d) {
+    if (b.always) return { open: true, text: '24 hours during the semester' };
+    const { day, min } = easternNow(d);
+    if (!b.hours || day < 0) return null;
+    const prev = b.hours[(day + 6) % 7];
+    if (prev && prev[1] > 1440 && min < prev[1] - 1440) return { open: true, text: `until ${fmtMin(prev[1])}` };
+    const t = b.hours[day];
+    if (t && min >= t[0] && min < t[1]) return { open: true, text: `until ${fmtMin(t[1])}` };
+    if (t && min < t[0]) return { open: false, text: `opens ${fmtMin(t[0])}` };
+    for (let i = 1; i <= 7; i++) {
+      const n = b.hours[(day + i) % 7];
+      if (n) return { open: false, text: `opens ${i === 1 ? 'tomorrow' : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(day + i) % 7]} ${fmtMin(n[0])}` };
+    }
+    return null;
+  }
+  function buildingsCard() {
+    const now = new Date();
+    const rows = BUILDINGS.map((b) => {
+      let s = null;
+      try { s = buildingStatus(b, now); } catch (e) { /* fall through */ }
+      const status = s ? `<span class="${s.open ? 'x-bld-open' : 'x-bld-closed'}">${s.open ? 'Open now' : 'Closed'}</span> · ${esc(s.text)}`
+        : `<a href="${b.url}" target="_blank" rel="noopener">Check hours</a>`;
+      const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener">Reserve a room</a>` : '';
+      return `<li><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
+        <span class="x-bld-meta">${status}</span></div>${res}</li>`;
+    }).join('');
+    return `<div class="x-card x-bld"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
+      <ul class="x-bld-list">${rows}</ul><p class="x-bld-note">Regular semester hours. Breaks and holidays may differ.</p></div>`;
   }
 
   function glanceCard() {

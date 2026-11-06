@@ -149,5 +149,5 @@ chrome.runtime.onStartup.addListener(async () => {
 // First run: open myGCC, where the welcome screen (onboarding.js) appears.
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason !== 'install') return;
-  chrome.storage.local.set({ onboarding: 'pending' }, () => chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' }));
+  chrome.storage.local.set({ onboarding: 'pending', whatsnewSeen: chrome.runtime.getManifest().version }, () => chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' }));
 });
