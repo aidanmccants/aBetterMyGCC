@@ -34,3 +34,8 @@
 /* per-course Copy sits just left of Remove */
 #gccx-plan .x-line .x-copy-one { margin-left: auto; }
 #gccx-plan .x-cal-note { margin: 6px 0 0; }
+
+/* Item 25: missing ref # and gated Register all */
+#gccx-plan .x-get-ref { margin-left: 6px; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+#gccx-plan .x-primary[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
+#gccx-plan .x-reg-note { margin: 6px 0 0; font-size: 12px; }

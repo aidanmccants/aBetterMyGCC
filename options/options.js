@@ -1,3 +1,15 @@
+// ---------- general settings (same storage as the popup) ----------
+const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+chrome.storage.local.get('settings', ({ settings }) => {
+  const st = { ...DEFAULTS, ...(settings || {}) };
+  const save = () => chrome.storage.local.set({ settings: st });
+  document.querySelectorAll('.prefs [data-key]').forEach((el) => {
+    const k = el.dataset.key;
+    if (el.type === 'checkbox') el.checked = !!st[k]; else el.value = st[k];
+    el.addEventListener('change', () => { st[k] = el.type === 'checkbox' ? el.checked : el.value; save(); });
+  });
+});
+
 const ORIGINS = {
   anthropic: 'https://api.anthropic.com/*',
   openai: 'https://api.openai.com/*',

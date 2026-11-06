@@ -262,12 +262,20 @@
     const facts = [
       c.needed ? `<strong>${fmt(c.earned)}</strong> of ${fmt(c.needed)} credits earned` : `<strong>${fmt(c.earned)}</strong> credits earned`,
       `${fmt(c.progress)} in progress`,
-      gpa ? `Overall GPA ${esc(gpa)}` : '',
+      gpa ? (hideGpa
+        // Same press-and-hold reveal as the dashboard (handlers live in content.js)
+        ? `<span class="gx-gpa x-gpa-locked" title="Press and hold to show your GPA">Overall GPA <span class="gx-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(gpa)}</span><span class="x-gpa-ring" aria-hidden="true"></span></span> <span class="x-gpa-hint">Click and hold to reveal</span></span>`
+        : `Overall GPA ${esc(gpa)}`) : '',
     ].filter(Boolean).map((l) => `<p>${l}</p>`).join('');
     return `<div class="gx-hero"><div class="gx-ring">${ring}<span class="gx-pct">${Math.round(f * 100)}%</span></div>`
       + `<div class="gx-facts">${facts}</div></div>`;
   }
 
+  let hideGpa = true;   // settings.hideGpa (default on)
+  try {
+    chrome.storage.local.get('settings', (o) => { hideGpa = !(o && o.settings && o.settings.hideGpa === false); paint(); });
+    chrome.storage.onChanged.addListener((ch) => { if (ch.settings) { hideGpa = !(ch.settings.newValue && ch.settings.newValue.hideGpa === false); paint(); } });
+  } catch (e) { /* extension reloaded */ }
   let root = null;      // #gccx-degree, while the roadmap is showing
   let current = null;   // { data, ts } currently rendered
   let busy = false;

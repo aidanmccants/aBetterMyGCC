@@ -83,6 +83,23 @@
     if (sel) { const o = sel.options[sel.selectedIndex]; if (o) return { value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) }; }
     return st || lastTerm();
   }
+  // Item 26: the term the site itself has selected right now. On the details
+  // screen (no term box) the remembered search term is only trusted when its
+  // label matches the term printed on the page; otherwise a plan term with that
+  // label is used, else just the printed label (value unknown).
+  const normLabel = (l) => String(l || '').toLowerCase().replace(/\s*·.*$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const sameLabel = (a, b) => { a = normLabel(a); b = normLabel(b); return !!a && !!b && (a === b || a.includes(b) || b.includes(a)); };
+  function siteTerm(plan) {
+    if (screen() === 'details') {
+      const label = detailsInfo().termLabel;
+      const lt = lastTerm();
+      if (!label) return lt;
+      if (lt && sameLabel(lt.label, label)) return lt;
+      const known = (plan || []).find((p) => p.term && sameLabel(p.termLabel, label));
+      return known ? { value: known.term, label: known.termLabel } : { value: null, label };
+    }
+    return screenTerm();
+  }
   function resultRows(root = document) {
     const t = byEnd('dgCourses', root);
     if (!t) return [];
@@ -208,6 +225,7 @@
           await setPlan(items);
           sync(!exists);
           renderDrawer(true);
+          if (!exists) fetchRefBackground(r.code, term.value);
         });
         r.addCell.appendChild(b);
       }
@@ -218,7 +236,7 @@
       // Remember reference numbers for any planned section the user opens
       const items = await getPlan();
       let changed = false;
-      items.forEach((p) => { if (p.code === info.code && !p.ref && info.ref && (!term || !p.term || p.term === term.value)) { p.ref = info.ref; changed = true; } });
+      items.forEach((p) => { if (p.code === info.code && !p.ref && info.ref && (!term || !p.term || p.term === term.value || sameLabel(p.termLabel, info.termLabel))) { p.ref = info.ref; changed = true; } });
       if (changed) await setPlan(items);
       const anchor = byEnd('lnkAddCourse') || byEnd('lnkBack');
       if (anchor && !$('.gccx-save-detail')) {
@@ -355,6 +373,9 @@
   // ---------------- UI: drawer ----------------
   let drawerOpen = null;
   let viewTerm = null;
+  let lastSiteTerm;           // site term seen at the last render (item 26)
+  let userPickedTerm = false; // user clicked another term's tab since then
+  const bgRefBusy = new Set(); // "term|code" background ref lookups in flight (item 25)
   let calState = null;     // what the calendar on screen shows, for ghost previews
   let hoverSection = null; // result row under the pointer / focus
   const closedKey = 'gccx-plan-closed';
@@ -392,16 +413,25 @@
 
     // Show the term the page is on (so the registered schedule is what you see
     // first), plus any other term that has saved courses.
-    const st = screenTerm();
-    if (st && plan.some((p) => !p.term)) { // saved from a screen that couldn't tell the term: adopt this one
+    const running = job && job.user === userKey() && job.phase !== 'done';
+    const st = siteTerm(plan);
+    if (st && st.value && plan.some((p) => !p.term)) { // saved from a screen that couldn't tell the term: adopt this one
       plan.forEach((p) => { if (!p.term) { p.term = st.value; p.termLabel = p.termLabel || st.label; } });
       setPlan(plan);
     }
     const terms = [...new Map(plan.filter((p) => p.term).map((p) => [p.term, p.termLabel])).entries()];
-    if (st && !terms.some(([v]) => v === st.value)) terms.unshift([st.value, st.label]);
-    if (!viewTerm || !terms.some(([v]) => v === viewTerm)) viewTerm = st ? st.value : terms[0] ? terms[0][0] : null;
+    if (st && st.value && !terms.some(([v]) => v === st.value)) terms.unshift([st.value, st.label]);
+    // Item 26: the plan always follows the site's selected term. Only a running
+    // job (its own term) or a tab the user clicked since the site term last
+    // changed may show another term. Unknown site term: show nothing stale.
+    const siteVal = st ? st.value : null;
+    if (siteVal !== lastSiteTerm) { lastSiteTerm = siteVal; userPickedTerm = false; }
+    if (running && job.term) viewTerm = job.term;
+    else if (!userPickedTerm) viewTerm = siteVal;
+    if (viewTerm && !terms.some(([v]) => v === viewTerm)) viewTerm = siteVal;
     const items = plan.filter((p) => p.term === viewTerm);
     const termLabel = (terms.find(([v]) => v === viewTerm) || [, st && st.label])[1] || '';
+    const bgBusy = new Set(bgRefBusy);
     const reg = ((await store.get('registered')) || {})[userKey() + '|' + viewTerm];
     const registered = reg ? reg.courses.filter((c) => !items.some((i) => i.code === c.code)) : [];
 
@@ -412,7 +442,6 @@
     });
     const planned = items.reduce((s, i) => s + (i.credits || 0), 0);
     const regCredits = registered.reduce((s, i) => s + (i.credits || 0), 0);
-    const running = job && job.user === userKey() && job.phase !== 'done';
 
     d.innerHTML = `
       <div class="x-head">
@@ -428,7 +457,7 @@
           ${i.faculty ? `<div class="x-sub">${esc(prof(i.faculty))}</div>` : ''}
           <div class="x-sub">${esc(meetText(i))}</div>
           <div class="x-sub">${i.credits ? `${i.credits} credits` : ''}${i.seats ? `${i.credits ? ', ' : ''}${esc(seatText(i.seats))}` : ''}</div>
-          <div class="x-sub">${i.ref ? `Ref # ${esc(i.ref)}` : 'Ref # not looked up yet'}</div>
+          <div class="x-sub">${i.ref ? `Ref # ${esc(i.ref)}` : bgBusy.has(i.term + '|' + i.code) ? 'Ref # looking up…' : `Ref # missing <button type="button" class="x-link x-get-ref" data-get-ref="${esc(i.code)}"${running ? ' disabled' : ''} title="Opens this course's details on myGCC, which saves its reference number">Get course number</button>`}</div>
           ${conflicts.has(i.code) ? `<div class="x-conflict">Overlaps ${esc(conflicts.get(i.code).join(', '))}</div>` : ''}
           ${/full|closed/i.test(i.status || '') ? `<div class="x-conflict">Section is ${esc(i.status.toLowerCase())}</div>` : ''}
           ${job && job.results && job.results[i.code] && !job.results[i.code].ok ? `<div class="x-conflict">${esc(job.results[i.code].msg)}</div>` : ''}
@@ -441,7 +470,8 @@
     `;
     calState = { term: viewTerm, items, registered };
     d.querySelector('.x-close').addEventListener('click', () => { drawerOpen = false; setClosed(true); renderDrawer(); });
-    d.querySelectorAll('[data-term]').forEach((b) => b.addEventListener('click', () => { viewTerm = b.dataset.term; renderDrawer(); }));
+    d.querySelectorAll('[data-term]').forEach((b) => b.addEventListener('click', () => { viewTerm = b.dataset.term; userPickedTerm = viewTerm !== lastSiteTerm; renderDrawer(); }));
+    d.querySelectorAll('[data-get-ref]').forEach((b) => b.addEventListener('click', () => getCourseNumber(b.dataset.getRef, viewTerm)));
     d.querySelectorAll('.x-remove').forEach((b) => b.addEventListener('click', async () => {
       await setPlan((await getPlan()).filter((p) => !(p.code === b.dataset.code && p.term === viewTerm)));
       renderDrawer();
@@ -642,6 +672,14 @@
       return `<div class="x-job"><p><b>Adding your courses.</b> Keep this tab open; the page will reload a few times.</p><ul>${lines}</ul><button type="button" class="x-link" data-stop>Stop</button></div>`;
     }
     if (!items.length) return '';
+    const noRef = items.filter((i) => !i.ref).map((i) => i.code);
+    if (noRef.length) {
+      const tip = `Every course needs a reference number first. Press "Get course number" next to ${noRef.join(', ')}.`;
+      return `<div class="x-actions">
+      <button type="button" class="x-primary" disabled aria-disabled="true" title="${esc(tip)}">Register all (${items.length})</button>
+      <p class="x-sub x-reg-note">${esc(tip)}</p>
+    </div>`;
+    }
     return `<div class="x-actions">
       <button type="button" class="x-primary" data-add>Register all (${items.length})</button>
       <div class="x-confirm">
@@ -662,6 +700,7 @@
       dryRun: !!window.__gccxDryRun || ssDry,
       fillOnly: !!opts.fillOnly,
       lookupOnly: !!opts.lookupOnly,
+      stayOnDetails: !!opts.stayOnDetails,
     };
     await store.set('job', job);
     plog('info', 'Start', { term, courses: job.queue, known: Object.keys(refs).length, dryRun: job.dryRun, fillOnly: job.fillOnly, lookupOnly: job.lookupOnly, screen: screen() });
@@ -752,6 +791,8 @@
         const plan = await getPlan();
         plan.forEach((p) => { if (p.code === job.current && p.term === job.term && info.ref) p.ref = info.ref; });
         await setPlan(plan);
+        // "Get course number": leave the user on this course's details page
+        if (job.stayOnDetails && !job.queue.some((c) => !job.refs[c] && !job.results[c])) { job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); decorateRefresh(); return; }
         job.step = null; await saveJob(job); return goMain();
       }
       if (sc === 'main' && job.step === 'searched') {
@@ -1071,6 +1112,89 @@ How myGCC labels courses:
     goMain();
   }
 
+  // ---------------- item 25: getting a missing reference number ----------------
+  // Fallback that always works: take the user to the course's details page,
+  // where decorate() saves the ref # (its "details" branch). If the section is
+  // in the results on screen, open it directly; otherwise run the lookup job
+  // for just this course and stop on its details page.
+  function getCourseNumber(code, term) {
+    if (!code) return;
+    plog('info', `Get course number: ${code}`, { term, screen: screen() });
+    const st = currentSearchTerm();
+    const row = screen() === 'results' && (!st || st.value === term) ? resultRows().find((r) => r.code === code) : null;
+    if (row && row.link) return postBackLink(row.link);
+    getPlan().then((plan) => {
+      const it = plan.find((p) => p.code === code && p.term === term);
+      if (it) startJob(term, [it], { lookupOnly: true, stayOnDetails: true });
+    });
+  }
+
+  // Opportunistic background lookup, run right after Save on a results row.
+  // Uses its own fetched copy of the Add/Drop form (never the live form or its
+  // __VIEWSTATE): GET page -> POST search -> POST the row's details postback.
+  // OFF by default: JICS may keep portlet screen state server-side, so these
+  // posts could change what the visible page's next postback lands on. Enable
+  // for testing with localStorage["gccx-bg-ref"]="1". Off or failed, the
+  // "Get course number" fallback still covers the course.
+  // TODO(item 25): once a live test confirms the visible page still behaves
+  // (click a course link / Search / Back after a background lookup), default on.
+  function bgRefEnabled() { try { return localStorage.getItem('gccx-bg-ref') === '1'; } catch (e) { return false; } }
+  function formBody(form) {
+    const body = new URLSearchParams();
+    form.querySelectorAll('input[name], select[name], textarea[name]').forEach((el) => {
+      if (['submit', 'button', 'image', 'reset', 'file'].includes(el.type)) return;
+      if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return;
+      body.set(el.name, el.value || '');
+    });
+    return body;
+  }
+  async function fetchRefBackground(code, term) {
+    if (!bgRefEnabled() || X.demo || !code || !term) return null;
+    const key = term + '|' + code;
+    if (bgRefBusy.has(key)) return null;
+    bgRefBusy.add(key);
+    renderDrawer();
+    try {
+      const doc = await fetchDoc(MAIN_URL);
+      const form = doc.querySelector('form');
+      const field = (suffix) => doc.querySelector(`[id$="${suffix}"]`);
+      if (!form || !field('tabSearch_btnSearch')) throw new Error('no search form');
+      const body = formBody(form);
+      body.set(field('tabSearch_txtCourseRestrictor').name, code);
+      body.set(field('tabSearch_txtTitleRestrictor').name, '');
+      const cr = field('tabSearch_ddlCourseRestrictor');
+      const exact = cr && ([...cr.options].find((o) => o.value === 'ExactMatch') || [...cr.options].find((o) => /begins/i.test(o.textContent)));
+      if (exact) body.set(cr.name, exact.value);
+      const ts = field('tabSearch_ddlTermSearch');
+      if (!ts || ![...ts.options].some((o) => o.value === term)) throw new Error('term not in search');
+      body.set(ts.name, term);
+      const dept = field('tabSearch_ddlDept'); if (dept && dept.options[0]) body.set(dept.name, dept.options[0].value);
+      const btn = field('tabSearch_btnSearch'); body.set(btn.name, btn.value || 'Search');
+      body.set('__EVENTTARGET', ''); body.set('__EVENTARGUMENT', '');
+      const post = (f, b) => fetchDoc(new URL(f.getAttribute('action') || MAIN_URL, location.origin + MAIN_URL).href, { method: 'POST', body: b, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      const res = await post(form, body);
+      const row = resultRows(res).find((r) => r.code === code);
+      if (!row || !row.link) throw new Error('section not in results');
+      const m = /__doPostBack\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/.exec(decodeURIComponent(row.link.getAttribute('href') || ''));
+      const rform = res.querySelector('form');
+      if (!m || !rform) throw new Error('no details postback');
+      const b2 = formBody(rform);
+      b2.set('__EVENTTARGET', m[1]); b2.set('__EVENTARGUMENT', m[2]);
+      const det = await post(rform, b2);
+      const ref = X.clean(det.querySelector('[id$="lblReferenceNumberValue"]')?.textContent);
+      if (!ref) throw new Error('no ref on details');
+      const plan = await getPlan();
+      let hit = false;
+      plan.forEach((p) => { if (p.code === code && p.term === term && !p.ref) { p.ref = ref; hit = true; } });
+      if (hit) await setPlan(plan);
+      plog('info', `Background ref for ${code}: ${ref}`);
+      return ref;
+    } catch (e) {
+      plog('warn', `Background ref lookup failed for ${code}; use Get course number`, { err: String((e && e.message) || e) });
+      return null;
+    } finally { bgRefBusy.delete(key); renderDrawer(); }
+  }
+
   // Registered classes used to be read only off the Add/Drop main screen, so on
   // search results / details (or a first visit) the calendar was empty until you
   // went there. Read them in the background from the Student Schedule portlet
@@ -1112,7 +1236,36 @@ How myGCC labels courses:
     decorate().catch((e) => X.log('error', 'plan', 'decorate failed: ' + (e && e.message), { stack: e && e.stack }))
       .then(() => renderDrawer()).catch((e) => X.log('error', 'plan', 'renderDrawer failed: ' + (e && e.message), { stack: e && e.stack }))
       .then(runSafe);
+    // Item 26: re-sync the plan when the site's term box changes. ddlTerm posts
+    // back (fresh load re-syncs); ddlTermSearch does not, so redraw here.
+    document.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== 'SELECT' || !/ddlTerm(Search)?$/.test(t.id || '')) return;
+      if (/Search$/.test(t.id)) rememberTerm(currentSearchTerm());
+      renderDrawer();
+    }, true);
     loadRegisteredBackground(); // fills the calendar on results/details screens and on a first visit
+    fitResults();
+  }
+
+  // Shrink the wide results table (down to 75%) so it fits without sideways scrolling.
+  function fitResults() {
+    const box = document.querySelector('.addDropSearchResults');
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    const tables = () => [...box.querySelectorAll('table')].filter((t) => t.rows.length > 2 && !t.parentElement.closest('table'));
+    let raf = 0;
+    const fit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => tables().forEach((t) => {
+        t.style.zoom = '';
+        const host = t.parentElement;
+        const avail = host.clientWidth - 12; // room for the section padding
+        const need = t.scrollWidth;
+        if (avail > 0 && need > avail + 2) t.style.zoom = String(Math.max(0.75, Math.floor((avail / need) * 100) / 100));
+      }));
+    };
+    new ResizeObserver(fit).observe(box);
+    fit();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

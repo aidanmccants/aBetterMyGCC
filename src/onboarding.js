@@ -3,7 +3,7 @@
 
   const ID = 'gccx-onboarding';
   const LOCK = 'gccx-onboarding-lock';
-  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const hasChrome = () => typeof chrome !== 'undefined' && !!chrome.runtime?.id && !!chrome.storage?.local;
   const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
 
@@ -60,7 +60,7 @@
     ['Search', `Press ${isMac ? '⌘ K' : 'Ctrl K'} on any page to jump anywhere.`],
     ['Term dropdowns', 'They start at the current term and are color-coded by season.'],
     ['Dark mode', 'Keeps every page readable.'],
-    ['Plan with AI (optional)', 'Bring your own key from Anthropic, OpenAI, xAI or Google. Add it later from the extension’s toolbar icon.'],
+    ['Plan with AI (optional)', 'Bring your own key from Anthropic, OpenAI, xAI or Google. Use Set up AI below, or add it later.'],
   ];
 
   function build() {
@@ -76,15 +76,20 @@
     const hall = segmented('Default dining hall', 'hall', [['hicks-cafe', 'Hicks'], ['map-cafe', 'MAP']]);
     const dash = toggle('gccx-ob-dashboard', 'dashboard', 'Show my day on the Home page');
     const promo = toggle('gccx-ob-promos', 'hidePromos', 'Hide promo banners');
-    controls = [theme, hall, dash, promo];
+    const gpa = toggle('gccx-ob-gpa', 'hideGpa', 'Hide my GPA (press and hold to show)');
+    controls = [theme, hall, dash, promo, gpa];
+    const aiBtn = el('button', { type: 'button', class: 'gx-ai', text: 'Set up AI' });
+    aiBtn.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'open-options' }); } catch (_) { /* reloaded */ } });
 
     const card = el('section', { class: 'gx-card', 'aria-label': 'Settings' },
       el('h2', { class: 'gx-card-title', text: 'Settings' }),
       el('div', { class: 'gx-field' }, el('span', { class: 'gx-label', text: 'Appearance' }), theme),
       dash,
       promo,
+      gpa,
       el('div', { class: 'gx-field' }, el('span', { class: 'gx-label', text: 'Default dining hall' }), hall),
-      el('p', { class: 'gx-note', text: 'You can change these any time from the toolbar icon.' }));
+      el('div', { class: 'gx-field gx-ai-row' }, el('span', { class: 'gx-label', text: 'Plan with AI and Ask AI (optional)' }), aiBtn),
+      el('p', { class: 'gx-note', text: 'You can change these any time from the toolbar icon or the extension’s Options page.' }));
 
     const go = el('button', { type: 'button', class: 'gx-go', text: 'Get started' });
     go.addEventListener('click', finish);
