@@ -6,9 +6,9 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   inset: 0 !important;
   z-index: 2147483100 !important;
   overflow-y: auto !important;
-  background: var(--x-bg, #f8f6f2) !important;
-  color: var(--x-ink, #1d1a17) !important;
-  font-family: var(--x-serif, "Source Serif 4", Georgia, serif) !important;
+  background: var(--x-bg) !important;
+  color: var(--x-ink) !important;
+  font-family: var(--x-sans) !important;
   font-size: 17px !important;
   line-height: 1.55 !important;
   text-align: left !important;
@@ -33,17 +33,20 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
 #gccx-onboarding h1 {
   margin: 0 0 14px !important;
   padding: 0 !important;
-  font-size: 40px !important;
-  font-weight: 600 !important;
-  line-height: 1.15 !important;
-  color: var(--x-ink, #1d1a17) !important;
+  font-family: var(--x-display) !important;
+  font-size: 44px !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.1 !important;
+  text-wrap: balance;
+  color: var(--x-ink) !important;
   outline: none !important;
 }
 #gccx-onboarding .gx-intro {
   margin: 0 !important;
   max-width: 34em !important;
   font-size: 19px !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
 }
 
 #gccx-onboarding .gx-cols {
@@ -56,48 +59,41 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
 #gccx-onboarding .gx-features { list-style: none !important; margin: 0 !important; padding: 0 !important; }
 #gccx-onboarding .gx-features li {
   margin: 0 !important;
-  padding: 0 0 0 20px !important;
-  position: relative !important;
+  padding: 0 !important;
   list-style: none !important;
 }
 #gccx-onboarding .gx-features li + li { margin-top: 28px !important; }
-#gccx-onboarding .gx-features li::before {
-  content: "" !important;
-  position: absolute !important;
-  left: 0 !important;
-  top: 0.35em !important;
-  width: 3px !important;
-  height: 1.1em !important;
-  border-radius: 2px !important;
-  background: var(--x-accent, #a60000) !important;
-}
 #gccx-onboarding .gx-features h2 {
+  font-family: var(--x-display) !important;
+  letter-spacing: -0.01em !important;
   margin: 0 0 4px !important;
   padding: 0 !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   line-height: 1.3 !important;
-  color: var(--x-ink, #1d1a17) !important;
+  color: var(--x-ink) !important;
 }
 #gccx-onboarding .gx-features p {
   margin: 0 !important;
   font-size: 17px !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
 }
 
 #gccx-onboarding .gx-card {
   padding: 32px !important;
-  background: var(--x-surface, #fff) !important;
-  border: 1px solid var(--x-rule, #e6e0d8) !important;
-  border-radius: var(--x-radius, 10px) !important;
+  background: var(--x-surface) !important;
+  border: 1px solid var(--x-rule) !important;
+  border-radius: var(--x-radius) !important;
   box-shadow: none !important;
 }
 #gccx-onboarding .gx-card-title {
+  font-family: var(--x-display) !important;
+  letter-spacing: -0.01em !important;
   margin: 0 0 24px !important;
   padding: 0 !important;
   font-size: 20px !important;
   font-weight: 600 !important;
-  color: var(--x-ink, #1d1a17) !important;
+  color: var(--x-ink) !important;
 }
 #gccx-onboarding .gx-field { margin: 0 0 24px !important; }
 #gccx-onboarding .gx-label {
@@ -105,16 +101,16 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   margin: 0 0 8px !important;
   font-size: 16px !important;
   font-weight: 400 !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
 }
 
 #gccx-onboarding .gx-seg {
   display: flex !important;
   width: 100% !important;
-  border: 1px solid var(--x-rule-strong, var(--x-rule, #d6cfc5)) !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--x-rule-strong) !important;
+  border-radius: var(--x-radius-control) !important;
   overflow: hidden !important;
-  background: var(--x-surface, #fff) !important;
+  background: var(--x-surface) !important;
 }
 #gccx-onboarding .gx-seg button {
   flex: 1 1 0 !important;
@@ -124,18 +120,18 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
   font-size: 16px !important;
   font-weight: 400 !important;
   line-height: 1.3 !important;
   cursor: pointer !important;
   height: auto !important;
 }
-#gccx-onboarding .gx-seg button + button { border-left: 1px solid var(--x-rule-strong, var(--x-rule, #d6cfc5)) !important; }
-#gccx-onboarding .gx-seg button:hover { color: var(--x-ink, #1d1a17) !important; }
+#gccx-onboarding .gx-seg button + button { border-left: 1px solid var(--x-rule-strong) !important; }
+#gccx-onboarding .gx-seg button:hover { color: var(--x-ink) !important; }
 #gccx-onboarding .gx-seg button[aria-pressed="true"] {
-  background: var(--x-accent-soft, #f6e9e7) !important;
-  color: var(--x-ink, #1d1a17) !important;
+  background: var(--x-accent-soft) !important;
+  color: var(--x-ink) !important;
   font-weight: 600 !important;
 }
 
@@ -147,7 +143,7 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   padding: 0 !important;
   font-size: 17px !important;
   font-weight: 400 !important;
-  color: var(--x-ink, #1d1a17) !important;
+  color: var(--x-ink) !important;
   cursor: pointer !important;
   max-width: none !important;
 }
@@ -159,14 +155,14 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   height: 20px !important;
   margin: 0 !important;
   position: static !important;
-  accent-color: var(--x-accent, #a60000) !important;
+  accent-color: var(--x-accent) !important;
   cursor: pointer !important;
 }
 
 #gccx-onboarding .gx-note {
   margin: 0 !important;
   font-size: 15px !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
 }
 
 #gccx-onboarding .gx-actions { margin: 56px 0 0 !important; }
@@ -177,27 +173,75 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   margin: 0 !important;
   padding: 12px 24px !important;
   border: 0 !important;
-  border-radius: 8px !important;
-  background: var(--x-accent, #a60000) !important;
-  color: var(--x-accent-ink, #fff) !important;
+  border-radius: var(--x-radius-control) !important;
+  background: var(--x-accent) !important;
+  color: var(--x-accent-ink) !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   line-height: 1.3 !important;
   box-shadow: none !important;
   cursor: pointer !important;
+  transition: background-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease);
 }
-#gccx-onboarding .gx-go:hover { filter: brightness(1.1); }
+#gccx-onboarding .gx-go:hover { background: var(--x-accent-hover) !important; transform: translateY(-1px); }
+#gccx-onboarding .gx-go:active { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  #gccx-onboarding .gx-go { transition: none !important; }
+  #gccx-onboarding .gx-go:hover { transform: none; }
+}
 
 #gccx-onboarding .gx-foot {
   margin: 28px 0 0 !important;
   font-size: 14px !important;
-  color: var(--x-muted, #6b645d) !important;
+  color: var(--x-muted) !important;
 }
 
 #gccx-onboarding button:focus-visible,
 #gccx-onboarding input:focus-visible {
-  outline: 2px solid var(--x-accent, #a60000) !important;
+  outline: 2px solid var(--x-accent) !important;
   outline-offset: 2px !important;
+}
+
+/* ---- fit the first-run screen to one laptop viewport: vh-aware sizing, and on wide screens the
+   features sit left while the settings card, button and footnote stack on the right ---- */
+#gccx-onboarding { font-size: clamp(14px, 2.3vh, 17px) !important; display: flex !important; }
+#gccx-onboarding .gx-panel {
+  max-width: 1120px !important;
+  width: 100% !important;
+  margin: auto !important; /* centres vertically when short, scrolls from the top when taller than the window */
+  padding: clamp(16px, 4.5vh, 56px) 40px clamp(14px, 3.5vh, 36px) !important;
+}
+#gccx-onboarding .gx-head { margin: 0 0 clamp(14px, 3.5vh, 40px) !important; }
+#gccx-onboarding h1 { margin: 0 0 clamp(6px, 1.2vh, 12px) !important; font-size: clamp(26px, 5vh, 42px) !important; }
+#gccx-onboarding .gx-intro { font-size: clamp(15px, 2.5vh, 19px) !important; }
+#gccx-onboarding .gx-features li + li { margin-top: clamp(9px, 2.2vh, 24px) !important; }
+#gccx-onboarding .gx-features h2 { font-size: clamp(15px, 2.4vh, 18px) !important; margin-bottom: 2px !important; }
+#gccx-onboarding .gx-features p { font-size: clamp(14px, 2.2vh, 16.5px) !important; line-height: 1.45 !important; }
+#gccx-onboarding .gx-card { padding: clamp(16px, 3.2vh, 30px) !important; }
+#gccx-onboarding .gx-card-title { margin-bottom: clamp(10px, 2.2vh, 22px) !important; font-size: clamp(17px, 2.6vh, 20px) !important; }
+#gccx-onboarding .gx-field { margin-bottom: clamp(10px, 2.2vh, 22px) !important; }
+#gccx-onboarding .gx-label { margin-bottom: clamp(4px, 0.8vh, 8px) !important; font-size: clamp(14px, 2.1vh, 16px) !important; }
+#gccx-onboarding .gx-seg button { padding: clamp(6px, 1.1vh, 9px) 12px !important; font-size: clamp(14px, 2.1vh, 16px) !important; }
+#gccx-onboarding .gx-toggle { margin-bottom: clamp(10px, 2vh, 20px) !important; font-size: clamp(14px, 2.2vh, 17px) !important; }
+#gccx-onboarding .gx-actions { margin-top: clamp(14px, 3vh, 32px) !important; }
+#gccx-onboarding .gx-go { padding: clamp(9px, 1.6vh, 12px) 24px !important; }
+#gccx-onboarding .gx-foot { margin-top: clamp(10px, 2vh, 20px) !important; font-size: clamp(12.5px, 1.9vh, 14px) !important; line-height: 1.4 !important; }
+
+@media (min-width: 861px) {
+  #gccx-onboarding .gx-panel {
+    display: grid !important;
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr) !important;
+    grid-template-areas: "head head" "list card" "list actions" "list foot" !important;
+    grid-template-rows: auto auto auto 1fr !important;
+    column-gap: clamp(32px, 5vw, 64px) !important;
+    align-items: start !important;
+  }
+  #gccx-onboarding .gx-cols { display: contents !important; }
+  #gccx-onboarding .gx-head { grid-area: head !important; }
+  #gccx-onboarding .gx-features { grid-area: list !important; }
+  #gccx-onboarding .gx-card { grid-area: card !important; }
+  #gccx-onboarding .gx-actions { grid-area: actions !important; }
+  #gccx-onboarding .gx-foot { grid-area: foot !important; }
 }
 
 @media (max-width: 860px) {

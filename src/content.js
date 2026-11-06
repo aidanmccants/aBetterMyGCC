@@ -12,7 +12,6 @@
   // ---- apply look synchronously (mirrored to localStorage to avoid a flash) ----
   let settings = { ...DEFAULTS, ...safeJSON(localStorage.getItem('gccx-settings')) };
   applyLook();
-  injectFont();
 
   chrome.storage.local.get('settings', ({ settings: s }) => {
     settings = { ...DEFAULTS, ...(s || {}) };
@@ -37,19 +36,10 @@
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);
 
-  function injectFont() {
-    if (document.getElementById('gccx-font')) return;
-    const l = document.createElement('link');
-    l.id = 'gccx-font';
-    l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap';
-    (document.head || root).appendChild(l);
-  }
-
   // ---------------- storage helpers ----------------
   const store = {
-    get: (k) => new Promise((r) => chrome.storage.local.get(k, (o) => r(o[k]))),
-    set: (k, v) => new Promise((r) => chrome.storage.local.set({ [k]: v }, r)),
+    get: (k) => new Promise((r) => { try { chrome.storage.local.get(k, (o) => r(o ? o[k] : undefined)); } catch (e) { r(undefined); } }),
+    set: (k, v) => new Promise((r) => { try { chrome.storage.local.set({ [k]: v }, () => r()); } catch (e) { r(); } }),
   };
   async function cached(key, loader, force) {
     const hit = await store.get(key);
@@ -60,7 +50,7 @@
       if (data != null) await store.set(key, { ts: Date.now(), user, data });
       return data ?? (hit && hit.user === user ? hit.data : null);
     } catch (e) {
-      console.warn('[aBetterMyGCC]', key, e);
+      if (window.GCCX && GCCX.alive()) GCCX.log('warn', 'content', `Couldn't refresh ${key}: ${e.message || e}`); // e.g. page left mid-request; cached copy is used
       return hit && hit.user === user ? hit.data : null;
     }
   }
@@ -231,7 +221,8 @@
   function scrapeCurrentPage() {
     const user = currentUserKey();
     if (!user) return;
-    const p = (location.pathname + location.search).toLowerCase();
+    const L = X.loc(); // the page's myGCC URL (same as location except in the demo)
+    const p = (L.pathname + L.search).toLowerCase();
     if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
     if (document.querySelector('iframe[src*="chapel.aspx"]')) store.set('chapelPending', { user, ts: Date.now() });
@@ -243,8 +234,9 @@
   let state = { schedule: null, degree: null, standing: null, registration: null, chapel: null, balance: null, menu: null, loading: true };
 
   function isHome() {
-    const p = location.pathname.replace(/\/+$/, '').toLowerCase();
-    return (p === '/ics' || p === '/ics/portal_homepage.jnz' || p === '/ics/default.aspx') && !/portlet=/i.test(location.search);
+    const L = X.loc();
+    const p = L.pathname.replace(/\/+$/, '').toLowerCase();
+    return (p === '/ics' || p === '/ics/portal_homepage.jnz' || p === '/ics/default.aspx') && !/portlet=/i.test(L.search);
   }
 
   async function initDashboard(force) {
@@ -266,7 +258,7 @@
 
   function loadMenu() {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'menu', hall: settings.hall }, (r) => resolve(chrome.runtime.lastError ? null : r));
+      try { chrome.runtime.sendMessage({ type: 'menu', hall: settings.hall }, (r) => resolve(chrome.runtime.lastError ? null : r)); } catch (e) { resolve(null); }
     });
   }
 
@@ -420,7 +412,7 @@
       rows.push(`<div class="x-class ${cls}">
         <div class="x-time">${X.fmtTime(m.start)}${when ? `<span class="x-when">${when}</span>` : ''}</div>
         <div><div class="x-title">${href ? `<a href="${esc(href)}">${esc(c.title)}</a>` : esc(c.title)}</div>
-          <div class="x-sub">${esc(c.code)}${c.instructor ? ' · ' + esc(shortName(c.instructor)) : ''}</div></div>
+          <div class="x-sub">${esc(c.code)}${c.instructor ? ', ' + esc(shortName(c.instructor)) : ''}</div></div>
         <div class="x-room">${esc(m.room)}</div></div>`);
     }
     const online = s.courses.filter((c) => c.online && inTerm(c, day));
@@ -483,7 +475,7 @@
     if (m.closed) body = `<p class="x-empty">${esc(m.message || 'Closed right now.')}</p>`;
     else if (!m.stations || !m.stations.length) body = `<p class="x-empty">No menu posted.</p>`;
     else body = `<div class="x-stations">${m.stations.slice(0, 6).map((s) => `<div class="x-station"><h4>${esc(s.name)}</h4><p>${s.items.slice(0, 5).map(esc).join(', ')}</p></div>`).join('')}</div>`;
-    const sub = m.meal ? `<p class="x-meal">${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ' · later today' : ''}</p>` : '';
+    const sub = m.meal ? `<p class="x-meal">${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ', later today' : ''}</p>` : '';
     return `<div class="x-card"><h3>Dining${seg}</h3>${sub}${body}</div>`;
   }
 
@@ -673,10 +665,27 @@
     },
   ];
   const ASK_SYSTEM = `You answer a Grove City College student's question about myGCC, the college's student portal.
-Use only what you find with your tools: search_pages to find relevant pages, then read_page on the one or two most relevant ones. Don't answer from memory.
+Use your tools: search_pages to find relevant pages, then read_page on the one or two most relevant ones. Don't answer facts from memory.
 Answer in one to four short plain sentences. Then list the one to three most useful pages, each on its own line in exactly this form, with no bullets or markdown:
 Link: Page title | https://full-url
-If the answer isn't in myGCC, say so plainly and suggest the office or page most likely to help. Never invent URLs, deadlines, dates or policies, and only link pages you saw in tool results.`;
+For "how do I" and "where is" questions you can't answer fully, don't refuse: give what you know and link the closest helpful page. Only if nothing relevant exists, say so plainly and name the office most likely to help. Never invent URLs, deadlines, dates or policies. Only link pages you saw in tool results or the known resources below.
+
+Known resources (official; you may link these without searching, but read_page can't open them):
+- Major and program requirements, status sheets (a checklist for every major, by the year the student entered): https://www.gcc.edu/Utility/Offices/Registrar/Degree-Requirements . Use for "major requirements", "what classes do I need for X", "status sheet", minors, AP/CLEP/IB credit. Also mention the student's own Degree Progress in myGCC and their advisor.
+- List of all majors and departments: https://www.gcc.edu/Home/Academics/Majors-Departments
+- College Catalog (official course descriptions, degree programs, academic policies): https://www.gcc.edu/Home/Academics/Majors-Departments/College-Catalog . Use for course descriptions, prerequisites, graduation rules, policies.
+- Registrar office: https://www.gcc.edu/Utility/Offices/Registrar
+- Academic advising: https://www.gcc.edu/Home/Academics/Academic-Resource-Center/Academic-Advising`;
+  // curated links the model may cite even though they are not myGCC pages (anything else off-site is dropped)
+  const ASK_KNOWN = new Set([
+    'https://www.gcc.edu/utility/offices/registrar/degree-requirements',
+    'https://www.gcc.edu/home/academics/majors-departments',
+    'https://www.gcc.edu/home/academics/majors-departments/college-catalog',
+    'https://www.gcc.edu/utility/offices/registrar',
+    'https://www.gcc.edu/home/academics/academic-resource-center/academic-advising',
+  ]);
+  const ASK_STEPS = 10;
+  const FINAL_NOTE = '\n\nYou have used all your lookups. Answer now with what you found, in the required format, even if it is incomplete. Say what is missing and link the closest page.';
   let askSeq = 0, askRun = null;
   async function searchPagesTool(query) {
     await ensurePageIndex();
@@ -689,7 +698,10 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
     let u;
     try { u = new URL(String(url), location.origin); } catch (e) { throw new Error('That is not a valid URL.'); }
     if (u.origin !== location.origin) throw new Error('Only my.gcc.edu pages can be read.');
+    if (!/^\/ICS/i.test(u.pathname)) throw new Error('Only pages under /ICS/ can be read.');
+    if (/\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif)$/i.test(u.pathname)) throw new Error('That is a file, not a web page; link it instead of reading it.');
     const doc = await getDoc(u.href);
+    if (!doc.querySelector('#portlets')) throw new Error('That page has no readable content (it may need a form submitted or a new sign-in). Try another page.');
     const links = [], seen = new Set();
     doc.querySelectorAll('#portlets a[href]').forEach((a) => {
       const h = a.getAttribute('href'), t = X.clean(a.textContent);
@@ -709,7 +721,8 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
       if (!m) { lines.push(line.replace(/^[#>*\-\s]+/, '').replace(/\*\*/g, '')); continue; }
       try {
         const u = new URL(m[2], location.origin);
-        if (u.origin === location.origin && seen.has(pageKey(u.href)) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
+        const known = ASK_KNOWN.has(pageKey(u.href).toLowerCase().replace(/\/+$/, ''));
+        if (((u.origin === location.origin && seen.has(pageKey(u.href))) || known) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
       } catch (e) { /* drop bad link */ }
     }
     return { text: lines.join('\n').replace(/\n{2,}/g, '\n').trim(), links };
@@ -717,25 +730,30 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
   async function runAsk(run) {
     const alive = () => askSeq === run.id;
     const update = () => { if (alive()) document.getElementById('gccx-palette')?._draw(); };
+    const step = (t) => { run.steps.push(t); X.log('info', 'ask', t); update(); };
     const seenUrls = new Set((navIndex || []).map((l) => pageKey(l.href)));
     const messages = [{ role: 'user', text: run.q }];
+    X.log('info', 'ask', 'Question: ' + run.q);
     try {
-      for (let turn = 0; turn < 8; turn++) {
-        const r = await askChat({ system: ASK_SYSTEM, tools: ASK_TOOLS, messages });
+      for (let turn = 0; turn < ASK_STEPS; turn++) {
+        const last = turn === ASK_STEPS - 1; // final turn: no tools, answer with what we have
+        const r = await askChat({
+          src: 'ask', system: last ? ASK_SYSTEM + FINAL_NOTE : ASK_SYSTEM,
+          tools: ASK_TOOLS, messages, noTools: last,
+        });
         if (!alive()) return;
-        if (!r || r.error) {
-          run.error = r && r.kind === 'auth' ? 'Your AI key was rejected. Check it in the aBetterMyGCC popup.' : r && r.kind === 'rate' ? 'The AI service is rate-limiting this key. Try again in a minute.' : `AI request failed: ${r ? r.error : 'no response'}`;
-          break;
-        }
+        if (!r || r.error) { run.error = X.aiErrorText(r); X.log('error', 'ask', run.error, r); break; }
         const out = r.ok;
-        if (out.stop === 'refusal') { run.error = 'The AI service declined this request.'; break; }
-        if (out.stop === 'max') { run.error = 'The AI response was cut off. Try asking more simply.'; break; }
+        if (out.stop === 'refusal') { run.error = 'The AI service declined to answer this question. Try rephrasing it.'; break; }
+        if (out.stop === 'max') { run.error = 'The AI answer was cut off before it finished. Try a shorter or simpler question.'; break; }
         if (out.stop !== 'tool' || !out.toolCalls.length) {
           const a = parseAnswer(out.text, seenUrls);
           run.text = a.text || 'I could not find an answer in myGCC.';
           run.links = a.links;
+          X.log('info', 'ask', 'Answer', { text: run.text, links: run.links });
           break;
         }
+        if (last) { run.error = 'The AI kept searching and never gave an answer. Try a more specific question.'; break; }
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
@@ -745,28 +763,30 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
             if (a.__invalid !== undefined) throw new Error('Arguments were not valid JSON.');
             if (call.name === 'search_pages') {
               if (typeof a.query !== 'string' || !a.query.trim()) throw new Error('query is required');
-              run.steps.push(`Searching “${a.query.trim()}”…`); update();
+              step(`Searching “${a.query.trim()}”…`);
               const found = await searchPagesTool(a.query);
               found.forEach((f) => seenUrls.add(pageKey(f.url)));
               content = JSON.stringify(found);
             } else if (call.name === 'read_page') {
               if (typeof a.url !== 'string' || !a.url.trim()) throw new Error('url is required');
               const hit = (navIndex || []).find((l) => pageKey(l.href) === pageKey(a.url));
-              run.steps.push(`Reading ${hit ? hit.label : 'page'}…`); update();
+              step(`Reading ${hit ? hit.label : 'page'}…`);
               const page = await readPageTool(a.url);
               seenUrls.add(pageKey(page.url));
               page.links.forEach((l) => seenUrls.add(pageKey(l.href)));
               content = JSON.stringify(page);
             } else throw new Error('Unknown tool ' + call.name);
           } catch (e) { content = String(e.message || e); isError = true; }
+          X.log(isError ? 'warn' : 'info', 'ask', `Tool ${call.name} ${isError ? 'failed' : 'result'}`, { input: call.input, result: content });
           results.push({ id: call.id, name: call.name, content, isError });
         }
         messages.push({ role: 'tool', results });
         if (!alive()) return;
       }
-      if (!run.text && !run.error) run.error = 'I could not finish looking that up. Try rephrasing.';
+      if (!run.text && !run.error) run.error = 'The AI could not finish looking that up. Try rephrasing the question.';
     } catch (e) {
-      run.error = 'Something went wrong while asking AI.';
+      run.error = 'Something went wrong while asking AI: ' + (e.message || e);
+      X.log('error', 'ask', run.error, { stack: e.stack });
     }
     run.done = true;
     update();
@@ -794,7 +814,7 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
       };
       const cancelAsk = () => { clearTimeout(askTimer); askSeq++; askRun = null; };
       p._hint = () => {
-        hint.textContent = (idxState.running ? `Indexing myGCC… (${idxState.done} of ${idxState.total}) · ` : '') + '↑ ↓ to move · Enter to open · Esc to close' + (aiReady ? ' · Tab to ask AI' : '');
+        hint.textContent = (idxState.running ? `Indexing myGCC… (${idxState.done} of ${idxState.total}). ` : '') + '↑ ↓ to move, Enter to open, Esc to close' + (aiReady ? ', Tab to ask AI' : '');
         input.placeholder = aiReady ? 'Search myGCC or ask a question' : 'Search myGCC';
       };
       const draw = async () => {
@@ -813,10 +833,10 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
         results = rows;
         active = Math.min(active, Math.max(0, results.length - 1));
         if (run) {
-          const steps = run.steps.slice(-3);
+          const latest = run.steps[run.steps.length - 1] || 'Thinking…';
           ansBox.innerHTML = run.error ? `<p class="x-err">${esc(run.error)}</p>`
             : run.done ? run.text.split('\n').map((l) => `<p>${esc(l)}</p>`).join('')
-            : `<ul class="x-steps">${(steps.length ? steps : ['Thinking…']).map((s) => `<li>${esc(s)}</li>`).join('')}</ul>`;
+            : X.pulseHTML(latest, esc);
         } else ansBox.innerHTML = '';
         ansBox.hidden = !run;
         const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">Add an AI key from the toolbar icon to ask questions</li>` : '';
@@ -844,7 +864,7 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
       });
       const go = (r) => {
         if (r.ask) { startAsk(input.value.trim()); input.focus(); return; }
-        if (!r.siteSearch) { location.href = r.href; return; }
+        if (!r.siteSearch) { X.go(r.href); return; }
         const box = document.getElementById('siteNavBar_searchBox_tbSearch');
         const btn = document.getElementById('siteNavBar_searchBox_lbSearch');
         if (box && btn) { box.value = r.siteSearch; closePalette(); btn.click(); }
@@ -906,6 +926,13 @@ If the answer isn't in myGCC, say so plainly and suggest the office or page most
     addSearchButton();
     scrapeCurrentPage();
     initDashboard(false);
+    scheduleIndex();
+  }
+  // Build the search index quietly after install / when the cache has expired (no-op when cached)
+  function scheduleIndex() {
+    if (!document.body.classList.contains('logged-in')) return;
+    const go = () => { if (settings.enabled) ensurePageIndex().catch((e) => X.log('error', 'content', 'Page index failed: ' + (e.message || e))); };
+    setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(go, { timeout: 15000 }) : go()), 4000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

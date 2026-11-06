@@ -30,8 +30,8 @@
   }
 
   const store = {
-    get: (k) => new Promise((ok) => chrome.storage.local.get(k, (o) => ok(o[k]))),
-    set: (k, v) => new Promise((ok) => chrome.storage.local.set({ [k]: v }, ok)),
+    get: (k) => new Promise((ok) => { try { chrome.storage.local.get(k, (o) => ok(o ? o[k] : undefined)); } catch (e) { ok(undefined); } }),
+    set: (k, v) => new Promise((ok) => { try { chrome.storage.local.set({ [k]: v }, () => ok()); } catch (e) { ok(); } }),
   };
   // cache is keyed to the signed-in person so shared computers never mix data
   function userKey() {
@@ -327,7 +327,7 @@
 
   function startPrefill(code) {
     try { sessionStorage.setItem(PREFILL_KEY, code); } catch (e) { /* open the page without a prefill */ }
-    location.href = ADD_DROP;
+    if (window.GCCX && window.GCCX.go) window.GCCX.go(ADD_DROP); else location.href = ADD_DROP;
   }
 
   function onClick(e) {
@@ -337,7 +337,8 @@
   }
 
   async function init() {
-    if (!/My_Degree_Progress/i.test(location.search)) return;
+    const here = window.GCCX && window.GCCX.loc ? window.GCCX.loc() : location; // differs from location only in the demo
+    if (!/My_Degree_Progress/i.test(here.search)) return;
     if (!document.documentElement.classList.contains('gccx')) return;
     const portlets = document.getElementById('portlets');
     if (!portlets || document.getElementById(ROOT_ID)) return;

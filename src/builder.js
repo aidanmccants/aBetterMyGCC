@@ -14,10 +14,22 @@
   const byEnd = (suffix, el = document) => el.querySelector(`[id$="${suffix}"]`);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = {
-    get: (k) => new Promise((r) => chrome.storage.local.get(k, (o) => r(o[k]))),
-    set: (k, v) => new Promise((r) => chrome.storage.local.set({ [k]: v }, r)),
+    get: (k) => new Promise((r) => { try { chrome.storage.local.get(k, (o) => r(o ? o[k] : undefined)); } catch (e) { r(undefined); } }),
+    set: (k, v) => new Promise((r) => { try { chrome.storage.local.set({ [k]: v }, () => r()); } catch (e) { r(); } }),
   };
   const MAIN_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
+
+  // Chrome ignores `javascript:__doPostBack(...)` links clicked from an extension script,
+  // so do what __doPostBack does: set the two hidden fields and submit the page form.
+  function postBackLink(a) {
+    if (X.demo) return a.click(); // the demo shim routes link clicks itself
+    const m = /__doPostBack\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/.exec(decodeURIComponent(a.getAttribute('href') || ''));
+    const form = document.forms[0];
+    if (!m || !form || !form.__EVENTTARGET) { plog('warn', 'No postback target on link; clicking instead'); return a.click(); }
+    form.__EVENTTARGET.value = m[1];
+    form.__EVENTARGUMENT.value = m[2];
+    HTMLFormElement.prototype.submit.call(form); // bypasses onsubmit, like __doPostBack
+  }
 
   function portlet() { return $('.pt_CourseSchedules'); }
   function screen() {
@@ -33,7 +45,8 @@
   // ---------------- plan storage (per signed-in person) ----------------
   async function getPlan() {
     const all = (await store.get('plans')) || {};
-    return all[userKey()] || [];
+    // older saves may lack parsed meetings; re-derive them from the schedule text so they draw
+    return (all[userKey()] || []).map((p) => (p.meetings && p.meetings.length) || !p.schedule ? p : { ...p, meetings: parseMeetings(p.schedule) });
   }
   async function setPlan(items) {
     const all = (await store.get('plans')) || {};
@@ -58,6 +71,17 @@
     if (!sel) return null;
     const o = sel.options[sel.selectedIndex];
     return o ? { value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) } : null;
+  }
+  // The term the user last searched (kept for the details screen, which has no term box)
+  function rememberTerm(t) { try { if (t && t.value) sessionStorage.setItem('gccx-last-term', JSON.stringify(t)); } catch (e) { /* ignore */ } }
+  function lastTerm() { try { return JSON.parse(sessionStorage.getItem('gccx-last-term') || 'null'); } catch (e) { return null; } }
+  // the term this screen is about: search term, else the Your Schedule term, else the last searched
+  function screenTerm() {
+    const st = currentSearchTerm();
+    if (st && screen() !== 'main') return st;
+    const sel = byEnd('ddlTerm');
+    if (sel) { const o = sel.options[sel.selectedIndex]; if (o) return { value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) }; }
+    return st || lastTerm();
   }
   function resultRows(root = document) {
     const t = byEnd('dgCourses', root);
@@ -98,8 +122,8 @@
     };
   }
   // "Your Schedule" on the main screen = what you're registered for in the selected term
-  function registeredOnMain() {
-    const t = $$('table', portlet()).find((tb) => tb.querySelector('[id*="rptConfCourses"]'));
+  function registeredOnMain(root) {
+    const t = $$('table', root || portlet()).find((tb) => tb.querySelector('[id*="rptConfCourses"]'));
     if (!t) return [];
     return $$('tr', t).filter((r) => r.querySelector('[id*="rptConfCourses"]')).map((r) => {
       const cells = [...r.cells].map((c) => X.clean(c.textContent));
@@ -155,7 +179,8 @@
     addAIButtons();
     const sc = screen();
     const plan = await getPlan();
-    const term = currentSearchTerm();
+    const term = screenTerm();
+    if (sc === 'results' || sc === 'main') rememberTerm(term);
     const has = (code, termVal) => plan.some((p) => p.code === code && (!termVal || p.term === termVal));
     if (sc === 'results') {
       for (const r of resultRows()) {
@@ -177,6 +202,7 @@
         b.addEventListener('click', async () => {
           let items = await getPlan();
           const exists = items.some((p) => p.code === r.code && p.term === term.value);
+          viewTerm = term.value;
           if (exists) items = items.filter((p) => !(p.code === r.code && p.term === term.value));
           else items.push({ code: r.code, title: r.title, faculty: r.faculty, seats: r.seats, status: r.status, schedule: r.schedule, meetings: parseMeetings(r.schedule), credits: r.credits, term: term.value, termLabel: term.label, ref: null });
           await setPlan(items);
@@ -192,20 +218,25 @@
       // Remember reference numbers for any planned section the user opens
       const items = await getPlan();
       let changed = false;
-      items.forEach((p) => { if (p.code === info.code && !p.ref && info.ref) { p.ref = info.ref; changed = true; } });
+      items.forEach((p) => { if (p.code === info.code && !p.ref && info.ref && (!term || !p.term || p.term === term.value)) { p.ref = info.ref; changed = true; } });
       if (changed) await setPlan(items);
       const anchor = byEnd('lnkAddCourse') || byEnd('lnkBack');
       if (anchor && !$('.gccx-save-detail')) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'gccx-save gccx-save-detail';
-        const termVal = term ? term.value : null;
+        // The details screen has no term box: use the term last searched, else a
+        // term in the plan whose label matches the one printed on this screen.
+        const known = items.find((p) => p.term && info.termLabel && p.termLabel === info.termLabel);
+        const termVal = term ? term.value : known ? known.term : null;
         const sync = (saved) => { b.textContent = saved ? 'Saved to plan' : 'Save to plan'; b.setAttribute('aria-pressed', String(saved)); };
-        sync(items.some((p) => p.code === info.code));
+        sync(items.some((p) => p.code === info.code && (!termVal || p.term === termVal)));
         b.addEventListener('click', async () => {
           let list = await getPlan();
-          const exists = list.some((p) => p.code === info.code);
-          if (exists) list = list.filter((p) => p.code !== info.code);
+          const same = (p) => p.code === info.code && (!termVal || p.term === termVal);
+          const exists = list.some(same);
+          if (termVal) viewTerm = termVal;
+          if (exists) list = list.filter((p) => !same(p));
           else list.push({ code: info.code, title: info.title, faculty: info.faculty, seats: info.seats, schedule: info.schedule, meetings: parseMeetings(info.schedule), credits: info.credits, term: termVal, termLabel: info.termLabel || (term && term.label) || '', ref: info.ref || null });
           await setPlan(list);
           sync(!exists);
@@ -296,7 +327,7 @@
       if (!meetings.length) { tag.textContent = ''; tag.className = 'gccx-fit'; }
       else if (clashes.length) { fits = false; tag.textContent = `Conflicts with ${clashes.join(', ')}`; tag.className = 'gccx-fit is-clash'; }
       else { tag.textContent = 'Fits your schedule'; tag.className = 'gccx-fit is-fit'; }
-      if (sameCourse) { tag.textContent += (tag.textContent ? ' · ' : '') + 'Another section is in your schedule'; }
+      if (sameCourse) { tag.textContent += (tag.textContent ? '. ' : '') + 'Another section is in your schedule'; }
       // a clashing section that isn't saved can't be saved until the clash is gone
       const btn = r.addCell && r.addCell.querySelector('.gccx-save');
       if (btn) {
@@ -346,7 +377,7 @@
       toggle.addEventListener('click', () => { drawerOpen = !drawerOpen; setClosed(!drawerOpen); renderDrawer(); });
       document.body.appendChild(toggle);
     }
-    toggle.textContent = plan.length ? `My plan · ${plan.length}` : 'My plan';
+    toggle.textContent = plan.length ? `My plan (${plan.length})` : 'My plan';
     toggle.setAttribute('aria-expanded', String(drawerOpen));
 
     let d = $('#gccx-plan');
@@ -359,9 +390,16 @@
     d.classList.toggle('is-open', drawerOpen);
     document.documentElement.classList.toggle('gccx-plan-open', drawerOpen);
 
-    const terms = [...new Map(plan.map((p) => [p.term, p.termLabel])).entries()];
-    const st = currentSearchTerm();
-    if (!viewTerm || (!terms.some(([v]) => v === viewTerm) && !(st && viewTerm === st.value))) viewTerm = (terms.find(([v]) => st && v === st.value) || (st && screen() === 'results' ? [st.value] : null) || terms[0] || [st && st.value])[0];
+    // Show the term the page is on (so the registered schedule is what you see
+    // first), plus any other term that has saved courses.
+    const st = screenTerm();
+    if (st && plan.some((p) => !p.term)) { // saved from a screen that couldn't tell the term: adopt this one
+      plan.forEach((p) => { if (!p.term) { p.term = st.value; p.termLabel = p.termLabel || st.label; } });
+      setPlan(plan);
+    }
+    const terms = [...new Map(plan.filter((p) => p.term).map((p) => [p.term, p.termLabel])).entries()];
+    if (st && !terms.some(([v]) => v === st.value)) terms.unshift([st.value, st.label]);
+    if (!viewTerm || !terms.some(([v]) => v === viewTerm)) viewTerm = st ? st.value : terms[0] ? terms[0][0] : null;
     const items = plan.filter((p) => p.term === viewTerm);
     const termLabel = (terms.find(([v]) => v === viewTerm) || [, st && st.label])[1] || '';
     const reg = ((await store.get('registered')) || {})[userKey() + '|' + viewTerm];
@@ -385,18 +423,19 @@
       ${calendarHTML(items, registered, conflicts)}
       ${items.length ? `<ul class="x-items">${items.map((i) => `
         <li>
-          <div class="x-line"><b>${esc(i.code)}</b><button type="button" class="x-remove" data-code="${esc(i.code)}" aria-label="Remove ${esc(i.code)}"${running ? ' disabled' : ''}>Remove</button></div>
+          <div class="x-line"><b>${esc(i.code)}</b><button type="button" class="x-remove x-copy-one" data-copy-one="${esc(i.code)}" aria-label="Copy ${esc(i.code)}">Copy</button><button type="button" class="x-remove" data-code="${esc(i.code)}" aria-label="Remove ${esc(i.code)}"${running ? ' disabled' : ''}>Remove</button></div>
           <div class="x-title">${esc(i.title)}</div>
           ${i.faculty ? `<div class="x-sub">${esc(prof(i.faculty))}</div>` : ''}
           <div class="x-sub">${esc(meetText(i))}</div>
-          <div class="x-sub">${i.credits ? `${i.credits} credits` : ''}${i.seats ? `${i.credits ? ' · ' : ''}${esc(seatText(i.seats))}` : ''}</div>
+          <div class="x-sub">${i.credits ? `${i.credits} credits` : ''}${i.seats ? `${i.credits ? ', ' : ''}${esc(seatText(i.seats))}` : ''}</div>
+          <div class="x-sub">${i.ref ? `Ref # ${esc(i.ref)}` : 'Ref # not looked up yet'}</div>
           ${conflicts.has(i.code) ? `<div class="x-conflict">Overlaps ${esc(conflicts.get(i.code).join(', '))}</div>` : ''}
           ${/full|closed/i.test(i.status || '') ? `<div class="x-conflict">Section is ${esc(i.status.toLowerCase())}</div>` : ''}
           ${job && job.results && job.results[i.code] && !job.results[i.code].ok ? `<div class="x-conflict">${esc(job.results[i.code].msg)}</div>` : ''}
         </li>`).join('')}</ul>`
         : `<p class="x-empty">Search for courses below, then press Save on the sections you want. They'll collect here so you can add them all at once.</p>`}
-      ${items.length ? `<p class="x-total">${planned} credits planned${reg ? ` · ${regCredits} already registered` : ''}</p>
-        <p class="x-export"><button type="button" class="x-link" data-copy>Copy</button><button type="button" class="x-link" data-csv>Download CSV</button></p>` : ''}
+      ${items.length ? `<p class="x-total">${planned} credits planned${reg ? `, ${regCredits} already registered` : ''}</p>
+        <p class="x-export"><button type="button" class="x-link" data-copy>Copy</button><button type="button" class="x-link" data-csv>Download CSV</button>${items.some((i) => !i.ref) && !running ? '<button type="button" class="x-link" data-lookup-refs>Look up reference numbers</button>' : ''}</p>` : ''}
       ${jobHTML(job, items, termLabel)}
       ${aiHTML(termLabel)}
     `;
@@ -417,6 +456,14 @@
       catch (err) { btn.textContent = 'Copy failed'; }
       setTimeout(() => (btn.textContent = 'Copy'), 1600);
     });
+    d.querySelectorAll('[data-copy-one]').forEach((b) => b.addEventListener('click', async () => {
+      const it = items.find((i) => i.code === b.dataset.copyOne);
+      if (!it) return;
+      try { await navigator.clipboard.writeText(planText([it], termLabel, true)); b.textContent = 'Copied'; }
+      catch (err) { b.textContent = 'Failed'; }
+      setTimeout(() => (b.textContent = 'Copy'), 1600);
+    }));
+    d.querySelector('[data-lookup-refs]')?.addEventListener('click', () => startJob(viewTerm, items.filter((i) => !i.ref), { lookupOnly: true }));
     d.querySelector('[data-csv]')?.addEventListener('click', () => {
       const blob = new Blob([planCSV(items, termLabel)], { type: 'text/csv;charset=utf-8' });
       const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `course-plan-${(termLabel || 'term').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv` });
@@ -476,6 +523,7 @@
       return {
         Term: termLabel || i.termLabel || '',
         Course: i.code,
+        Section: String(i.code || '').trim().split(/\s+/).slice(2).join(' '),
         Title: i.title,
         Professor: i.faculty ? prof(i.faculty) : '',
         Days: (i.meetings || []).map((x) => x.days.map((d) => DAY[d]).join(' ')).join('; ') || 'Online / TBA',
@@ -494,15 +542,22 @@
     // BOM so Excel reads the en dash and accents correctly
     return '﻿' + [cols.map(q).join(','), ...rows.map((r) => cols.map((c) => q(r[c])).join(','))].join('\r\n');
   }
-  function planText(items, termLabel) {
-    const lines = planRows(items, termLabel).map((r) => [
-      `${r.Course}  ${r.Title}`,
-      r.Professor && `  ${r.Professor}`,
-      `  ${r.Days === 'Online / TBA' ? r.Days : `${r.Days}, ${r.Start}–${r.End}`}`,
-      `  ${r.Credits} credits${r['Reference #'] ? ` · Ref ${r['Reference #']}` : ''}`,
-    ].filter(Boolean).join('\n'));
+  // Every course: code, section, title, professor, every meeting time, credits and the registration reference number.
+  function planText(items, termLabel, single) {
+    const lines = items.map((i) => {
+      const r = planRows([i], termLabel)[0];
+      const when = (i.meetings || []).length ? i.meetings.map((m) => `${m.days.map((d) => DAY[d]).join(' ')} ${X.fmtTime(m.start)}–${X.fmtTime(m.end)}`).join('; ') : 'Online / TBA';
+      return [
+        `${r.Course}  ${r.Title}`,
+        r.Section && `  Section: ${r.Section}`,
+        r.Professor && `  Professor: ${r.Professor}`,
+        `  Meets: ${when}`,
+        `  Credits: ${r.Credits || ''}`,
+        `  Reference #: ${r['Reference #'] || 'not looked up yet (use Look up reference numbers)'}`,
+      ].filter(Boolean).join('\n');
+    });
     const total = items.reduce((s, i) => s + (i.credits || 0), 0);
-    return `${termLabel || 'Course plan'}\n\n${lines.join('\n\n')}\n\nTotal: ${total} credits\n`;
+    return single ? `${lines[0]}\n${termLabel ? `  Term: ${termLabel}\n` : ''}` : `${termLabel || 'Course plan'}\n\n${lines.join('\n\n')}\n\nTotal: ${total} credits\n`;
   }
 
   // "COMP 220 A" -> "COMP 220"; lab sections "BIOL 102 L L" -> "BIOL 102 lab".
@@ -516,7 +571,7 @@
   function meetText(i) {
     if (!i.meetings || !i.meetings.length) return 'Online or no set meeting time';
     const L = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return i.meetings.map((m) => `${m.days.map((d) => L[d]).join(', ')} · ${X.fmtTime(m.start)}–${X.fmtTime(m.end)}`).join('; ');
+    return i.meetings.map((m) => `${m.days.map((d) => L[d]).join(', ')} ${X.fmtTime(m.start)}–${X.fmtTime(m.end)}`).join('; ');
   }
   // "Wolfe, Britton D." -> "Britton D. Wolfe"
   function prof(s) {
@@ -549,6 +604,7 @@
         <div class="x-cal-hours">${hours.join('')}</div>
         ${days.map((_, i) => `<div class="x-cal-col" data-day="${days[i]}" style="grid-column:${i + 2}">${blocks.filter((b) => b.includes(`grid-column:${i + 2};`)).join('')}</div>`).join('')}
       </div>
+      ${all.some((c) => !(c.meetings || []).length) ? `<p class="x-sub x-cal-note">Not on the calendar (no set meeting time): ${esc(all.filter((c) => !(c.meetings || []).length).map((c) => c.code).join(', '))}</p>` : ''}
       ${registered.length ? `<div class="x-cal-key"><span class="is-plan"></span>Planned<span class="is-reg"></span>Registered</div>` : ''}
     </div>`;
   }
@@ -557,9 +613,17 @@
     if (job && job.user === userKey()) {
       const lines = job.queue.map((code) => {
         const r = job.results[code];
-        const status = r ? (r.ok ? 'Added' : 'Not added') : job.refs[code] ? (job.phase === 'submit' ? 'Adding…' : `Ref ${job.refs[code]}`) : 'Looking up…';
+        const status = r ? (r.ok ? 'Added' : job.dryNote ? `Ref ${esc(job.refs[code])}: not submitted` : `Not added${r.msg ? ': ' + esc(r.msg) : ''}`) : job.refs[code] ? (job.phase === 'submit' ? 'Adding…' : `Ref ${esc(job.refs[code])}`) : 'Looking up…';
         return `<li><span>${esc(code)}</span><span class="${r ? (r.ok ? 'x-ok' : 'x-bad') : ''}">${status}</span></li>`;
       }).join('');
+      if (job.phase === 'done' && job.lookupOnly) {
+        const got = job.queue.filter((c) => job.refs[c]).length;
+        return `<div class="x-job"><p><b>${got} of ${job.queue.length} reference number${job.queue.length === 1 ? '' : 's'} found.</b> Copy now includes them.</p>
+          <ul>${lines}</ul><button type="button" class="x-link" data-dismiss>Done</button></div>`;
+      }
+      if (job.fillOnly || job.lookupOnly) {
+        if (job.phase !== 'done') return `<div class="x-job"><p><b>Looking up reference numbers.</b> Keep this tab open; the page will reload a few times.</p><ul>${lines}</ul><button type="button" class="x-link" data-stop>Stop</button></div>`;
+      }
       if (job.phase === 'done' && job.fillOnly) {
         const missing = job.queue.filter((c) => job.results[c] && !job.results[c].ok);
         return `<div class="x-job"><p><b>${job.filled || 0} reference number${job.filled === 1 ? '' : 's'} filled in.</b> Check them, then press Add Course(s).${job.remaining ? ` After that, press Load my plan again for the other ${job.remaining}.` : ''}</p>
@@ -568,6 +632,8 @@
       }
       if (job.phase === 'done') {
         const ok = job.queue.filter((c) => job.results[c] && job.results[c].ok).length;
+        if (job.dryNote) return `<div class="x-job"><p><b>${esc(job.dryNote)}</b></p><ul>${lines}</ul>${job.manualRefs ? `<p class="x-sub">Reference numbers: ${esc(job.manualRefs)}</p>` : ''}
+          <button type="button" class="x-link" data-dismiss>Dismiss</button></div>`;
         return `<div class="x-job"><p><b>${ok} of ${job.queue.length} added.</b>${ok < job.queue.length ? ' The rest stay in your plan.' : ''}</p><ul>${lines}</ul>
           ${job.manualRefs ? `<p class="x-sub">Reference numbers: ${esc(job.manualRefs)}</p>` : ''}
           <button type="button" class="x-link" data-dismiss>Done</button></div>`;
@@ -589,17 +655,45 @@
   // ---------------- the add-all job ----------------
   async function startJob(term, items, opts = {}) {
     const refs = {};
-    items.forEach((i) => { if (i.ref) refs[i.code] = i.ref; });
-    await store.set('job', {
+    items.forEach((i) => { if (i.ref) refs[i.code] = String(i.ref).trim(); });
+    let ssDry = false; try { ssDry = sessionStorage.getItem('gccx-dry-run') === '1'; } catch (e) { /* ignore */ }
+    const job = {
       user: userKey(), term, queue: items.map((i) => i.code), refs, results: {}, phase: 'lookup', step: null, batch: [], guard: 0, ts: Date.now(),
-      dryRun: !!window.__gccxDryRun,
+      dryRun: !!window.__gccxDryRun || ssDry,
       fillOnly: !!opts.fillOnly,
+      lookupOnly: !!opts.lookupOnly,
+    };
+    await store.set('job', job);
+    plog('info', 'Start', { term, courses: job.queue, known: Object.keys(refs).length, dryRun: job.dryRun, fillOnly: job.fillOnly, lookupOnly: job.lookupOnly, screen: screen() });
+    runSafe();
+  }
+  function plog(level, msg, data) { try { X.log(level, 'plan', 'Register: ' + msg, data); } catch (e) { /* ignore */ } }
+  // run() with a net under it: an exception must end the job visibly, not leave "Looking up…" forever
+  async function runSafe() {
+    try { await run(); }
+    catch (e) {
+      plog('error', 'Exception in job: ' + (e && e.message || e), { stack: e && e.stack, screen: screen() });
+      try { const job = await store.get('job'); if (job && job.phase !== 'done') await finish(job, 'Stopped: ' + (e && e.message || 'unexpected error')); } catch (e2) { /* ignore */ }
+    }
+  }
+  // anything the page says about the last submit (errors, conflicts, closed, prerequisites)
+  function pageMessages() {
+    const p = portlet();
+    if (!p) return [];
+    const seen = new Set();
+    const out = [];
+    const sel = '[id$="lblError"], [id*="rror"], [id*="Message"], [id*="Msg"], [id*="Summary"], [class*="rror"], [class*="essage"], [class*="alert"], [class*="feedback"], font[color], span[style*="red" i], li';
+    $$(sel, p).forEach((e) => {
+      if (e.closest('#gccx-plan') || e.id.endsWith('hntMessage') || e.closest('[id*="tabSearch"]') || e.closest('[id*="rptConfCourses"]')) return;
+      if (e.querySelector(sel.split(', ').slice(0, 8).join(', '))) return; // take the innermost
+      const t = X.clean(e.textContent);
+      if (t && t.length < 400 && !seen.has(t)) { seen.add(t); out.push(t); }
     });
-    run();
+    return out;
   }
 
   async function saveJob(job) { job.ts = Date.now(); await store.set('job', job); }
-  function goMain() { location.href = MAIN_URL; }
+  function goMain() { X.go(MAIN_URL); }
   function setSelect(sel, value) {
     if (!sel || sel.value === value) return false;
     sel.value = value;
@@ -609,36 +703,50 @@
 
   async function run() {
     const job = await store.get('job');
-    if (!job || job.user !== userKey() || job.phase === 'done') return;
-    if (Date.now() - job.ts > 10 * 60e3) { await store.set('job', null); return; } // abandoned
-    if (++job.guard > job.queue.length * 8 + 12) return finish(job, 'Stopped: myGCC did not respond as expected.');
+    if (!job) return;
+    if (job.user !== userKey()) { plog('warn', 'Job belongs to another user; ignoring', { job: job.user, me: userKey() }); return; }
+    if (job.phase === 'done') return;
+    if (Date.now() - job.ts > 10 * 60e3) { plog('warn', 'Job abandoned (older than 10 minutes); cleared'); await store.set('job', null); return; }
     const sc = screen();
+    plog('info', `Resume: phase=${job.phase} step=${job.step || '-'} screen=${sc} guard=${job.guard}`, { current: job.current, refs: job.refs, results: job.results, title: document.title });
+    if (++job.guard > job.queue.length * 8 + 12) { plog('error', 'Too many page loads without progress; stopping'); return finish(job, 'Stopped: myGCC did not respond as expected.'); }
     renderDrawer(true);
 
     if (job.phase === 'lookup') {
       const code = job.queue.find((c) => !job.refs[c] && !job.results[c]);
-      if (!code) { job.phase = 'submit'; job.step = null; await saveJob(job); return run(); }
+      if (!code && job.lookupOnly) { plog('info', 'Lookup finished (nothing is submitted)'); job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); decorateRefresh(); return; } // refs are in the plan now; nothing is submitted
+      if (!code) { plog('info', 'All reference numbers known; going to submit', { refs: job.refs }); job.phase = 'submit'; job.step = null; await saveJob(job); return run(); }
       if (sc === 'main' && job.step !== 'searched') {
         const p = portlet();
+        const need = ['tabSearch_ddlCourseRestrictor', 'tabSearch_txtCourseRestrictor', 'tabSearch_txtTitleRestrictor', 'tabSearch_ddlTermSearch', 'tabSearch_btnSearch'];
+        const missing = need.filter((n) => !byEnd(n, p));
+        if (missing.length) { plog('error', 'Search form not found on the page', { missing }); return finish(job, 'Stopped: could not find the course search form.'); }
         byEnd('tabSearch_ddlCourseRestrictor', p).value = 'ExactMatch';
         byEnd('tabSearch_txtCourseRestrictor', p).value = code;
         byEnd('tabSearch_txtTitleRestrictor', p).value = '';
-        byEnd('tabSearch_ddlTermSearch', p).value = job.term;
+        const tsel = byEnd('tabSearch_ddlTermSearch', p);
+        tsel.value = job.term;
+        if (tsel.value !== job.term) { plog('error', 'Term not in the search dropdown', { want: job.term, have: [...tsel.options].map((o) => o.value) }); job.results[code] = { ok: false, msg: 'Term not available in search' }; job.step = null; await saveJob(job); return run(); }
         const dept = byEnd('tabSearch_ddlDept', p); if (dept) dept.selectedIndex = 0;
         job.step = 'searched'; job.current = code; await saveJob(job);
+        plog('info', `Searching for ${code} (${job.term})`);
         return byEnd('tabSearch_btnSearch', p).click();
       }
       if (sc === 'results' && job.step === 'searched') {
-        const row = resultRows().find((r) => r.code === job.current);
+        const rows = resultRows();
+        const row = rows.find((r) => r.code === job.current);
         if (!row) {
+          plog('warn', `${job.current} not in the results`, { found: rows.map((r) => r.code) });
           job.results[job.current] = { ok: false, msg: 'Section not found for this term' };
           job.step = null; await saveJob(job); return goMain();
         }
         job.step = 'details'; await saveJob(job);
-        return row.link.click();
+        plog('info', `Opening details for ${job.current}`);
+        return postBackLink(row.link);
       }
       if (sc === 'details' && job.step === 'details') {
         const info = detailsInfo();
+        plog('info', `Details for ${job.current}: ref ${info.ref || '(none)'}`);
         if (info.ref) job.refs[job.current] = info.ref;
         else job.results[job.current] = { ok: false, msg: 'No reference number listed' };
         const plan = await getPlan();
@@ -646,31 +754,63 @@
         await setPlan(plan);
         job.step = null; await saveJob(job); return goMain();
       }
+      if (sc === 'main' && job.step === 'searched') {
+        // the search click did not take us to results; give it one more try, then skip this course
+        job.tries = (job.tries || 0) + 1;
+        plog('warn', `Search for ${job.current} did not reach the results page (try ${job.tries})`, { msgs: pageMessages() });
+        if (job.tries >= 2) { job.results[job.current] = { ok: false, msg: 'Search did not respond' }; job.tries = 0; }
+        job.step = null; await saveJob(job); return run();
+      }
+      plog('warn', `Unexpected screen "${sc}" at step ${job.step || '-'}; going back to Add/Drop`);
       job.step = null; await saveJob(job); return goMain();
     }
 
+    if (job.phase === 'submit' && job.lookupOnly) { job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); return; } // never register from a lookup
     if (job.phase === 'submit') {
-      if (sc !== 'main') { job.step = null; await saveJob(job); return goMain(); }
+      if (job.step === 'submitted' && sc !== 'main') {
+        // the result came back on a screen without the form: keep what it says, then look at Add/Drop to verify
+        job.msgs = pageMessages(); job.step = 'verify'; await saveJob(job);
+        plog('info', 'Submit returned a non-main screen; messages saved, returning to Add/Drop', { screen: sc, msgs: job.msgs });
+        return goMain();
+      }
+      if (sc !== 'main') { plog('warn', `Submit phase on screen "${sc}"; going to Add/Drop`); job.step = null; await saveJob(job); return goMain(); }
       const p = portlet();
-      if (job.step === 'submitted') {
-        // Judge the batch by what's now listed under "Your Schedule"
+      if (job.step === 'submitted' || job.step === 'verify') {
+        // Judge the batch by what's now listed under "Your Schedule", with the page's own messages as the reason
         const now = registeredOnMain().map((c) => c.code);
-        const msg = X.clean($$('.pt_CourseSchedules [class*="rror"], .pt_CourseSchedules [class*="essage"], .pt_CourseSchedules .feedback, .pt_CourseSchedules font[color]').map((e) => e.textContent).join(' ')).slice(0, 220);
-        for (const code of job.batch) job.results[code] = now.includes(code) ? { ok: true } : { ok: false, msg: msg || 'myGCC did not add this section' };
+        const msgs = [...(job.msgs || []), ...pageMessages()];
+        plog('info', 'Submit result', { registered: now, msgs, batch: job.batch });
+        for (const code of job.batch) {
+          const ref = job.refs[code];
+          const mine = msgs.filter((m) => (ref && m.includes(ref)) || m.includes(code));
+          const why = (mine.length ? mine : msgs).join(' ').slice(0, 220);
+          job.results[code] = now.includes(code) ? { ok: true } : { ok: false, msg: why || 'myGCC did not add this section' };
+        }
         const added = job.batch.filter((c) => job.results[c].ok);
         if (added.length) await setPlan((await getPlan()).filter((x) => !(x.term === job.term && added.includes(x.code))));
-        job.batch = []; job.step = null; await saveJob(job);
+        job.batch = []; job.msgs = null; job.step = null; await saveJob(job);
+        renderDrawer(true);
       }
       const termSel = byEnd('ddlTerm', p);
       if (termSel && termSel.value !== job.term) {
+        if (job.step === 'term') { plog('error', 'Could not switch the Add/Drop term', { want: job.term, have: termSel.value }); return finish(job, 'Stopped: could not switch to this term on Add/Drop.'); }
         job.step = 'term'; await saveJob(job);
+        plog('info', 'Switching Add/Drop to the plan\'s term', { from: termSel.value, to: job.term });
         setSelect(termSel, job.term); // triggers myGCC's own postback
         return;
       }
       const todo = job.queue.filter((c) => job.refs[c] && !job.results[c]);
-      if (!todo.length) return finish(job);
+      if (!todo.length) { plog('info', 'Nothing left to submit'); return finish(job); }
       job.batch = todo.slice(0, 6);
-      for (let n = 1; n <= 6; n++) byEnd('tbRefNum' + n, p).value = job.batch[n - 1] ? job.refs[job.batch[n - 1]] : '';
+      const boxes = [1, 2, 3, 4, 5, 6].map((n) => byEnd('tbRefNum' + n, p));
+      const addBtn = byEnd('tabRef_gbtnSearchRef', p);
+      if (boxes.some((b) => !b) || !addBtn) { plog('error', 'Add by reference number form not found', { boxes: boxes.map((b) => !!b), button: !!addBtn }); return finish(job, 'Stopped: could not find the Add by Reference # form.'); }
+      boxes.forEach((b, i) => {
+        b.value = job.batch[i] ? job.refs[job.batch[i]] : '';
+        b.dispatchEvent(new Event('input', { bubbles: true }));
+        b.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      plog('info', `Filled ${job.batch.length} reference number${job.batch.length === 1 ? '' : 's'}`, { batch: job.batch.map((c) => `${c} -> ${job.refs[c]}`), dryRun: job.dryRun, fillOnly: job.fillOnly, remaining: todo.length - job.batch.length });
       if (job.fillOnly) {
         job.filled = job.batch.length;
         job.remaining = todo.length - job.batch.length;
@@ -684,11 +824,16 @@
       }
       if (job.dryRun) {
         job.manualRefs = job.batch.map((c) => job.refs[c]).join(', ');
-        job.batch.forEach((c) => (job.results[c] = { ok: false, msg: 'Dry run: filled in, not submitted' }));
+        job.filled = job.batch.length;
+        job.dryNote = `Dry run: filled ${job.batch.length} reference number${job.batch.length === 1 ? '' : 's'}, not submitted.`;
+        job.batch.forEach((c) => (job.results[c] = { ok: false, msg: X.demo ? 'Demo: looked up, nothing registered' : 'Dry run: filled in, not submitted' }));
+        plog('info', job.dryNote);
+        $$('a', p).find((a) => /reference/i.test(a.textContent) && a.getAttribute('href') === '#')?.click();
         return finish(job);
       }
       job.step = 'submitted'; await saveJob(job);
-      return byEnd('tabRef_gbtnSearchRef', p).click();
+      plog('info', 'Clicking Add Course(s)', { refs: job.batch.map((c) => job.refs[c]) });
+      return addBtn.click(); // a real click, so the page's own validation and postback run
     }
   }
   async function finish(job, note) {
@@ -697,6 +842,7 @@
     const missing = job.queue.filter((c) => job.refs[c] && !(job.results[c] && job.results[c].ok)).map((c) => job.refs[c]);
     if (missing.length && !job.manualRefs) job.manualRefs = missing.join(', ');
     await saveJob(job);
+    plog(note ? 'warn' : 'info', 'Job finished' + (note ? ': ' + note : ''), { refs: job.refs, results: job.results });
     renderDrawer(true);
     decorateRefresh();
   }
@@ -743,20 +889,21 @@ How myGCC labels courses:
 
   let aiRun = null; // { running, log: [], summary, error }
   let aiInfo = null;
-  const aiStatus = () => new Promise((r) => chrome.runtime.sendMessage({ type: 'ai-status' }, (x) => r(chrome.runtime.lastError ? null : x)));
-  const aiCall = (payload) => new Promise((r) => chrome.runtime.sendMessage({ type: 'ai-chat', ...payload }, (x) => r(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : x)));
+  const aiStatus = () => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-status' }, (x) => r(chrome.runtime.lastError ? null : x)); } catch (e) { r(null); } });
+  const aiCall = (payload) => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-chat', ...payload }, (x) => r(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : x)); } catch (e) { r({ error: 'The extension was reloaded. Refresh this page.' }); } });
 
   function aiHTML(termLabel) {
     const ready = aiInfo && aiInfo.ready;
     const run = aiRun || {};
-    const log = (run.log || []).map((l) => `<li class="${l.bad ? 'x-bad' : ''}">${esc(l.text)}</li>`).join('');
+    const lastStep = (run.log || [])[(run.log || []).length - 1]; // only the latest step, with a pulse while working
+    const log = run.running ? X.pulseHTML(lastStep ? lastStep.text : 'Working…', esc) : '';
     return `<div class="x-ai">
       <h4>Plan with AI</h4>
       ${!ready ? `<p class="x-sub">Paste a list of the courses you need and let AI find sections that fit your schedule. To turn this on, click the aBetterMyGCC icon in Chrome's toolbar and add an API key from Anthropic, OpenAI, xAI or Google.</p>` : `
         <textarea id="gccx-ai-input" rows="4" placeholder="COMP 220, STAT 131, a 300-level HUMA, Spanish 202. Mornings if possible, no Friday afternoons."${run.running ? ' disabled' : ''}>${esc(run.input || '')}</textarea>
         <button type="button" class="x-primary" data-ai-run${run.running ? ' disabled' : ''}>${run.running ? 'Working…' : `Find courses${termLabel ? ` for ${esc(termLabel)}` : ''}`}</button>
         <p class="x-sub x-ai-note">Uses ${esc(aiInfo.model || 'your model')}. It only adds sections to your plan; you still review them and register.</p>`}
-      ${log ? `<ul class="x-ai-log">${log}</ul>` : ''}
+      ${log}
       ${run.summary ? `<div class="x-ai-summary">${esc(run.summary).replace(/\n/g, '<br>')}</div>` : ''}
       ${run.error ? `<p class="x-conflict">${esc(run.error)}</p>` : ''}
       ${run.running ? `<button type="button" class="x-link" data-ai-stop>Stop</button>` : ''}
@@ -830,7 +977,7 @@ How myGCC labels courses:
     if (!term) return;
     const termLabel = ((await getPlan()).find((p) => p.term === term) || {}).termLabel || (st && st.value === term ? st.label : term);
     aiRun = { running: true, input, log: [], summary: '', error: '' };
-    const say = (text, bad) => { aiRun.log.push({ text, bad }); renderDrawer(true); };
+    const say = (text, bad) => { aiRun.log.push({ text, bad }); X.log(bad ? 'warn' : 'info', 'plan', text); renderDrawer(true); };
     const seen = new Map(); // code -> section from searches
 
     const plan = (await getPlan()).filter((p) => p.term === term);
@@ -850,19 +997,20 @@ How myGCC labels courses:
     ].join('\n');
 
     const messages = [{ role: 'user', text: context }];
+    X.log('info', 'plan', 'Request', { term: termLabel, context });
     say(`Reading your list for ${termLabel}…`);
     try {
-      for (let turn = 0; turn < 24; turn++) {
+      const MAX_TURNS = 24;
+      const FINAL_NOTE = '\n\nYou have used all your steps. Stop searching and give your final summary now.';
+      for (let turn = 0; turn < MAX_TURNS; turn++) {
         if (aiRun.stopped) { aiRun.error = 'Stopped.'; break; }
-        const r = await aiCall({ system: AI_SYSTEM, tools: AI_TOOLS, messages });
-        if (!r || r.error) {
-          aiRun.error = r && r.kind === 'auth' ? 'Your AI key was rejected. Check it in the aBetterMyGCC popup.' : r && r.kind === 'rate' ? 'The AI service is rate-limiting this key. Try again in a minute.' : `AI request failed: ${r ? r.error : 'no response'}`;
-          break;
-        }
+        const last = turn === MAX_TURNS - 1; // final turn: no tools, summarize what was done
+        const r = await aiCall({ src: 'plan', system: last ? AI_SYSTEM + FINAL_NOTE : AI_SYSTEM, tools: AI_TOOLS, messages, noTools: last });
+        if (!r || r.error) { aiRun.error = X.aiErrorText(r); X.log('error', 'plan', aiRun.error, r); break; }
         const out = r.ok;
         if (out.stop === 'refusal') { aiRun.error = 'The AI service declined this request.'; break; }
         if (out.stop === 'max') { aiRun.error = 'The AI response was cut off. Try a shorter list.'; break; }
-        if (out.stop !== 'tool' || !out.toolCalls.length) { aiRun.summary = out.text || 'Done.'; break; }
+        if (out.stop !== 'tool' || !out.toolCalls.length) { aiRun.summary = out.text || 'Done.'; X.log('info', 'plan', 'Summary', { text: aiRun.summary }); break; }
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
@@ -892,7 +1040,7 @@ How myGCC labels courses:
                 list.push({ code, title: f.title, faculty: f.faculty, seats: f.seats, status: f.status, schedule: f.schedule, meetings: f.meetings, credits: f.credits, term, termLabel, ref: null, byAI: true });
                 await setPlan(list);
               }
-              say(`Added ${code} · ${f.title}`);
+              say(`Added ${code}: ${f.title}`);
               content = JSON.stringify({ ok: true, added: code });
             } else if (call.name === 'remove_from_plan') {
               const code = String(a.code || '').trim().toUpperCase().replace(/\s+/g, ' ');
@@ -906,6 +1054,7 @@ How myGCC labels courses:
             isError = true;
             content = `Error: ${e.message || e}`;
           }
+          X.log(isError ? 'warn' : 'info', 'plan', `Tool ${call.name} ${isError ? 'failed' : 'result'}`, { input: call.input, result: content });
           results.push({ id: call.id, name: call.name, content, isError });
         }
         messages.push({ role: 'tool', results }); // all results in one turn
@@ -913,6 +1062,7 @@ How myGCC labels courses:
       if (!aiRun.summary && !aiRun.error) aiRun.error = 'Stopped after too many steps. What was added so far is in your plan.';
     } catch (e) {
       aiRun.error = `Something went wrong: ${e.message || e}`;
+      X.log('error', 'plan', aiRun.error, { stack: e.stack });
     }
     aiRun.running = false;
     // The background searches moved myGCC's own page state on the server, so
@@ -921,7 +1071,34 @@ How myGCC labels courses:
     goMain();
   }
 
-  chrome.storage.onChanged.addListener((ch) => { if (ch.plans) { renderDrawer(); refreshFit(); } if (ch.ai) aiStatus().then((x) => { aiInfo = x; renderDrawer(); }); });
+  // Registered classes used to be read only off the Add/Drop main screen, so on
+  // search results / details (or a first visit) the calendar was empty until you
+  // went there. Read them in the background from the Student Schedule portlet
+  // (a plain GET of a read-only page; nothing is submitted). Its term box uses
+  // the same values as Add/Drop's.
+  async function loadRegisteredBackground() {
+    const me = userKey();
+    if (!me || screen() === 'main') return; // the main screen scrapes itself
+    try {
+      const r = await fetch('/ICS/Academics/Home.jnz?portlet=Student_Schedule', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+      const sel = [...doc.querySelectorAll('select')].find((s) => /ddlTerm$/.test(s.id) && !/Search/.test(s.id));
+      const sched = X.parseSchedule(doc);
+      if (!sel || !sel.value || !sched) return;
+      const courses = sched.courses.filter((c) => !/^(drop|withdr)/i.test(c.status || '')).map((c) => ({
+        code: c.code, title: c.title, schedule: '', meetings: c.meetings.map((m) => ({ days: m.days, start: m.start, end: m.end })), credits: c.credits,
+      }));
+      const reg = (await store.get('registered')) || {};
+      const key = me + '|' + sel.value;
+      const old = reg[key];
+      if (old && JSON.stringify(old.courses) === JSON.stringify(courses)) return;
+      reg[key] = { ts: Date.now(), courses };
+      await store.set('registered', reg);
+    } catch (e) { X.log('warn', 'plan', 'Could not load registered schedule', { err: String(e) }); }
+  }
+
+  chrome.storage.onChanged.addListener((ch) => { if (ch.plans || ch.registered) { renderDrawer(); refreshFit(); } if (ch.ai) aiStatus().then((x) => { aiInfo = x; renderDrawer(); }); });
 
   function boot() {
     if (!portlet() || !userKey()) return;
@@ -931,7 +1108,11 @@ How myGCC labels courses:
       if (saved) { aiRun = saved; sessionStorage.removeItem('gccx-ai-run'); drawerOpen = true; }
     } catch (e) { /* ignore */ }
     aiStatus().then((x) => { aiInfo = x; renderDrawer(); });
-    decorate().then(() => renderDrawer()).then(run);
+    // a failure while decorating must not stop a running job from resuming
+    decorate().catch((e) => X.log('error', 'plan', 'decorate failed: ' + (e && e.message), { stack: e && e.stack }))
+      .then(() => renderDrawer()).catch((e) => X.log('error', 'plan', 'renderDrawer failed: ' + (e && e.message), { stack: e && e.stack }))
+      .then(runSafe);
+    loadRegisteredBackground(); // fills the calendar on results/details screens and on a first visit
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

@@ -32,9 +32,21 @@ $('#ai-btn').addEventListener('click', async () => {
   window.close();
 });
 
+// ---------- demo (sample student on the extension's own page; for anyone without a myGCC account) ----------
+$('#demo-btn').addEventListener('click', async () => {
+  await chrome.tabs.create({ url: chrome.runtime.getURL('demo/index.html') });
+  window.close();
+});
+
 // ---------- welcome screen ----------
 $('#welcome').addEventListener('click', async () => {
   await chrome.storage.local.set({ onboarding: 'pending' });
   await chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' });
+  window.close();
+});
+
+// ---------- live log (AI activity and errors while that page is open; nothing is stored) ----------
+$('#openlog').addEventListener('click', async () => {
+  await chrome.tabs.create({ url: chrome.runtime.getURL('logs/log.html') });
   window.close();
 });

@@ -27,6 +27,11 @@ class AIError extends Error {
   constructor(message, kind) { super(message); this.kind = kind; }
 }
 
+// fetch that reports connection failures as a specific kind
+async function post(url, init) {
+  try { return await fetch(url, init); } catch (e) { throw new AIError('Network error: ' + (e.message || e), 'network'); }
+}
+
 async function readError(res) {
   let msg = `${res.status} ${res.statusText}`;
   try {
@@ -49,7 +54,7 @@ const ANTHROPIC_HEADERS = (key) => ({
 // Models that accept server-side refusal fallbacks ("default" routing)
 const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-sonnet-5-5']);
 
-async function anthropicChat({ key, model, system, tools, messages }) {
+async function anthropicChat({ key, model, system, tools, messages, noTools }) {
   const headers = ANTHROPIC_HEADERS(key);
   const body = {
     model,
@@ -58,12 +63,14 @@ async function anthropicChat({ key, model, system, tools, messages }) {
     tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters, strict: true })),
     messages: messages.map(toAnthropic),
   };
+  // tools stay declared (history contains tool_use blocks) but the model may not call them
+  if (noTools) body.tool_choice = { type: 'none' };
   if (/^claude-(opus-5|fable-5|sonnet-5-5|haiku-5-5)/.test(model)) body.output_config = { effort: 'medium' };
   if (FALLBACK_MODELS.has(model)) {
     headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
     body.fallbacks = 'default';
   }
-  const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
+  const res = await post('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) throw await readError(res);
   const r = await res.json();
   if (r.stop_reason === 'refusal') {
@@ -88,21 +95,24 @@ function toAnthropic(m) {
   };
 }
 async function anthropicModels(key) {
-  const res = await fetch('https://api.anthropic.com/v1/models?limit=100', { headers: ANTHROPIC_HEADERS(key) });
+  const res = await post('https://api.anthropic.com/v1/models?limit=100', { headers: ANTHROPIC_HEADERS(key) });
   if (!res.ok) throw await readError(res);
   const j = await res.json();
   return (j.data || []).map((m) => ({ id: m.id, name: m.display_name || m.id }));
 }
 
 // ---------------- OpenAI-compatible (OpenAI, xAI, Google) ----------------
-async function compatChat(provider, { key, model, system, tools, messages }) {
+// Gemini's OpenAI-compatible endpoint is picky about some JSON-schema keywords
+const stripSchema = (s) => (Array.isArray(s) ? s.map(stripSchema) : s && typeof s === 'object' ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'additionalProperties').map(([k, v]) => [k, stripSchema(v)])) : s);
+
+async function compatChat(provider, { key, model, system, tools, messages, noTools }) {
   const body = {
     model,
     messages: [{ role: 'system', content: system }, ...messages.flatMap(toCompat)],
-    tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })),
-    tool_choice: 'auto',
+    tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: provider === 'google' ? stripSchema(t.parameters) : t.parameters } })),
+    tool_choice: noTools ? 'none' : 'auto',
   };
-  const res = await fetch(`${PROVIDERS[provider].base}/chat/completions`, {
+  const res = await post(`${PROVIDERS[provider].base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
     body: JSON.stringify(body),
@@ -131,7 +141,7 @@ function toCompat(m) {
   return m.results.map((r) => ({ role: 'tool', tool_call_id: r.id, content: r.content }));
 }
 async function compatModels(provider, key) {
-  const res = await fetch(`${PROVIDERS[provider].base}/models`, { headers: { authorization: `Bearer ${key}` } });
+  const res = await post(`${PROVIDERS[provider].base}/models`, { headers: { authorization: `Bearer ${key}` } });
   if (!res.ok) throw await readError(res);
   const j = await res.json();
   return (j.data || j.models || []).map((m) => {

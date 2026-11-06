@@ -76,7 +76,26 @@ async function getMenu(hall) {
   };
 }
 
+// ---- live log: forwarded to open log pages only, never stored ----
+const logPorts = new Set();
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'gccx-log') return;
+  logPorts.add(port);
+  port.onDisconnect.addListener(() => logPorts.delete(port));
+});
+function emitLog(level, source, message, data) {
+  if (!logPorts.size) return;
+  const entry = { type: 'log', level, source, message: String(message), data, ts: Date.now() };
+  for (const p of logPorts) { try { p.postMessage(entry); } catch (e) { logPorts.delete(p); } }
+}
+self.addEventListener('error', (e) => emitLog('error', 'background', e.message, { file: e.filename, line: e.lineno, stack: e.error && e.error.stack }));
+self.addEventListener('unhandledrejection', (e) => emitLog('error', 'background', 'Unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason), { stack: e.reason && e.reason.stack }));
+
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'log') {
+    emitLog(msg.level, msg.source || 'content', msg.message, msg.data);
+    return false;
+  }
   if (msg && msg.type === 'menu') {
     getMenu(msg.hall || 'hicks-cafe').then(reply, () => reply(null));
     return true;
@@ -85,8 +104,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg && msg.type === 'ai-chat') {
     chrome.storage.local.get('ai', ({ ai }) => {
       if (!ai || !ai.key) return reply({ error: 'Set up Plan with AI from the aBetterMyGCC toolbar icon first.', kind: 'auth' });
-      GCCX_AI.aiChat({ provider: ai.provider, key: ai.key, model: ai.model, system: msg.system, tools: msg.tools, messages: msg.messages })
-        .then((r) => reply({ ok: r }), (e) => reply({ error: e.message || String(e), kind: e.kind || 'request' }));
+      const src = msg.src || 'ai';
+      const last = msg.messages[msg.messages.length - 1];
+      emitLog('ai', src, `Request to ${ai.provider || 'AI'} · ${ai.model} (${msg.messages.length} messages${msg.noTools ? ', tools disabled' : ''})`, {
+        system: msg.messages.length <= 1 ? msg.system : '(same system prompt as first request)' + (msg.noTools ? ' + final-answer instruction' : ''),
+        tools: (msg.tools || []).map((t) => t.name),
+        latestMessage: last && (last.text || last.results || last.native),
+      });
+      const t0 = Date.now();
+      GCCX_AI.aiChat({ provider: ai.provider, key: ai.key, model: ai.model, system: msg.system, tools: msg.tools, messages: msg.messages, noTools: !!msg.noTools })
+        .then((r) => {
+          emitLog('ai', src, `Response (${r.stop}) in ${Date.now() - t0} ms`, { text: r.text, toolCalls: r.toolCalls });
+          reply({ ok: r });
+        }, (e) => {
+          emitLog('error', src, `AI request failed (${e.kind || 'request'}): ${e.message || e}`);
+          reply({ error: e.message || String(e), kind: e.kind || 'request' });
+        });
     });
     return true;
   }
