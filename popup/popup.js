@@ -1,0 +1,40 @@
+const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hall: 'hicks-cafe' };
+const NAMES = { anthropic: 'Claude', openai: 'OpenAI', xai: 'Grok', google: 'Gemini' };
+const $ = (s) => document.querySelector(s);
+
+// ---------- look settings ----------
+chrome.storage.local.get('settings', ({ settings }) => {
+  const s = { ...DEFAULTS, ...(settings || {}) };
+  const save = () => chrome.storage.local.set({ settings: s });
+  document.querySelectorAll('input[data-key]').forEach((el) => {
+    el.checked = !!s[el.dataset.key];
+    el.addEventListener('change', () => { s[el.dataset.key] = el.checked; save(); });
+  });
+  const btns = document.querySelectorAll('[data-theme]');
+  const mark = () => btns.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.theme === s.theme)));
+  btns.forEach((b) => {
+    b.setAttribute('role', 'radio');
+    b.addEventListener('click', () => { s.theme = b.dataset.theme; mark(); save(); });
+  });
+  mark();
+});
+
+// ---------- Plan with AI (set up on the options page) ----------
+function showAi(ai) {
+  const ready = !!(ai && ai.key && ai.model);
+  $('#ai-state').textContent = ready ? `Using ${NAMES[ai.provider] || ai.provider} · ${ai.model}` : 'Not set up';
+  $('#ai-btn').textContent = ready ? 'Change' : 'Set up';
+}
+chrome.storage.local.get('ai', ({ ai }) => showAi(ai));
+
+$('#ai-btn').addEventListener('click', async () => {
+  await chrome.runtime.openOptionsPage();
+  window.close();
+});
+
+// ---------- welcome screen ----------
+$('#welcome').addEventListener('click', async () => {
+  await chrome.storage.local.set({ onboarding: 'pending' });
+  await chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' });
+  window.close();
+});

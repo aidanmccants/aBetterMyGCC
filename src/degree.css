@@ -1,0 +1,127 @@
+/* aBetterMyGCC degree roadmap (src/degree.js). Everything is scoped under #gccx-degree.
+   Serif, GCC crimson, no badges or eyebrow labels. Theme vars come from theme.css. */
+
+/* The page's own portlet stays in the DOM and comes back when the attribute is removed. */
+#portlets > [data-gccx-degree-hidden] { display: none !important; }
+
+#portlets > #gccx-degree { display: block; float: none; width: 100%; margin: 0 0 40px; }
+
+#gccx-degree {
+  box-sizing: border-box;
+  padding: 44px 52px 30px;
+  background: var(--x-surface, #fff);
+  border: 1px solid var(--x-rule, #e6e0d8);
+  border-radius: 6px;
+  color: var(--x-ink, #1d1a17);
+  font-family: var(--x-serif, "Source Serif 4", "Source Serif Pro", Charter, "Iowan Old Style", Georgia, serif);
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: left;
+}
+#gccx-degree *, #gccx-degree *::before, #gccx-degree *::after { box-sizing: border-box; }
+#gccx-degree p, #gccx-degree ul, #gccx-degree li,
+#gccx-degree details, #gccx-degree summary, #gccx-degree button, #gccx-degree svg { margin: 0; padding: 0; }
+#gccx-degree ul { list-style: none; }
+#gccx-degree button { font: inherit; }
+#gccx-degree :focus-visible { outline: 2px solid var(--x-accent, #a60000); outline-offset: 3px; border-radius: 2px; }
+
+/* ---------- hero: progress ring and totals ---------- */
+#gccx-degree .gx-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 56px; }
+#gccx-degree .gx-ring { position: relative; flex: 0 0 auto; width: 184px; height: 184px; }
+#gccx-degree .gx-svg { display: block; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
+#gccx-degree .gx-svg circle { fill: none; stroke-width: 12; }
+#gccx-degree .gx-track { stroke: var(--x-rule, #e6e0d8); }
+#gccx-degree .gx-prog { stroke: color-mix(in srgb, var(--x-accent, #a60000) 35%, var(--x-surface, #fff)); }
+#gccx-degree .gx-earned { stroke: var(--x-accent, #a60000); }
+#gccx-degree .gx-pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px; font-weight: 500; line-height: 1; letter-spacing: -0.01em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+#gccx-degree .gx-facts { display: grid; gap: 12px; font-size: 19px; }
+#gccx-degree .gx-facts strong { font-weight: 600; }
+
+/* ---------- requirement accordions ---------- */
+#gccx-degree .gx-reqs { margin-top: 40px; border-top: 1px solid var(--x-rule, #e6e0d8); }
+#gccx-degree .gx-req { border-bottom: 1px solid var(--x-rule, #e6e0d8); }
+#gccx-degree .gx-req > summary {
+  position: relative;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+  padding: 20px 34px 20px 0;
+  cursor: pointer; list-style: none;
+}
+#gccx-degree .gx-req > summary::-webkit-details-marker { display: none; }
+#gccx-degree .gx-req > summary::after {
+  content: ""; position: absolute; right: 8px; top: 50%;
+  width: 8px; height: 8px;
+  border-right: 1.5px solid var(--x-muted, #6b645d);
+  border-bottom: 1.5px solid var(--x-muted, #6b645d);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+#gccx-degree .gx-req[open] > summary::after { transform: translateY(-30%) rotate(-135deg); }
+#gccx-degree .gx-name { font-size: 19px; font-weight: 500; }
+#gccx-degree .gx-state { font-size: 16px; color: var(--x-muted, #6b645d); white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+#gccx-degree .gx-state.is-done { color: #2f6b45; }
+#gccx-degree .gx-tick { color: #2f6b45; }
+#gccx-degree .gx-body { padding: 0 0 20px; }
+#gccx-degree .gx-empty { padding: 4px 0 4px 34px; color: var(--x-muted, #6b645d); font-style: italic; font-size: 16px; }
+
+/* categories inside a requirement */
+#gccx-degree .gx-cats { margin-bottom: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--x-rule, #e6e0d8); }
+#gccx-degree .gx-cat { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0 8px 34px; font-size: 16px; color: var(--x-muted, #6b645d); }
+#gccx-degree .gx-cat.is-done { color: var(--x-ink, #1d1a17); }
+
+/* course rows */
+#gccx-degree .gx-rows > li + li { border-top: 1px solid var(--x-rule, #e6e0d8); }
+#gccx-degree .gx-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 12px; align-items: baseline; padding: 14px 0; }
+#gccx-degree .gx-mark { color: #2f6b45; font-size: 16px; }
+#gccx-degree .gx-row:not(.is-done) .gx-mark::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; vertical-align: 1px;
+  border: 1.5px solid var(--x-muted, #6b645d); border-radius: 50%;
+}
+#gccx-degree .gx-course { min-width: 0; overflow-wrap: anywhere; }
+#gccx-degree .gx-code { margin-right: 8px; font-weight: 600; white-space: nowrap; }
+#gccx-degree .gx-title { color: var(--x-ink, #1d1a17); }
+#gccx-degree .gx-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+#gccx-degree .gx-meta { font-size: 15px; color: var(--x-muted, #6b645d); white-space: nowrap; }
+#gccx-degree .gx-find {
+  padding: 0; border: 0; background: none;
+  color: var(--x-accent, #a60000); font-size: 15px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+#gccx-degree .gx-find:hover { text-decoration-thickness: 2px; }
+
+/* ---------- footer, status ---------- */
+#gccx-degree .gx-foot {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px 24px;
+  margin-top: 30px; padding-top: 18px;
+  border-top: 1px solid var(--x-rule, #e6e0d8);
+  font-size: 15px; color: var(--x-muted, #6b645d);
+}
+#gccx-degree .gx-refresh {
+  padding: 0; border: 0; background: none;
+  color: var(--x-accent, #a60000); font-size: 15px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+#gccx-degree .gx-refresh[disabled] { color: var(--x-muted, #6b645d); text-decoration: none; cursor: default; }
+#gccx-degree .gx-status { padding: 48px 0; text-align: center; color: var(--x-muted, #6b645d); font-style: italic; }
+
+/* ---------- dark mode: lighter green so the checks stay readable ---------- */
+html.gccx-dark #gccx-degree .gx-state.is-done,
+html.gccx-dark #gccx-degree .gx-tick,
+html.gccx-dark #gccx-degree .gx-mark { color: #8fcaa4; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 640px) {
+  #gccx-degree { padding: 28px 22px 22px; }
+  #gccx-degree .gx-hero { justify-content: center; gap: 24px; }
+  #gccx-degree .gx-ring { width: 160px; height: 160px; }
+  #gccx-degree .gx-row { grid-template-columns: 22px minmax(0, 1fr); }
+  #gccx-degree .gx-side { grid-column: 2; align-items: flex-start; text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gccx-degree .gx-req > summary::after { transition: none; }
+}

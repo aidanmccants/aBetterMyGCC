@@ -1,0 +1,76 @@
+{
+  "manifest_version": 3,
+  "name": "aBetterMyGCC",
+  "version": "1.0.0",
+  "description": "Unofficial. A cleaner myGCC: Today dashboard, AI course planner with batch add, dark mode. Not affiliated with Grove City College.",
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://my.gcc.edu/*",
+    "https://custom.gcc.edu/*",
+    "https://gcc.api.nutrislice.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://api.x.ai/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://my.gcc.edu/ICS/*",
+        "https://my.gcc.edu/ics/*"
+      ],
+      "css": [
+        "src/theme.css",
+        "src/signedout.css",
+        "src/onboarding.css",
+        "src/builder-split.css",
+        "src/degree.css",
+        "src/search.css"
+      ],
+      "js": [
+        "src/lib.js",
+        "src/terms.js",
+        "src/content.js",
+        "src/builder.js",
+        "src/degree.js",
+        "src/signedout.js",
+        "src/onboarding.js",
+        "src/contrast.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://custom.gcc.edu/gcc_misc/chapel.aspx*"
+      ],
+      "js": [
+        "src/chapel.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}

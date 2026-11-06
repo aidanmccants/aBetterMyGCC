@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>aBetterMyGCC</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>aBetterMyGCC</h1>
+    <a href="https://my.gcc.edu/ICS/" target="_blank">Open myGCC</a>
+  </header>
+
+  <label class="row"><span>Modern look</span><input type="checkbox" data-key="enabled"></label>
+  <label class="row"><span>Today dashboard on Home</span><input type="checkbox" data-key="dashboard"></label>
+  <label class="row"><span>Hide promo banners</span><input type="checkbox" data-key="hidePromos"></label>
+
+  <div class="row">
+    <span>Appearance</span>
+    <div class="seg" role="radiogroup" aria-label="Appearance">
+      <button type="button" data-theme="auto">Auto</button>
+      <button type="button" data-theme="light">Light</button>
+      <button type="button" data-theme="dark">Dark</button>
+    </div>
+  </div>
+
+  <div class="row plan">
+    <span class="plan-text"><span>Plan with AI</span><small id="ai-state">Not set up</small></span>
+    <button type="button" class="primary" id="ai-btn">Set up</button>
+  </div>
+
+  <p class="note">Press Ctrl K (⌘ K on Mac) on any myGCC page to jump anywhere. Your myGCC data stays on this computer.</p>
+  <p class="tools"><button type="button" class="link" id="welcome">Show welcome screen again</button></p>
+  <script src="popup.js"></script>
+</body>
+</html>

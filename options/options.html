@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan with AI · aBetterMyGCC</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Plan with AI</h1>
+    <p class="intro">Bring your own key from Anthropic, OpenAI, xAI or Google. The key is stored only in Chrome on this computer, sent only to the service you choose, and billed to your account with that service.</p>
+
+    <label class="field"><span>API key</span>
+      <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…, sk-…, xai-…, AIza…">
+    </label>
+    <label class="field"><span>Service</span>
+      <select id="provider">
+        <option value="">Detect from key</option>
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI</option>
+        <option value="xai">xAI (Grok)</option>
+        <option value="google">Google (Gemini)</option>
+      </select>
+    </label>
+    <label class="field"><span>Model</span>
+      <select id="model" disabled><option>Save a key to load models</option></select>
+    </label>
+
+    <div class="actions">
+      <button type="button" class="primary" id="save">Save key</button>
+      <button type="button" class="link" id="clear">Remove key</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+
+    <section class="sources">
+      <p>Where do I get a key?</p>
+      <ul>
+        <li><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic (Claude)</a></li>
+        <li><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a></li>
+        <li><a href="https://console.x.ai" target="_blank" rel="noopener">xAI (Grok)</a></li>
+        <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google (Gemini)</a></li>
+      </ul>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

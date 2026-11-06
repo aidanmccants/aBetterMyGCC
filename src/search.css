@@ -1,0 +1,34 @@
+/* Search palette: content results, snippets and the Ask AI answer block.
+   Loaded after theme.css, which styles the box, input and base rows. */
+
+#gccx-palette .x-box { font-family: var(--x-serif, 'Source Serif 4', Georgia, serif); }
+#gccx-palette ul[role=listbox] { padding: 8px; }
+
+/* result rows: title and group on one line, snippet beneath */
+#gccx-palette ul[role=listbox] li a {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; row-gap: 3px;
+  align-items: baseline; padding: 10px 14px; line-height: 1.35;
+}
+#gccx-palette li a .x-t { font-weight: 500; font-size: 16px; color: var(--x-ink, #1f1a17); overflow-wrap: anywhere; }
+#gccx-palette li a .x-g { font-size: 13.5px; color: var(--x-faint, #8a817a); white-space: nowrap; }
+#gccx-palette li a .x-s {
+  grid-column: 1 / -1; font-style: normal; font-size: 14px; line-height: 1.5; color: var(--x-muted, #6b625b);
+  overflow-wrap: anywhere;
+}
+#gccx-palette mark { background: var(--x-accent-soft, rgba(166, 0, 0, 0.1)); color: var(--x-ink, #1f1a17); border-radius: 2px; padding: 0 1px; }
+#gccx-palette li.x-ask .x-t { color: var(--x-accent, #a60000); }
+html.gccx-dark #gccx-palette li.x-ask .x-t { color: var(--x-accent, #e2645b); }
+#gccx-palette li.x-note { padding: 8px 14px 6px; font-size: 14px; color: var(--x-faint, #8a817a); }
+
+/* AI answer */
+#gccx-palette .x-answer { padding: 16px 22px 14px; border-bottom: 1px solid var(--x-rule, #e7e1da); }
+#gccx-palette .x-answer[hidden] { display: none; }
+#gccx-palette .x-answer p { margin: 0 0 8px; font-size: 16.5px; line-height: 1.6; color: var(--x-ink, #1f1a17); }
+#gccx-palette .x-answer p:last-child { margin-bottom: 0; }
+#gccx-palette .x-answer p.x-err { font-size: 15px; color: var(--x-accent, #a60000); }
+html.gccx-dark #gccx-palette .x-answer p.x-err { color: var(--x-accent, #e2645b); }
+#gccx-palette .x-answer ul.x-steps { list-style: none; margin: 0; padding: 0; max-height: none; overflow: visible; }
+#gccx-palette .x-answer ul.x-steps li { font-size: 14.5px; line-height: 1.7; color: var(--x-muted, #6b625b); font-style: italic; }
+#gccx-palette .x-answer ul.x-steps li:last-child { color: var(--x-ink, #1f1a17); }
+
+#gccx-palette .x-hint { line-height: 1.4; }
