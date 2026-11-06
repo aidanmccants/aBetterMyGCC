@@ -62,3 +62,18 @@ html.gccx .gccx-community-foot {
   font-size: 12px;
   color: var(--x-faint);
 }
+
+html.gccx #main-nav > li.gccx-d2l-tab { display: block; list-style: none; order: 1; margin: 0; padding: 0; height: 40px; }
+html.gccx a.gccx-d2l-link {
+  display: block; box-sizing: border-box; height: 40px; padding: 9px 12px;
+  border-bottom: 2px solid transparent; background: transparent !important;
+  color: var(--x-muted) !important; font-family: inherit; font-size: 15px; font-weight: 500;
+  line-height: 20px; white-space: nowrap; text-decoration: none !important;
+}
+html.gccx a.gccx-d2l-link:hover { color: var(--x-ink) !important; }
+html.gccx a.gccx-d2l-link:focus-visible { outline: 2px solid var(--x-accent); outline-offset: -2px; }
+
+/* plan drawer open: the viewport is 380px narrower, so tighten tab padding so Community and D2L stay visible */
+html.gccx.gccx-plan-open #main-nav > li > a,
+html.gccx.gccx-plan-open .gccx-community-btn,
+html.gccx.gccx-plan-open a.gccx-d2l-link { padding-left: 7px !important; padding-right: 7px !important; }

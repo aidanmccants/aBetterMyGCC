@@ -80,3 +80,11 @@ button.link:disabled { color: var(--faint); text-decoration: none; cursor: not-a
   button.primary, .field input, .field select { transition: none; }
   button.primary:hover { transform: none; }
 }
+
+/* General settings */
+h2 { font: 650 24px/1.2 var(--display); letter-spacing: -0.02em; margin: 48px 0 12px; }
+.prefs { background: var(--surface); border: 1px solid var(--rule-soft); border-radius: var(--radius); padding: 4px 16px; }
+.pref { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--rule-soft); }
+.pref:first-child { border-top: 0; }
+.pref input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.pref select { font: inherit; padding: 4px 8px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); color: var(--ink); }

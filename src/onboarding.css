@@ -252,3 +252,11 @@ html.gccx-onboarding-lock body { overflow: hidden !important; }
   #gccx-onboarding .gx-card { padding: 24px !important; }
   #gccx-onboarding .gx-actions { margin-top: 40px !important; }
 }
+
+#gccx-onboarding .gx-ai-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#gccx-onboarding .gx-ai {
+  font: 600 14px/1 var(--x-sans, inherit); padding: 8px 14px; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--x-accent); border: 1.5px solid var(--x-accent);
+}
+#gccx-onboarding .gx-ai:hover { background: var(--x-accent); color: #fff; }
+#gccx-onboarding .gx-ai:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }

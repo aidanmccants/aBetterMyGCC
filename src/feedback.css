@@ -61,6 +61,7 @@ html.gccx .gccx-fb-close {
   border-radius: var(--x-radius-control);
 }
 html.gccx .gccx-fb-close:hover { color: var(--x-ink); background: var(--x-ground-muted); }
+html.gccx .gccx-fb-scope { margin: 8px 0 0; font-weight: 600; font-size: 13px; color: var(--x-ink); }
 html.gccx .gccx-fb-help { margin: 6px 0 10px; color: var(--x-muted); font-size: 13px; }
 html.gccx .gccx-fb-label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--x-ink); }
 
@@ -97,7 +98,16 @@ html.gccx .gccx-fb-copy {
 }
 html.gccx .gccx-fb-copy:hover { background: var(--x-accent-hover); }
 html.gccx .gccx-fb-copy:disabled { opacity: 0.6; cursor: progress; }
-html.gccx .gccx-fb-tg { color: var(--x-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+/* Shared by the Telegram link and the Email button (a <button>, so it resets button chrome). */
+html.gccx .gccx-fb-tg {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  color: var(--x-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 html.gccx .gccx-fb-tg:hover { color: var(--x-accent-hover); }
 
 html.gccx .gccx-fb-status { margin: 10px 0 0; min-height: 0; font-size: 13px; color: var(--x-muted); }

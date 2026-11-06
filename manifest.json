@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "aBetterMyGCC",
   "version": "1.0.0",
-  "description": "Unofficial. A cleaner myGCC: Today dashboard, AI course planner with batch add, dark mode. Not affiliated with Grove City College.",
+  "description": "Unofficial myGCC upgrade: Today dashboard, course planner with register-all, optional AI help, dark mode. Not affiliated with GCC.",
   "icons": {
     "16": "icons/16.png",
     "48": "icons/48.png",

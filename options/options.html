@@ -3,12 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Plan with AI · aBetterMyGCC</title>
+  <title>Settings · aBetterMyGCC</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <main>
-    <h1>Plan with AI</h1>
+    <h1>aBetterMyGCC settings</h1>
+    <section class="prefs" aria-label="General">
+      <label class="pref"><span>Modern look</span><input type="checkbox" data-key="enabled"></label>
+      <label class="pref"><span>Today dashboard on Home</span><input type="checkbox" data-key="dashboard"></label>
+      <label class="pref"><span>Hide promo banners</span><input type="checkbox" data-key="hidePromos"></label>
+      <label class="pref"><span>Hide GPA (press and hold to show)</span><input type="checkbox" data-key="hideGpa"></label>
+      <label class="pref"><span>Appearance</span>
+        <select data-key="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+      <label class="pref"><span>Default dining hall</span>
+        <select data-key="hall"><option value="hicks-cafe">Hicks</option><option value="map-cafe">MAP</option></select>
+      </label>
+    </section>
+
+    <h2 id="ai">Plan with AI</h2>
     <p class="intro">Bring your own key from Anthropic, OpenAI, xAI or Google. The key is stored only in Chrome on this computer, sent only to the service you choose, and billed to your account with that service.</p>
 
     <label class="field"><span>API key</span>

@@ -6,10 +6,12 @@
     { name: 'Plate', url: 'https://plate.mccants.link', desc: "Plan your meals from GCC's dining menus." },
     { name: "Munson's study tool", url: 'https://www.rysaiah.com/civarts/', desc: 'A study tool for Civ Arts.' },
   ];
+  // UNVERIFIED: GCC's D2L/Brightspace address could not be confirmed. Change here if wrong.
+  const D2L_URL = 'https://learning.gcc.edu';
   const FOOTER = 'Community-made, not affiliated with Grove City College.';
 
   const root = document.documentElement;
-  const TAB_ID = 'gccx-community-tab', PANEL_ID = 'gccx-community-panel';
+  const D2L_ID = 'gccx-d2l-tab', TAB_ID = 'gccx-community-tab', PANEL_ID = 'gccx-community-panel';
   let panel = null, btn = null;
 
   function el(tag, props, kids) {
@@ -68,11 +70,12 @@
     const nav = document.getElementById('main-nav');
     const existing = document.getElementById(TAB_ID);
     if (!on || !nav) {
-      if (existing && !on) { close(false); existing.remove(); if (panel) panel.remove(); panel = btn = null; }
+      if (existing && !on) { close(false); existing.remove(); const d = document.getElementById(D2L_ID); if (d) d.remove(); if (panel) panel.remove(); panel = btn = null; }
       return;
     }
     if (existing && nav.contains(existing) && panel && panel.isConnected) return;
     if (existing) existing.remove();
+    const oldD = document.getElementById(D2L_ID); if (oldD) oldD.remove();
     if (panel) panel.remove();
 
     btn = el('button', { type: 'button', className: 'gccx-community-btn', textContent: 'Community' });
@@ -81,6 +84,10 @@
     btn.setAttribute('aria-haspopup', 'true');
     const li = el('li', { id: TAB_ID, className: 'gccx-community-tab' }, [btn]);
     nav.appendChild(li);
+    const dli = el('li', { id: D2L_ID, className: 'gccx-d2l-tab' }, [
+      el('a', { className: 'gccx-d2l-link', href: D2L_URL, target: '_blank', rel: 'noopener noreferrer', textContent: 'D2L' }),
+    ]);
+    nav.appendChild(dli);
     panel = buildPanel();
     document.body.appendChild(panel);
 

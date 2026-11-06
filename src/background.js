@@ -92,6 +92,10 @@ self.addEventListener('error', (e) => emitLog('error', 'background', e.message, 
 self.addEventListener('unhandledrejection', (e) => emitLog('error', 'background', 'Unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason), { stack: e.reason && e.reason.stack }));
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'open-options') {
+    chrome.runtime.openOptionsPage();
+    return;
+  }
   if (msg && msg.type === 'log') {
     emitLog(msg.level, msg.source || 'content', msg.message, msg.data);
     return false;

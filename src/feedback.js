@@ -5,6 +5,10 @@
 (function () {
   'use strict';
   const TELEGRAM = 'https://t.me/aidanmccants';
+  const EMAIL = 'abettergcc@aidanmccants.com';
+  const EMAIL_SUBJECT = 'aBetterMyGCC feedback';
+  const SHOT_NOTE = '\n\n(Screenshot copied to your clipboard — paste it into this email.)';
+  const LABEL = 'aBetterMyGCC feedback';
   const WRAP_ID = 'gccx-feedback';
   const root = document.documentElement;
 
@@ -147,12 +151,14 @@
     return new Promise((r, j) => c.toBlob((b) => (b ? r(b) : j(new Error('encode'))), 'image/png'));
   }
 
+  // Resolves to true when the screenshot (with the note on it) is on the clipboard.
   async function copyAll() {
-    if (busy) return;
+    if (busy) return false;
     busy = true;
     copyBtn.disabled = true;
     manual.hidden = true;
     say('');
+    let shotCopied = false;
     const shotFailed = shotChk.checked && !shotBlob;
     try {
       const text = buildText();
@@ -169,12 +175,12 @@
         try {
           await navigator.clipboard.write([new ClipboardItem({ 'text/plain': textBlob, 'image/png': imgBlob })]);
           say('Copied the screenshot with your note on it. Now paste into Telegram.', 'ok');
-          done = true;
+          done = shotCopied = true;
         } catch (_) {
           try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': imgBlob })]);
             say('Copied the screenshot with your note on it. Now paste into Telegram.', 'ok');
-            done = true;
+            done = shotCopied = true;
           } catch (__) { /* fall through to text only */ }
         }
       }
@@ -198,6 +204,19 @@
       busy = false;
       copyBtn.disabled = false;
     }
+    return shotCopied;
+  }
+
+  // Email button: same copy as Copy, then open a mailto: draft with the same text.
+  async function emailAll() {
+    if (busy) return;
+    const text = buildText();
+    const shotCopied = await copyAll();
+    const body = shotCopied ? text + SHOT_NOTE : text;
+    const url = 'mailto:' + EMAIL + '?subject=' + encodeURIComponent(EMAIL_SUBJECT) + '&body=' + encodeURIComponent(body);
+    window.open(url, '_blank');
+    // mailto cannot attach files, so the screenshot has to be pasted into the draft.
+    if (shotCopied) say('Opened your email. Paste the screenshot into the message.', 'ok');
   }
 
   // ---- panel ----
@@ -216,7 +235,8 @@
   }
 
   function build() {
-    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: 'Feedback' });
+    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: LABEL, title: LABEL });
+    btn.setAttribute('aria-label', LABEL);
     btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('aria-controls', WRAP_ID + '-panel');
     btn.setAttribute('aria-haspopup', 'dialog');
@@ -226,6 +246,7 @@
     closeBtn.setAttribute('aria-label', 'Close feedback');
     closeBtn.addEventListener('click', () => close(true));
 
+    const scope = el('p', { className: 'gccx-fb-scope', textContent: 'This is feedback for aBetterMyGCC (the extension), not for myGCC or Grove City College.' });
     const help = el('p', { className: 'gccx-fb-help', textContent: 'Write your note, press Copy, then open Telegram and paste it into the chat.' });
 
     note = el('textarea', { id: WRAP_ID + '-note', className: 'gccx-fb-note', rows: 4, maxLength: 2000, placeholder: 'What happened, or what would help?' });
@@ -243,7 +264,11 @@
     copyBtn.addEventListener('click', copyAll);
     const tg = el('a', { className: 'gccx-fb-tg', href: TELEGRAM, target: '_blank', rel: 'noopener noreferrer', textContent: 'Send on Telegram' });
     tg.setAttribute('aria-label', 'Send on Telegram (opens in a new tab)');
-    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, tg]);
+    // Email is a button, so it reuses the Telegram link's look (.gccx-fb-tg).
+    const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email' });
+    mail.setAttribute('aria-label', 'Email feedback (opens your email app)');
+    mail.addEventListener('click', emailAll);
+    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, tg, mail]);
 
     status = el('p', { className: 'gccx-fb-status' });
     status.setAttribute('role', 'status');
@@ -251,7 +276,7 @@
 
     panel = el('div', { id: WRAP_ID + '-panel', className: 'gccx-fb-panel', hidden: true }, [
       el('div', { className: 'gccx-fb-head' }, [title, closeBtn]),
-      help, noteLabel, note, shotBox, actions, status, thumb, manual,
+      scope, help, noteLabel, note, shotBox, actions, status, thumb, manual,
     ]);
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-labelledby', title.id);

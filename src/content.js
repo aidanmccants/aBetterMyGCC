@@ -6,7 +6,7 @@
   const X = window.GCCX;
   const root = document.documentElement;
 
-  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const TTL = { schedule: 6 * 3600e3, degree: 24 * 3600e3, chapel: 3 * 3600e3, balance: 6 * 3600e3, nav: 24 * 3600e3, pageIndex: 24 * 3600e3, standing: 24 * 3600e3, registration: 6 * 3600e3 };
 
   // ---- apply look synchronously (mirrored to localStorage to avoid a flash) ----
@@ -70,6 +70,8 @@
   const DEGREE_URL = '/ICS/Academics/Home.jnz?portlet=My_Degree_Progress';
   const CHAPEL_URL = '/ICS/My_Info/Student.jnz?portlet=Universal_Portlet';
   const BALANCE_URL = '/ICS/Financial/Student_Accounts.jnz?portlet=CASHNet_My_Account_Info';
+  // CashNet e-payment site for GCC (student account payments and CrimsonCash deposits)
+  const CASHNET_URL = 'https://commerce.cashnet.com/GCUPay';
   const REG_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
 
   // Post an ASP.NET form the way the browser would (optionally firing a postback).
@@ -88,28 +90,55 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const portletText = (doc) => [...doc.querySelectorAll('.portlet')].map((p) => p.textContent).join(' ');
 
-  // The schedule page opens on whichever term myGCC last showed (often next
-  // term once you pre-register). Walk the term list until one covers today.
+  // The schedule page opens on whichever term myGCC last showed. Pick the CURRENT
+  // term from today's date (same start dates as terms.js) and ask for it explicitly.
+  const TERM_START = { 10: [7, 15, 0], 15: [11, 20, 0], 20: [11, 20, 0], 30: [0, 8, 1], 40: [4, 8, 1], 50: [5, 1, 1], 55: [6, 1, 1] };
+  function termStart(o) {
+    const m = /^(\d{4});(\d{2})$/.exec(o.value);
+    if (m) { const t = TERM_START[+m[2]]; return t ? { key: +m[1] * 100 + +m[2], start: new Date(+m[1] + t[2], t[0], t[1]) } : null; }
+    const label = o.textContent || '';
+    const y = /(\d{4})/.exec(label);
+    const code = /fall/i.test(label) ? 10 : /winter/i.test(label) ? 15 : /spring/i.test(label) ? 30 : /may/i.test(label) ? 40 : /early summer/i.test(label) ? 50 : /summer/i.test(label) ? 55 : null;
+    if (!y || code == null) return null;
+    const t = TERM_START[code], year = +y[1] - (code >= 30 ? 1 : 0);
+    return { key: year * 100 + code, start: new Date(year + t[2], t[0], t[1]) };
+  }
+  // latest term that has already started
+  function currentTermOption(sel) {
+    const now = new Date();
+    let best = null;
+    [...sel.options].forEach((o) => { const t = termStart(o); if (t && t.start <= now && (!best || t.key > best.key)) best = { key: t.key, o }; });
+    return best && best.o;
+  }
+  const covers = (s) => s && s.courses.some((c) => c.start && c.end && Date.now() >= new Date(c.start) && Date.now() <= +new Date(c.end) + 864e5);
   const loadSchedule = (f) => cached('schedule', async () => {
     let doc = await getDoc(SCHEDULE_URL);
-    let sched = X.parseSchedule(doc);
-    const covers = (s) => s && s.courses.some((c) => c.start && c.end && Date.now() >= new Date(c.start) && Date.now() <= +new Date(c.end) + 864e5);
-    if (covers(sched)) return sched;
+    const first = X.parseSchedule(doc);
     const sel = [...doc.querySelectorAll('select')].find((s) => [...s.options].some((o) => /semester|term|summer|winter/i.test(o.textContent)));
-    if (!sel || !sel.name) return sched;
-    const opts = [...sel.options];
-    const now = new Date();
-    // Try terms whose name mentions this year or last year, nearest first
-    const cands = opts.filter((o) => !o.selected && new RegExp(`${now.getFullYear()}|${now.getFullYear() - 1}`).test(o.textContent)).slice(0, 4);
-    for (const o of cands) {
+    if (!sel || !sel.name) return first;
+    const cur = currentTermOption(sel);
+    const post = async (o) => {
       const btn = doc.querySelector('.portlet input[type=submit][name$="btnSearch"]');
       const extra = btn ? { [sel.name]: o.value, [btn.name]: btn.value, __EVENTTARGET: '', __EVENTARGUMENT: '' } : { [sel.name]: o.value, __EVENTTARGET: sel.name, __EVENTARGUMENT: '' };
       const d = await postForm(doc, SCHEDULE_URL, extra);
-      const s = d && X.parseSchedule(d);
-      if (covers(s)) return s;
-      if (d) doc = d;
+      return d ? { d, s: X.parseSchedule(d) } : null;
+    };
+    // 1) the term dated "now", explicitly, unless the page already shows it
+    if (cur && !cur.selected) {
+      const r = await post(cur);
+      if (r && r.s) return r.s;
+      if (r) doc = r.d;
+    } else if (cur && first) return first;
+    // 2) fallback: any other recent term whose dates cover today
+    if (covers(first)) return first;
+    const now = new Date();
+    const cands = [...sel.options].filter((o) => o !== cur && !o.selected && new RegExp(`${now.getFullYear()}|${now.getFullYear() - 1}`).test(o.textContent)).slice(0, 4);
+    for (const o of cands) {
+      const r = await post(o);
+      if (r && covers(r.s)) return r.s;
+      if (r) doc = r.d;
     }
-    return sched;
+    return first;
   }, f);
   const loadDegree = (f) => cached('degree', async () => X.parseDegree(await getDoc(DEGREE_URL)), f);
 
@@ -223,7 +252,7 @@
     if (!user) return;
     const L = X.loc(); // the page's myGCC URL (same as location except in the demo)
     const p = (L.pathname + L.search).toLowerCase();
-    if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length) store.set('schedule', { ts: Date.now(), user, data: d }); }
+    if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length && covers(d)) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
     if (document.querySelector('iframe[src*="chapel.aspx"]')) store.set('chapelPending', { user, ts: Date.now() });
     const b = X.parseBalances(document);
@@ -236,7 +265,10 @@
   function isHome() {
     const L = X.loc();
     const p = L.pathname.replace(/\/+$/, '').toLowerCase();
-    return (p === '/ics' || p === '/ics/portal_homepage.jnz' || p === '/ics/default.aspx') && !/portlet=/i.test(L.search);
+    // Home, plus the My Info tab (myGCC sometimes lands there after sign-in)
+    const homes = ['/ics', '/ics/portal_homepage.jnz', '/ics/default.aspx',
+      '/ics/my_info', '/ics/my_info/default_page.jnz', '/ics/my_info/student.jnz', '/ics/my_info/default.aspx'];
+    return homes.includes(p) && !/portlet=/i.test(L.search);
   }
 
   async function initDashboard(force) {
@@ -315,7 +347,7 @@
     const stats = [];
     const sg = state.standing;
     const ch = state.chapel;
-    if (sg && sg.gpa != null) stats.push({ href: DEGREE_URL, num: esc(sg.gpa.toFixed(2)), label: 'GPA' });
+    if (sg && sg.gpa != null) stats.push({ href: DEGREE_URL, num: esc(sg.gpa.toFixed(2)), label: 'GPA', gpa: settings.hideGpa && !gpaShown });
     if (sg && sg.earned != null) stats.push({ href: DEGREE_URL, num: `${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}`, label: 'Credits earned' });
     if (state.schedule && state.schedule.courses.length) {
       const credits = state.schedule.courses.reduce((s, c) => s + (c.credits || 0), 0);
@@ -327,8 +359,46 @@
       stats.push({ href: CHAPEL_URL, num: `${esc(done)}<small> of ${esc(need)}</small>`, label: 'Chapel' });
     }
     if (!stats.length) return '';
-    return `<div class="x-hero">${stats.map((s) => `<a class="x-hero-stat" href="${esc(s.href)}"${s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.num}</span><span class="x-hero-label">${esc(s.label)}</span></a>`).join('')}</div>`;
+    return `<div class="x-hero">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
   }
+
+  // GPA privacy: hidden until pressed and held; hides again when the pointer leaves.
+  let gpaShown = false;
+  (() => {
+    const HOLD = 700;
+    let timer = null;
+    const cancel = (el) => { clearTimeout(timer); timer = null; el && el.classList.remove('x-gpa-holding'); };
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest?.('.x-gpa-locked');
+      if (!el) return;
+      e.preventDefault();
+      el.classList.add('x-gpa-holding');
+      timer = setTimeout(() => {
+        timer = null;
+        gpaShown = true;
+        el.classList.remove('x-gpa-holding', 'x-gpa-locked');
+        el.classList.add('x-gpa-revealed');
+        el.removeAttribute('aria-label');
+        el.dataset.justRevealed = '1';
+      }, HOLD);
+    }, true);
+    ['pointerup', 'pointercancel'].forEach((t) => document.addEventListener(t, () => cancel(document.querySelector('.x-gpa-holding')), true));
+    document.addEventListener('pointerout', (e) => {
+      const el = e.target.closest?.('.x-hero-stat, .gx-gpa');
+      if (!el || el.contains(e.relatedTarget)) return;
+      if (el.classList.contains('x-gpa-holding')) cancel(el);
+      if (el.classList.contains('x-gpa-revealed') && settings.hideGpa) {
+        gpaShown = false;
+        el.classList.remove('x-gpa-revealed');
+        el.classList.add('x-gpa-locked');
+      }
+    }, true);
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest?.('.x-hero-stat');
+      if (!el) return;
+      if (el.classList.contains('x-gpa-locked') || el.dataset.justRevealed) { e.preventDefault(); delete el.dataset.justRevealed; }
+    }, true);
+  })();
 
   function registrationCard() {
     const r = state.registration;
@@ -349,12 +419,13 @@
     const left = todayCard(now);
     const glance = glanceCard();
     const dining = diningCard(now);
+    const cash = `<div class="x-quick"><a class="x-quick-btn" href="${CASHNET_URL}" target="_blank" rel="noopener noreferrer">CashNet <span>Student financials and CrimsonCash</span></a></div>`;
     return `
       <div class="x-hello"><h2>${greet}${user && user.first ? ', ' + esc(user.first) : ''}</h2><span class="x-date">${dateStr}</span></div>
       ${hero}
       <div class="x-grid">
         <div>${reg}${left}${dining}</div>
-        <div>${glance}</div>
+        <div>${glance}${cash}</div>
       </div>
       <div class="x-foot"><span>${state.loading ? 'Updating…' : 'Up to date'}</span><button type="button" data-refresh>Refresh</button></div>`;
   }
@@ -476,7 +547,8 @@
     else if (!m.stations || !m.stations.length) body = `<p class="x-empty">No menu posted.</p>`;
     else body = `<div class="x-stations">${m.stations.slice(0, 6).map((s) => `<div class="x-station"><h4>${esc(s.name)}</h4><p>${s.items.slice(0, 5).map(esc).join(', ')}</p></div>`).join('')}</div>`;
     const sub = m.meal ? `<p class="x-meal">${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ', later today' : ''}</p>` : '';
-    return `<div class="x-card"><h3>Dining${seg}</h3>${sub}${body}</div>`;
+    const phone = `<p class="x-dining-phone"><a href="https://plate.mccants.link" target="_blank" rel="noopener noreferrer">Want to check the menu on your phone?</a></p>`;
+    return `<div class="x-card"><h3>Dining${seg}</h3>${sub}${body}${phone}</div>`;
   }
 
   // ---------------- search palette (Ctrl/Cmd+K or /) ----------------
@@ -675,6 +747,7 @@ Known resources (official; you may link these without searching, but read_page c
 - List of all majors and departments: https://www.gcc.edu/Home/Academics/Majors-Departments
 - College Catalog (official course descriptions, degree programs, academic policies): https://www.gcc.edu/Home/Academics/Majors-Departments/College-Catalog . Use for course descriptions, prerequisites, graduation rules, policies.
 - Registrar office: https://www.gcc.edu/Utility/Offices/Registrar
+- The Crimson Student Handbook (student life policies: conduct, dress code, residence life, alcohol and drugs, health and wellness, student employment, SGA): https://www.gcc.edu/thecrimson . The 2025-26 PDF is https://www.gcc.edu/Portals/0/Crimson_2025-26.pdf . Use for conduct, dress, visitation, residence and student-life rules. read_page can't open it, so point students to the right section and link it.
 - Academic advising: https://www.gcc.edu/Home/Academics/Academic-Resource-Center/Academic-Advising`;
   // curated links the model may cite even though they are not myGCC pages (anything else off-site is dropped)
   const ASK_KNOWN = new Set([
@@ -682,6 +755,8 @@ Known resources (official; you may link these without searching, but read_page c
     'https://www.gcc.edu/home/academics/majors-departments',
     'https://www.gcc.edu/home/academics/majors-departments/college-catalog',
     'https://www.gcc.edu/utility/offices/registrar',
+    'https://www.gcc.edu/thecrimson',
+    'https://www.gcc.edu/portals/0/crimson_2025-26.pdf',
     'https://www.gcc.edu/home/academics/academic-resource-center/academic-advising',
   ]);
   const ASK_STEPS = 10;
