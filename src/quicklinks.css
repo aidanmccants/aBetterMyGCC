@@ -1,0 +1,161 @@
+/* aBetterMyGCC Quick Links. Restyles the JICS Resources portlet (.pt_ResourcesPortlet), which myGCC
+   titles "Quick Links", "Bookmarks", "Resources", "Information Links" or "Handouts" depending on the page.
+   Two JICS views: card view (.card-block-layout, a list of .card.item) and list view (a footable table).
+   CSS only: every link, set toggle, collapse-all, view toggle and help button is the original element. */
+
+html.gccx .pt_ResourcesPortlet { position: relative; container: gccxql / inline-size; }
+html.gccx .pt_ResourcesPortlet .resources-portlet { font-family: var(--x-sans); color: var(--x-ink); padding: 0 !important; margin: 0 !important; }
+/* bootstrap rows/cols add negative margins and gutters; flatten them so everything shares the card's edge */
+html.gccx .pt_ResourcesPortlet .resources-portlet :is(.row, [class*="col-"]) { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; float: none; width: auto; left: auto; }
+html.gccx .pt_ResourcesPortlet .resources-portlet > .row:not(:has(*:not(.col-md-12:empty))) { display: none; }
+html.gccx .pt_ResourcesPortlet .portlet-help-wrapper .btn { min-width: 28px; min-height: 28px; padding: 2px 6px !important; border-color: transparent !important; }
+
+/* ---------- controls: download (left), collapse-all + view toggle (right, on the title line) ---------- */
+html.gccx .pt_ResourcesPortlet .js-primary-set-buttons-parent { display: flex; align-items: center; gap: 8px; margin: 0 0 8px !important; }
+html.gccx .pt_ResourcesPortlet .js-primary-set-buttons-parent > .col-xs-8:not(:has(a, button)) { display: none; }
+html.gccx .pt_ResourcesPortlet .js-primary-set-buttons-parent .btn-primary {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px !important;
+  background: transparent !important; color: var(--x-muted) !important; border: 1px solid var(--x-rule-strong) !important;
+  border-radius: var(--x-radius-control) !important; font-size: 13px !important; font-weight: 500 !important; text-decoration: none !important; box-shadow: none !important;
+}
+html.gccx .pt_ResourcesPortlet .js-primary-set-buttons-parent .btn-primary:hover { color: var(--x-ink) !important; background: var(--x-ground-muted) !important; }
+html.gccx .pt_ResourcesPortlet .js-primary-set-buttons-parent .btn-primary .margin-l-xs { margin: 0; }
+
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements {
+  position: absolute; top: 14px; right: 56px; display: flex; align-items: center; gap: 12px;
+}
+html.gccx .pt_ResourcesPortlet .portlet-header-bar h3 { padding-right: 190px !important; }
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements > .row { order: -1; margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements > .row .d-inline:empty { display: none; }
+
+html.gccx .pt_ResourcesPortlet :is(.js-primary-set-buttons-parent, .resource-card-list-toggle-elements, .card-description, .card-block-layout > .sortable-list)::before,
+html.gccx .pt_ResourcesPortlet :is(.js-primary-set-buttons-parent, .resource-card-list-toggle-elements, .card-description, .card-block-layout > .sortable-list)::after { content: none !important; display: none !important; }
+
+/* segmented view toggle */
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container {
+  display: inline-flex; padding: 1px; gap: 1px; height: 28px; box-sizing: border-box;
+  border: 1px solid var(--x-rule-strong) !important; border-radius: var(--x-radius-control); background: transparent !important;
+}
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container > a {
+  display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; padding: 0 !important; box-sizing: border-box;
+  border-radius: 4px; background: transparent !important; color: var(--x-faint) !important; text-decoration: none !important;
+}
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container > a .glyphicons { color: inherit !important; font-size: 13px; line-height: 1; padding: 0; top: 0; }
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container > a .glyphicons::before { padding: 0; }
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container > a:hover { color: var(--x-ink) !important; }
+html.gccx .pt_ResourcesPortlet .card-list-view-toggle-container > a.primary-background { background: var(--x-ground-muted) !important; color: var(--x-ink) !important; box-shadow: inset 0 0 0 1px var(--x-rule); }
+
+/* "Collapse all sets" -> short muted text button (original text stays the accessible name) */
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements .link-btn {
+  font-size: 0 !important; padding: 4px 0 !important; background: none; border: 0; white-space: nowrap; color: var(--x-muted) !important; text-decoration: none !important;
+}
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements .link-btn::after { content: "Collapse all"; font-size: 13px; font-weight: 500; }
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements .link-btn[aria-expanded="false"]::after { content: "Expand all"; }
+html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements .link-btn:hover { color: var(--x-ink) !important; }
+
+/* narrow columns: controls drop under the title, right-aligned on their own line */
+@container gccxql (max-width: 400px) {
+  html.gccx .pt_ResourcesPortlet .portlet-header-bar h3 { padding-right: 0 !important; }
+  html.gccx .pt_ResourcesPortlet .resource-card-list-toggle-elements { position: static; margin-left: auto; }
+}
+
+/* ---------- link sets: section with a muted heading row, hairline between sets ---------- */
+html.gccx .pt_ResourcesPortlet .set-container > span:empty { display: none; }
+html.gccx .pt_ResourcesPortlet :is(.js-set-parent, .set, .drawer-global, .reorder-wrapper, .drawer-inner-container) { margin: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+html.gccx .pt_ResourcesPortlet .sortable-list:not(.js-sortable-list-for-resources):not(.card-block-layout *) { list-style: none; margin: 0; padding: 0; }
+html.gccx .pt_ResourcesPortlet .reorder-wrapper > .sortable-list > li.item { margin: 0; padding: 0; border: 0; }
+html.gccx .pt_ResourcesPortlet .drawer-container {
+  background: transparent !important; border: 0 !important; border-top: 1px solid var(--x-rule) !important;
+  border-radius: 0 !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important;
+}
+html.gccx .pt_ResourcesPortlet .drawer-container > .row.margin-b-sm { margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .drawer-container > .row:not(.margin-b-sm):not(:has(*:not(:empty))) { display: none; }
+html.gccx .pt_ResourcesPortlet .drawer-container .header-container { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0 4px; }
+html.gccx .pt_ResourcesPortlet .drawer-container .header-container > :is(.float-left, .float-right) { float: none; }
+html.gccx .pt_ResourcesPortlet .drawer-title {
+  margin: 0 !important; font-family: var(--x-sans) !important; font-size: 12px !important; font-weight: 600 !important;
+  letter-spacing: .04em !important; text-transform: uppercase !important; color: var(--x-muted) !important;
+}
+html.gccx .pt_ResourcesPortlet .drawer-toggle-button {
+  float: none !important; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  padding: 0 !important; border-radius: var(--x-radius-control); background: none; border: 0; color: var(--x-faint) !important;
+}
+html.gccx .pt_ResourcesPortlet .drawer-toggle-button:hover { background: var(--x-ground-muted); color: var(--x-ink) !important; }
+html.gccx .pt_ResourcesPortlet .drawer-toggle-button .glyphicons { color: inherit !important; font-size: 11px; top: 0; }
+html.gccx .pt_ResourcesPortlet .drawer-inner-container .options-container { padding: 0 0 8px !important; margin: 0 !important; }
+
+/* ---------- shared item typography ---------- */
+html.gccx .pt_ResourcesPortlet :is(a.resource-link, a.resource-name):is(a, #gccx-ql) {
+  margin: 0 !important; font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--x-ink) !important; text-decoration: none !important; overflow-wrap: anywhere;
+}
+html.gccx .pt_ResourcesPortlet :is(a.resource-link, a.resource-name):is(a, #gccx-ql):hover { color: var(--x-accent) !important; text-decoration: underline !important; text-underline-offset: 2px; }
+html.gccx .pt_ResourcesPortlet a:focus-visible, html.gccx .pt_ResourcesPortlet button:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; border-radius: var(--x-radius-chip); }
+html.gccx .pt_ResourcesPortlet .name-icon.glyphicons-link { display: none; }
+html.gccx .pt_ResourcesPortlet .name-icon { color: var(--x-faint) !important; font-size: 12px; margin-right: 6px; top: 1px; padding: 0; }
+html.gccx .pt_ResourcesPortlet .view-count:empty { display: none; }
+html.gccx .pt_ResourcesPortlet .view-count { font-size: 12px; color: var(--x-faint); }
+html.gccx .pt_ResourcesPortlet :is(.resource-description, .description-cell) :is(.wysiwygtext, p, span, div) {
+  font-size: 13px !important; line-height: 1.45; color: var(--x-muted) !important; overflow: visible;
+}
+html.gccx .pt_ResourcesPortlet :is(.resource-description, .description-cell) p { margin: 0 0 4px !important; }
+html.gccx .pt_ResourcesPortlet :is(.resource-description, .description-cell) p:last-child { margin-bottom: 0 !important; }
+html.gccx .pt_ResourcesPortlet :is(.resource-description, .description-cell) p:empty { display: none; }
+html.gccx .pt_ResourcesPortlet :is(.resource-description, .description-cell) a { color: var(--x-accent) !important; overflow-wrap: anywhere; }
+/* "Required" small neutral tag, then "· domain" */
+html.gccx .pt_ResourcesPortlet :is(.resource-status > div, .status-cell > span) {
+  display: inline-block; padding: 0 6px; font-size: 11px !important; font-weight: 600; line-height: 18px; letter-spacing: .02em;
+  color: var(--x-muted) !important; background: var(--x-ground-muted); border-radius: var(--x-radius-chip);
+}
+html.gccx .pt_ResourcesPortlet :is(.resource-status > div, .status-cell > span):empty { display: none; }
+html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) { font-size: 12px !important; color: var(--x-faint) !important; overflow-wrap: anywhere; }
+html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) * { font-size: inherit !important; color: inherit !important; }
+
+/* ---------- card view: rows in narrow columns, equal-height tiles in wide ones ---------- */
+html.gccx .pt_ResourcesPortlet .card-block-layout { container: gccxqlset / inline-size; padding: 0 !important; margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-block-layout > .sortable-list { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; padding: 0; }
+html.gccx .pt_ResourcesPortlet .card-block-layout .card.item {
+  float: none !important; width: auto !important; height: auto !important; min-height: 0 !important; margin: 0 !important;
+  padding: 12px 0 !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+}
+html.gccx .pt_ResourcesPortlet .card-block-layout .card.item + .card.item { border-top: 1px solid var(--x-rule) !important; }
+html.gccx .pt_ResourcesPortlet .card-block-layout :is(.card-contents-container, .card-contents) { padding: 0 !important; margin: 0 !important; height: auto !important; background: transparent !important; border: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-block-layout .resource-header { margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-description { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 4px; margin-top: 4px; padding: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-description > .row { margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet .card-description > .resource-description { flex: 1 0 100%; }
+html.gccx .pt_ResourcesPortlet .card-description > .resource-source::before { content: none; }
+html.gccx .pt_ResourcesPortlet .card-description > .resource-status ~ .resource-source::before { content: "·"; margin-right: 6px; color: var(--x-faint); }
+
+@container gccxqlset (min-width: 520px) {
+  html.gccx .pt_ResourcesPortlet .card-block-layout > .sortable-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 4px 0 8px; }
+  html.gccx .pt_ResourcesPortlet .card-block-layout .card.item,
+  html.gccx .pt_ResourcesPortlet .card-block-layout .card.item + .card.item {
+    padding: 12px 16px !important; border: 1px solid var(--x-rule) !important; border-radius: var(--x-radius-control) !important;
+    display: flex; flex-direction: column; transition: border-color var(--x-speed) var(--x-ease);
+  }
+  html.gccx .pt_ResourcesPortlet .card-block-layout .card.item:hover { border-color: var(--x-rule-strong) !important; }
+  html.gccx .pt_ResourcesPortlet .card-block-layout :is(.card-contents-container, .card-contents) { display: flex; flex-direction: column; flex: 1; }
+  html.gccx .pt_ResourcesPortlet .card-block-layout .card-description { flex: 1; align-content: flex-start; }
+  html.gccx .pt_ResourcesPortlet .card-block-layout .resource-description { max-height: 7.4em; overflow: hidden; }
+}
+
+/* ---------- list view: the footable table becomes a list of rows ---------- */
+html.gccx .pt_ResourcesPortlet .footable-container { padding: 0 !important; margin: 0 !important; overflow: visible !important; }
+html.gccx .pt_ResourcesPortlet table.resources-footable { display: block; width: 100% !important; border: 0 !important; margin: 0 !important; }
+html.gccx .pt_ResourcesPortlet table.resources-footable > thead,
+html.gccx .pt_ResourcesPortlet table.resources-footable .footable-detail-row,
+html.gccx .pt_ResourcesPortlet table.resources-footable td.checkbox-cell:is(td, #gccx-ql):not(:has(.reorder-icon:not(.hide))) { display: none !important; }
+html.gccx .pt_ResourcesPortlet table.resources-footable > tbody { display: block; }
+html.gccx .pt_ResourcesPortlet table.resources-footable > tbody > tr:not(.footable-detail-row) {
+  display: flex !important; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 4px; padding: 12px 0; border-top: 1px solid var(--x-rule);
+}
+html.gccx .pt_ResourcesPortlet table.resources-footable > tbody > tr:first-child { border-top: 0; }
+html.gccx .pt_ResourcesPortlet table.resources-footable > tbody > tr > td:is(td, #gccx-ql) {
+  display: block !important; padding: 0 !important; border: 0 !important; background: transparent !important; width: auto !important; min-width: 0; max-width: 100%;
+}
+html.gccx .pt_ResourcesPortlet table.resources-footable td.name-cell { flex: 1 0 100%; }
+html.gccx .pt_ResourcesPortlet table.resources-footable td.description-cell { flex: 1 0 100%; }
+html.gccx .pt_ResourcesPortlet table.resources-footable td.description-cell:is(td, #gccx-ql):not(:has(:not(:empty))):not(:has(img)) { display: none !important; }
+html.gccx .pt_ResourcesPortlet table.resources-footable td.source-cell:is(td, #gccx-ql):empty { display: none !important; }
+html.gccx .pt_ResourcesPortlet table.resources-footable td.status-cell:is(td, #gccx-ql):has(span:not(:empty)) + td.source-cell::before { content: "·"; margin-right: 6px; color: var(--x-faint); }
+html.gccx .pt_ResourcesPortlet table.resources-footable .footable-toggle { display: none !important; }

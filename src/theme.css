@@ -916,7 +916,8 @@ html.gccx .footer-container { overflow-x: clip; }
 
 /* GPA privacy: press-and-hold reveal with a filling ring */
 html.gccx .x-gpa-locked { cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; }
-html.gccx .x-hero-num:has(.x-gpa-mask) { position: relative; display: inline-grid; }
+html.gccx .x-hero-num:has(.x-gpa-mask),
+#gccx-dash .x-hero-num:has(.x-gpa-mask) { position: relative; display: inline-grid; justify-items: start; }
 html.gccx .x-gpa-mask, html.gccx .x-gpa-real { grid-area: 1 / 1; transition: opacity .35s ease, filter .35s ease, transform .35s cubic-bezier(.2,.9,.3,1.3); }
 html.gccx .x-gpa-locked .x-gpa-real { opacity: 0; filter: blur(8px); transform: scale(.85); }
 html.gccx .x-gpa-locked .x-gpa-mask { opacity: .55; letter-spacing: .08em; filter: blur(1.5px); }
@@ -938,3 +939,19 @@ html.gccx .x-gpa-revealed .x-gpa-hint { display: none; }
 
 /* Scrolling sections (e.g. Add/Drop results) clip Bootstrap .row's -5px gutters; pad them back */
 html.gccx .portlet .pSection { padding-inline: 6px; }
+
+/* ---- dashboard: Buildings (hours + room reservations) ---- */
+#gccx-dash .x-quick + .x-bld, #gccx-dash .x-card + .x-bld { margin-top: 20px; }
+#gccx-dash .x-bld-list { list-style: none; margin: 0; padding: 0; }
+#gccx-dash .x-bld-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--x-rule); }
+#gccx-dash .x-bld-list li:first-child { border-top: 0; padding-top: 0; }
+#gccx-dash .x-bld-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#gccx-dash a.x-bld-name { font-size: 15px; font-weight: 600; line-height: 1.3; color: inherit; text-decoration: none; }
+#gccx-dash a.x-bld-name:hover { color: var(--x-accent); }
+#gccx-dash .x-bld-meta { font-size: 13px; color: var(--x-muted); }
+#gccx-dash .x-bld-meta a { color: var(--x-muted); }
+#gccx-dash .x-bld-open { color: var(--x-ok); font-weight: 600; }
+#gccx-dash .x-bld-closed { color: var(--x-muted); font-weight: 600; }
+#gccx-dash a.x-bld-res { flex: none; font-size: 13px; color: var(--x-muted); text-decoration: none; border-bottom: 1px dotted var(--x-faint); }
+#gccx-dash a.x-bld-res:hover { color: var(--x-accent); border-bottom-color: var(--x-accent); }
+#gccx-dash .x-bld-note { margin: 12px 0 0; font-size: 13px; color: var(--x-muted); }

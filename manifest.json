@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "aBetterMyGCC",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Unofficial myGCC upgrade: Today dashboard, course planner with register-all, optional AI help, dark mode. Not affiliated with GCC.",
   "icons": {
     "16": "icons/16.png",
@@ -44,15 +44,20 @@
       ],
       "css": [
         "src/theme.css",
+        "src/loading.css",
         "src/signedout.css",
         "src/onboarding.css",
+        "src/whatsnew.css",
         "src/builder-split.css",
         "src/degree.css",
         "src/search.css",
         "src/community.css",
+        "src/forums.css",
+        "src/quicklinks.css",
         "src/feedback.css"
       ],
       "js": [
+        "src/loading.js",
         "src/lib.js",
         "src/terms.js",
         "src/content.js",
@@ -60,9 +65,11 @@
         "src/degree.js",
         "src/signedout.js",
         "src/onboarding.js",
+        "src/whatsnew.js",
         "src/contrast.js",
         "src/links.js",
         "src/community.js",
+        "src/forums.js",
         "src/feedback.js"
       ],
       "run_at": "document_start"

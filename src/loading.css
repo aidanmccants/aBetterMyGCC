@@ -1,0 +1,51 @@
+/* aBetterMyGCC loading feedback: top progress bar + skeleton over the content area.
+   Neutral skeleton blocks (rule/surface tones); the bar is the only colored element.
+   The bar sits on the crimson masthead, so it uses the masthead's own ink (white) to stay visible. */
+
+html.gccx #gccx-load-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 2147483000;
+  pointer-events: none; transform-origin: 0 50%; transform: scaleX(0);
+  background: var(--x-bar-ink); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  transition: transform 300ms ease-out, opacity 200ms ease-out;
+}
+html.gccx #gccx-load-bar.is-done { transform: scaleX(1); opacity: 0; }
+
+html.gccx #gccx-skel {
+  position: fixed; z-index: 2147482990; pointer-events: none; box-sizing: border-box;
+  background: var(--x-bg); padding: 20px 16px; overflow: hidden;
+  opacity: 0; transition: opacity 180ms ease-out;
+}
+html.gccx #gccx-skel.is-on { opacity: 1; }
+html.gccx #gccx-skel .sk {
+  position: relative; overflow: hidden; display: block;
+  background: var(--x-rule); border-radius: var(--x-radius-chip);
+}
+html.gccx #gccx-skel .sk::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--x-surface), transparent);
+  opacity: 0.55; animation: gccxSkSweep 1.3s ease-in-out infinite;
+}
+@keyframes gccxSkSweep { to { transform: translateX(100%); } }
+html.gccx #gccx-skel .sk-h { height: 26px; width: 38%; margin: 0 0 22px; }
+html.gccx #gccx-skel .sk-sub { height: 12px; width: 22%; margin: -10px 0 22px; }
+html.gccx #gccx-skel .sk-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+html.gccx #gccx-skel .sk-card { height: 76px; border-radius: var(--x-radius); background: var(--x-surface); border: 1px solid var(--x-rule); }
+html.gccx #gccx-skel .sk-cards { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+html.gccx #gccx-skel .sk-card.tall { height: 220px; }
+html.gccx #gccx-skel .sk-list { background: var(--x-surface); border: 1px solid var(--x-rule); border-radius: var(--x-radius); }
+html.gccx #gccx-skel .sk-row { display: flex; align-items: center; gap: 14px; padding: 16px; border-top: 1px solid var(--x-rule); }
+html.gccx #gccx-skel .sk-row:first-child { border-top: 0; }
+html.gccx #gccx-skel .sk-row .sk:first-child { flex: 0 1 46%; height: 14px; }
+html.gccx #gccx-skel .sk-row .sk:nth-child(2) { flex: 0 1 18%; height: 10px; margin-left: auto; }
+html.gccx #gccx-skel .sk-row .sk:nth-child(3) { flex: 0 0 48px; height: 10px; }
+html.gccx #gccx-skel .sk-filter { height: 34px; width: 280px; max-width: 70%; border-radius: var(--x-radius-control); margin-bottom: 14px; }
+html.gccx #gccx-skel .sk-p { height: 12px; margin: 0 0 10px; }
+
+@media (max-width: 700px) {
+  html.gccx #gccx-skel .sk-stats { grid-template-columns: repeat(2, 1fr); }
+  html.gccx #gccx-skel .sk-cards { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.gccx #gccx-load-bar { transition: opacity 200ms linear; }
+  html.gccx #gccx-skel .sk::after { display: none; }
+}
