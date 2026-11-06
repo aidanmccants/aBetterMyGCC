@@ -107,12 +107,14 @@ html.gccx .pt_ResourcesPortlet :is(.resource-status > div, .status-cell > span) 
   color: var(--x-muted) !important; background: var(--x-ground-muted); border-radius: var(--x-radius-chip);
 }
 html.gccx .pt_ResourcesPortlet :is(.resource-status > div, .status-cell > span):empty { display: none; }
-html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) { font-size: 12px !important; color: var(--x-faint) !important; overflow-wrap: anywhere; }
+html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) { line-height: 18px; font-size: 12px !important; color: var(--x-faint) !important; overflow-wrap: anywhere; }
 html.gccx .pt_ResourcesPortlet :is(.resource-source, .source-cell) * { font-size: inherit !important; color: inherit !important; }
 
 /* ---------- card view: rows in narrow columns, equal-height tiles in wide ones ---------- */
 html.gccx .pt_ResourcesPortlet .card-block-layout { container: gccxqlset / inline-size; padding: 0 !important; margin: 0 !important; }
-html.gccx .pt_ResourcesPortlet .card-block-layout > .sortable-list { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; padding: 0; }
+html.gccx .pt_ResourcesPortlet .card-block-layout > .sortable-list { display: grid !important; grid-template-columns: 1fr; gap: 0; margin: 0; padding: 0; height: auto !important; }
+/* JICS masonry script absolutely positions each card; the grid takes over layout instead */
+html.gccx .pt_ResourcesPortlet .card-block-layout .card.item { position: static !important; left: auto !important; top: auto !important; transform: none !important; }
 html.gccx .pt_ResourcesPortlet .card-block-layout .card.item {
   float: none !important; width: auto !important; height: auto !important; min-height: 0 !important; margin: 0 !important;
   padding: 12px 0 !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
