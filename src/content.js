@@ -6,7 +6,7 @@
   const X = window.GCCX;
   const root = document.documentElement;
 
-  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const TTL = { schedule: 6 * 3600e3, degree: 24 * 3600e3, chapel: 3 * 3600e3, balance: 6 * 3600e3, nav: 24 * 3600e3, pageIndex: 24 * 3600e3, standing: 24 * 3600e3, registration: 6 * 3600e3 };
 
   // ---- apply look synchronously (mirrored to localStorage to avoid a flash) ----
@@ -33,6 +33,7 @@
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     root.classList.toggle('gccx-dark', settings.enabled && dark);
     root.classList.toggle('gccx-nobanner', settings.enabled && settings.hidePromos);
+    window.GCCXThemes?.apply(settings);
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);
 
@@ -240,7 +241,12 @@
         } else if (!src && !hit) {
           await store.set('chapel', { ts: Date.now(), user, data: null });
         }
-      } catch (e) { console.warn('[aBetterMyGCC] chapel', e); }
+      } catch (e) {
+        // "Failed to fetch" means the request never finished (page left mid-load, offline,
+        // sign-in expired). Cached numbers stay; the next page load tries again.
+        if (e instanceof TypeError) console.debug('[aBetterMyGCC] chapel fetch interrupted', e.message);
+        else console.warn('[aBetterMyGCC] chapel', e);
+      }
     }
     return hit && hit.user === user ? hit.data : null;
   }
@@ -346,17 +352,11 @@
   function heroHTML() {
     const stats = [];
     const sg = state.standing;
-    const ch = state.chapel;
     if (sg && sg.gpa != null) stats.push({ href: DEGREE_URL, num: esc(sg.gpa.toFixed(2)), label: 'GPA', gpa: settings.hideGpa && !gpaShown });
     if (sg && sg.earned != null) stats.push({ href: DEGREE_URL, num: `${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}`, label: 'Credits earned' });
     if (state.schedule && state.schedule.courses.length) {
       const credits = state.schedule.courses.reduce((s, c) => s + (c.credits || 0), 0);
       stats.push({ href: SCHEDULE_URL, num: esc(credits), label: 'credits registered', title: 'This term' });
-    }
-    if (ch && ch.required != null) {
-      const done = (ch.attended || 0) + (ch.special || 0);
-      const need = (ch.required || 0) + (ch.rollover || 0);
-      stats.push({ href: CHAPEL_URL, num: `${esc(done)}<small> of ${esc(need)}</small>`, label: 'Chapel' });
     }
     if (!stats.length) return '';
     return `<div class="x-hero">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
@@ -425,7 +425,7 @@
       ${hero}
       <div class="x-grid">
         <div>${reg}${left}${dining}</div>
-        <div>${glance}${cash}</div>
+        <div>${glance}${cash}${buildingsCard()}</div>
       </div>
       <div class="x-foot"><span>${state.loading ? 'Updating…' : 'Up to date'}</span><button type="button" data-refresh>Refresh</button></div>`;
   }
@@ -501,6 +501,90 @@
     const first = s.split(';')[0];
     const m = /^([^,]+),\s*(Dr\.|Prof\.|Mr\.|Mrs\.|Ms\.)?/.exec(first);
     return m ? `${m[2] ? m[2] + ' ' : ''}${m[1].trim()}` : first;
+  }
+
+  // ---------------- building hours ----------------
+  // Student-facing SharePoint schedules, published July 17, verified November 6, 2026.
+  const FAC_URL = window.GCCXFacilities.source;
+  const BUILDINGS = window.GCCXFacilities.buildings;
+  const hm = (h, m = 0) => h * 60 + m;
+  function easternNow(d) {
+    const p = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+      .formatToParts(d).forEach((x) => { p[x.type] = x.value; });
+    return { day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday), min: (+p.hour % 24) * 60 + +p.minute };
+  }
+  function fmtMin(m) {
+    m %= 1440;
+    if (m === 0) return 'midnight';
+    if (m === 720) return 'noon';
+    const h = Math.floor(m / 60), mm = m % 60;
+    return `${h % 12 || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`;
+  }
+  function buildingStatus(b, d) {
+    if (b.always) return { open: true, text: '24 hours during the semester' };
+    const { day, min } = easternNow(d);
+    if (!b.hours || day < 0) return null;
+    const slots = (value) => !value ? [] : typeof value[0] === 'number' ? [value] : value;
+    for (const prior of slots(b.hours[(day + 6) % 7])) {
+      if (prior[1] > 1440 && min < prior[1] - 1440) return { open: true, text: `until ${fmtMin(prior[1])}` };
+    }
+    const today = slots(b.hours[day]);
+    const current = today.find(t => min >= t[0] && min < (t[1] === 1439 ? 1440 : t[1])); // 11:59 PM means open through the last minute
+    if (current) return { open: true, text: `until ${fmtMin(current[1])}` };
+    const next = today.find(t => min < t[0]);
+    if (next) return { open: false, text: `opens ${fmtMin(next[0])}` };
+    for (let i = 1; i <= 7; i++) {
+      const ranges = slots(b.hours[(day + i) % 7]);
+      if (ranges.length) return { open: false, text: `opens ${i === 1 ? 'tomorrow' : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(day + i) % 7]} ${fmtMin(ranges[0][0])}` };
+    }
+    return { open: false, text: 'closed' };
+  }
+  // Presentation only: rewords buildingStatus() text ("opens tomorrow 7 AM" -> "Opens 7 AM tomorrow").
+  function bldPhrase(t, cap = true) {
+    if (!t) return '';
+    const m = /^opens (tomorrow|Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) (.+)$/.exec(t);
+    if (m) t = `opens ${m[2]} ${m[1] === 'tomorrow' ? 'tomorrow' : m[1]}`;
+    return cap ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+  function buildingsCard() {
+    const now = new Date();
+    const info = (b) => {
+      let s = null;
+      try { s = buildingStatus(b, now); } catch (e) { /* fall through */ }
+      let card = null;
+      try { card = b.keycard ? buildingStatus({ hours: b.keycard }, now) : null; } catch (e) { /* fall through */ }
+      return { b, s, card, rank: s?.open ? 0 : card?.open ? 1 : s ? 2 : 3 };
+    };
+    const row = ({ b, s, card, rank }) => {
+      const { day, min } = easternNow(now);
+      const restricted = b.name === 'Pew Fine Arts Center' && day === 0 && min >= hm(13, 30) && min < hm(16, 30);
+      const state = rank === 0 ? ['open', 'Open'] : rank === 1 ? ['card', restricted ? 'Music students only' : 'Keycard only'] : ['closed', 'Closed'];
+      let lines = '';
+      if (s) {
+        const pub = rank === 1 ? `Public: ${bldPhrase(s.text, false)}` : bldPhrase(s.text);
+        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-${state[0]}">${esc(state[1])}</span><span class="x-bld-when">${esc(pub)}</span></span>`;
+        if (card) lines += `<span class="x-bld-meta">Keycard: ${esc(bldPhrase(card.text, false))}</span>`;
+      } else {
+        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-closed">Hours vary</span><a class="x-bld-when" href="${b.url}" target="_blank" rel="noopener">Check hours</a></span>`;
+      }
+      const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener" aria-label="Reserve a room in ${esc(b.name)}">Reserve a room</a>` : '';
+      return `<li class="is-${state[0]}"><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
+        ${lines}${b.accessNote ? `<span class="x-bld-note-line">${esc(b.accessNote)}</span>` : ''}</div>${res}</li>`;
+    };
+    const all = BUILDINGS.map(info);
+    const openCount = all.filter(x => x.rank === 0).length;
+    const byOpen = (list) => list.map((x, i) => [x, i]).sort((p, q) => p[0].rank - q[0].rank || p[1] - q[1]).map(p => p[0]);
+    const TOP = ['Buhl Library', 'Staley Hall of Arts and Letters (SHAL)', 'STEM Hall'];
+    const top = all.filter(x => TOP.includes(x.b.name)), rest = all.filter(x => !TOP.includes(x.b.name));
+    const rows = top.map(row).join('');
+    const more = ['Academic', 'Administrative', 'Athletic', 'Dining'].map(group => {
+      const items = byOpen(rest.filter(x => x.b.group === group));
+      const n = items.filter(x => x.rank === 0).length;
+      return `<h4>${group} <span class="x-bld-count">${n} of ${items.length} open</span></h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
+    }).join('');
+    return `<div class="x-card x-bld"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
+      <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length}) &middot; ${openCount} open now</summary><p class="x-bld-hint">Open places are listed first in each group.</p>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
   }
 
   function glanceCard() {

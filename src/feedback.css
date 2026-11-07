@@ -143,3 +143,22 @@ html.gccx .gccx-fb-manual:focus-visible {
   html.gccx .gccx-fb-btn, html.gccx .gccx-fb-copy { transition: none; }
 }
 @media print { html.gccx .gccx-fb { display: none; } }
+
+/* Readability pass: larger type, one clear main action, quieter secondary links. */
+html.gccx .gccx-fb { font-size: 15px; line-height: 1.5; }
+html.gccx .gccx-fb-btn { font-size: 14px; padding: 8px 14px; color: var(--x-ink); }
+html.gccx .gccx-fb-panel { width: min(360px, calc(100vw - 32px)); padding: 18px 20px 20px; }
+html.gccx .gccx-fb-title { font-size: 18px; }
+html.gccx .gccx-fb-help { margin: 4px 0 16px; font-size: 14px; color: var(--x-muted); }
+html.gccx .gccx-fb-label { font-size: 14px; margin-bottom: 6px; }
+html.gccx .gccx-fb-note { font-size: 15px; line-height: 1.5; padding: 10px 12px; min-height: 104px; background: var(--x-surface); }
+html.gccx .gccx-fb-note::placeholder { color: var(--x-faint); opacity: 1; }
+html.gccx .gccx-fb-check { margin: 12px 0 16px; font-size: 14px; color: var(--x-ink); }
+html.gccx .gccx-fb-thumb { margin: 0 0 16px; }
+html.gccx .gccx-fb-main { display: block; width: 100%; text-align: center; padding: 11px 16px; font-size: 15px; }
+html.gccx .gccx-fb-steps { margin: 8px 0 0; font-size: 13px; color: var(--x-muted); text-align: center; }
+html.gccx .gccx-fb-actions { display: flex; justify-content: center; gap: 20px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--x-rule); font-size: 14px; }
+html.gccx .gccx-fb-tg { color: var(--x-muted); font-weight: 500; }
+html.gccx .gccx-fb-tg:hover { color: var(--x-ink); }
+html.gccx .gccx-fb-tg:disabled { opacity: .6; cursor: progress; }
+html.gccx .gccx-fb-status { margin-top: 12px; font-size: 14px; text-align: center; }

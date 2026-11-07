@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <title>aBetterMyGCC</title>
+  <link rel="stylesheet" href="../src/theme-engine/fonts.css">
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="../src/theme-engine/shell.css">
+  <script src="../src/theme-engine/default-theme.js"></script>
+  <script src="../src/theme-engine/runtime.js"></script>
 </head>
 <body>
   <header>
@@ -12,8 +17,6 @@
   </header>
 
   <label class="row"><span>Modern look</span><input type="checkbox" data-key="enabled"></label>
-  <label class="row"><span>Today dashboard on Home</span><input type="checkbox" data-key="dashboard"></label>
-  <label class="row"><span>Hide promo banners</span><input type="checkbox" data-key="hidePromos"></label>
   <label class="row"><span>Hide GPA (press and hold to show)</span><input type="checkbox" data-key="hideGpa"></label>
 
   <div class="row">
@@ -25,19 +28,7 @@
     </div>
   </div>
 
-  <div class="row plan">
-    <span class="plan-text"><span>Plan with AI</span><small id="ai-state">Not set up</small></span>
-    <button type="button" class="primary" id="ai-btn">Set up</button>
-  </div>
-
-  <div class="row plan">
-    <span class="plan-text"><span>Try the demo</span><small>Sample student, no myGCC account needed</small></span>
-    <button type="button" class="secondary" id="demo-btn">Open demo</button>
-  </div>
-
-  <p class="note">Press Ctrl K (⌘ K on Mac) on any myGCC page to jump anywhere. Your myGCC data stays on this computer.</p>
-  <p class="tools"><button type="button" class="link" id="welcome">Show welcome screen again</button></p>
-  <p class="tools"><button type="button" class="link" id="openlog">Open live log</button></p>
+  <p class="advanced"><button type="button" class="secondary" id="advanced">Advanced settings</button></p>
   <script src="popup.js"></script>
 </body>
 </html>

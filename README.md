@@ -20,6 +20,21 @@ It works for anyone signed in to myGCC. Everything it shows comes from that pers
 - **Search:** press Ctrl K (⌘ K on a Mac) or / on any myGCC page to jump to any page, course or service.
 - **Look:** serif type, GCC crimson, light and dark mode. In dark mode, a contrast pass lightens any dark text or line and darkens any white box that myGCC hard-codes, including text staff paste into pages. Promo banners and decorative boxes are hidden; you can show the banners again from the popup.
 
+## Version 1.1.0
+
+- Redesigned forums and Quick Links, loading feedback, and an update summary.
+- Campus announcement and event lists with readable titles.
+- Building public and keycard hours with access restrictions; follow building links for official schedules. Breaks and holidays may differ.
+- Feedback: write a note, optionally add a screenshot, then Copy and open Telegram (or Copy only / Email instead) and paste it. Nothing is sent automatically.
+
+## Themes
+
+Choose a design in the toolbar popup or Settings > Design themes. Automatic holiday themes are enabled by default and temporarily override the selected design on their scheduled dates; your selected theme returns afterward. Light/Dark/Auto remains separate. Themes ship as folders in `themes/`; there are no imported or personal themes. Autumn pixels includes code-generated SVG artwork and a subtle looping GIF banner with swaying trees and falling leaves, and runs November 15-26. Turn off Animate theme artwork in the popup or Settings to keep it still; OS reduced-motion preferences always use the original static SVG.
+
+Theme sources live in the workspace's `themes/<name>/` folders; run `node themes/build.cjs` to package them into this extension's `themes/` folder. See the workspace `themes/README.md` and `themes/DESIGN.md` for the workflow and token map. `themes/manifest.json` defines installed packs and the default.
+
+Building hours include public/keycard schedules from the campus-hours page, plus 35 facilities in an expandable list. Official source links require GCC sign-in; breaks and athletic events may change access.
+
 ## Install
 
 1. Open `chrome://extensions` in Chrome.

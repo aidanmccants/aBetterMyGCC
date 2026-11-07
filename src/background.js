@@ -1,10 +1,10 @@
 // aBetterMyGCC service worker: fetches public dining menus from Nutrislice (the
 // college's menu provider), and, only if you add your own AI key, talks to
 // the AI service you chose for "Plan with AI".
-importScripts('ai.js', 'devreload.js');
+importScripts('ai.js', 'devreload.js', 'theme-engine/loader.js');
 const API = 'https://gcc.api.nutrislice.com/menu/api';
 
-// Meal windows (Eastern time). Weekend MAP is closed; Fri MAP dinner closed.
+// Meal windows (Eastern time), student-facing campus hours published 2026-07-17. Weekend MAP is closed.
 const MEALS = {
   'hicks-cafe': [
     { slug: 'breakfast', name: 'Breakfast', from: 7 * 60, to: 11 * 60 },
@@ -13,8 +13,8 @@ const MEALS = {
   ],
   'map-cafe': [
     { slug: 'breakfast', name: 'Breakfast', from: 7 * 60, to: 11 * 60, days: [1, 2, 3, 4, 5] },
-    { slug: 'lunch', name: 'Lunch', from: 11 * 60, to: (d) => (d === 5 ? 14 * 60 + 30 : 16 * 60 + 30), days: [1, 2, 3, 4, 5] },
-    { slug: 'dinner', name: 'Dinner', from: 16 * 60 + 30, to: 20 * 60, days: [1, 2, 3, 4] },
+    { slug: 'lunch', name: 'Lunch', from: 11 * 60, to: 16 * 60 + 30, days: [1, 2, 3, 4, 5] },
+    { slug: 'dinner', name: 'Dinner', from: 16 * 60 + 30, to: 20 * 60, days: [1, 2, 3, 4, 5] },
   ],
 };
 
@@ -93,7 +93,7 @@ self.addEventListener('unhandledrejection', (e) => emitLog('error', 'background'
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg && msg.type === 'open-options') {
-    chrome.runtime.openOptionsPage();
+    chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html#ai') });
     return;
   }
   if (msg && msg.type === 'log') {
@@ -149,5 +149,5 @@ chrome.runtime.onStartup.addListener(async () => {
 // First run: open myGCC, where the welcome screen (onboarding.js) appears.
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason !== 'install') return;
-  chrome.storage.local.set({ onboarding: 'pending' }, () => chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' }));
+  chrome.storage.local.set({ onboarding: 'pending', whatsnewSeen: chrome.runtime.getManifest().version }, () => chrome.tabs.create({ url: 'https://my.gcc.edu/ICS/' }));
 });

@@ -2,11 +2,11 @@
 const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
 chrome.storage.local.get('settings', ({ settings }) => {
   const st = { ...DEFAULTS, ...(settings || {}) };
-  const save = () => chrome.storage.local.set({ settings: st });
+  const save = async (key, value) => { const { settings: latest } = await chrome.storage.local.get('settings'); await chrome.storage.local.set({ settings: { ...(latest || {}), [key]: value } }); };
   document.querySelectorAll('.prefs [data-key]').forEach((el) => {
     const k = el.dataset.key;
     if (el.type === 'checkbox') el.checked = !!st[k]; else el.value = st[k];
-    el.addEventListener('change', () => { st[k] = el.type === 'checkbox' ? el.checked : el.value; save(); });
+    el.addEventListener('change', () => { st[k] = el.type === 'checkbox' ? el.checked : el.value; save(k, st[k]); });
   });
 });
 
@@ -105,3 +105,20 @@ $('#clear').addEventListener('click', async () => {
   refresh(null);
   msg('Key removed.');
 });
+
+// ---------- sidebar sections ----------
+const PANELS = ['general', 'appearance', 'ai', 'help'];
+function showPanel() {
+  const raw = location.hash.slice(1);
+  const id = PANELS.includes(raw) ? raw : raw === 'themes-title' ? 'appearance' : 'general';
+  PANELS.forEach((p) => { document.getElementById(p).hidden = p !== id; });
+  document.querySelectorAll('.side a').forEach((a) => a.toggleAttribute('aria-current', a.hash === '#' + id));
+}
+window.addEventListener('hashchange', showPanel);
+showPanel();
+
+// ---------- help ----------
+const openTab = (url) => chrome.tabs.create({ url });
+$('#demo-btn').addEventListener('click', () => openTab(chrome.runtime.getURL('demo/index.html')));
+$('#openlog').addEventListener('click', () => openTab(chrome.runtime.getURL('logs/log.html')));
+$('#welcome').addEventListener('click', async () => { await chrome.storage.local.set({ onboarding: 'pending' }); openTab('https://my.gcc.edu/ICS/'); });

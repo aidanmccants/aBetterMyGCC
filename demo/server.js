@@ -202,10 +202,14 @@
     const body = `<div id="portlet-grid">
       ${portlet('pi_Welcome', 'Welcome', '<p>Welcome to the sample student portal used by the aBetterMyGCC demo.</p>')}
       ${portlet('pi_Announcements', 'Campus Announcements', `<ul>
-        <li><b>Registration is open.</b> Plan next term from Academics, Add/Drop Courses.</li>
+        <li><b>Registration &amp;amp; planning are open.</b> Plan next term from Academics, Add/Drop Courses.</li>
         <li><b>Library hours extended</b> during finals week, until 2 AM.</li>
         <li><b>Flu clinic</b> Thursday in the student union, no appointment needed.</li></ul>`)}
-      ${portlet('pi_Links', 'Need help?', '<p>Questions about this portal go to the IT Help Desk under Resources.</p>')}
+      ${portlet('pt_CalendarPortlet', 'Upcoming events', `<table class="calendar-list-view"><tbody>
+        <tr><td class="event-date">Today</td><td><a href="/ICS/Campus_Life/Events.jnz">Student music &amp;amp; arts evening</a><div class="event-time">7:00 PM</div><div class="event-location">Sample Arts Building</div></td></tr>
+        <tr><td class="event-date">Tomorrow</td><td><a href="/ICS/Campus_Life/Events.jnz">Research &amp;amp; internship workshop</a><div class="event-time">4:00 PM</div><div class="event-location">Sample Student Union</div></td></tr>
+      </tbody></table>`)}
+      ${portlet('pi_Links', 'Need help?', '<p>Questions about this portal go to the IT Help Desk under Resources.</p><p><a href="/ICS/Campus_Life/Forums.jnz?portlet=Forums&amp;screen=Main">Try the sample forums</a></p>')}
     </div>`;
     return shell({ url, tab: 'Home', title: 'Home', body, home: true, side: [P('Home', '/ICS/')] });
   }
@@ -396,6 +400,25 @@
       <p>Announcements (sample): the next problem set is due Friday; office hours move to Thursday this week. The syllabus and grades are in the course's learning site.</p></div>`);
     return shell({ url, tab: 'Academics', title: `${c.code} ${titleCase(c.title)}`, body });
   }
+  // Representative forum markup for release QA; all posts and people are fictional.
+  const FORUM_URL = '/ICS/Campus_Life/Forums.jnz?portlet=Forums';
+  function forumPage(url, screen) {
+    const link = (view) => h(FORUM_URL + '&screen=' + view);
+    const cell = (label, value) => `<div role="cell" class="forum-grid-column"><span class="forum-grid-header-label">${label}</span><div class="mobile-column-value">${value}</div></div>`;
+    const topics = ['Campus questions', 'Study groups'];
+    const rows = topics.map((name, i) => `<div role="row">
+      <div role="cell" class="forum-grid-column"><div class="topic-link-container"><a href="${link('TopicView')}">${name}</a><p>Fictional demo discussion for students.</p></div></div>
+      ${cell('Unread', i ? '0' : `<a href="${link('PostView')}">2</a>`)}${cell('Posts', '3')}${cell('Replies', '2')}
+      ${cell('Latest', `<div class="post-link"><a href="${link('PostView')}">Welcome to the demo forum</a></div><div class="post-attribution">by Demo Student<br>on ${mdy(now)} at 10:00 AM</div>`)}
+    </div>`).join('');
+    const postRows = topics.map((name, i) => `<div role="row">${cell('Post', `<div class="post-link"><a href="${link('PostView')}">${i ? 'Finding a study group' : 'Welcome to the demo forum'}</a></div><div class="post-attribution">by Demo Student<br>on ${mdy(now)} at 10:00 AM</div>`)}${cell('Unread', '1')}${cell('Replies', '2')}${cell('Latest', `<div class="post-link"><a href="${link('PostView')}">Read reply</a></div>`)}</div>`).join('');
+    let inner;
+    if (screen === 'topicview') inner = `<div class="category-label">Student discussions</div><div class="topic-link-title"><h3>Campus questions</h3></div><div class="topic-options"><a class="add-post-link btn-primary" href="${link('AddPost')}">New post</a></div><div class="forum-grid" role="table">${postRows}</div>`;
+    else if (screen === 'postview') inner = `<div class="category-label">Student discussions</div><div class="post-view-header"><h3 class="post-title">Welcome to the demo forum</h3></div><div class="post-view-container"><div class="post"><div class="post-attribution">by Demo Student</div><div class="post-content"><p>This fictional post lets you try reading a forum without a college login.</p></div><a class="post-reply-btn btn-primary" href="${link('AddPost')}">Reply</a></div></div>`;
+    else if (screen === 'addpost') inner = `<div class="add-post"><h3 class="manage-title">New post</h3><div class="manage-post-container"><label for="demo-post-title">Title</label><input id="demo-post-title" type="text"><label for="demo-post-body">Message</label><textarea id="demo-post-body" rows="6"></textarea><p>Demo only: messages are not saved or sent.</p><a href="${link('TopicView')}">Back to posts</a></div></div>`;
+    else inner = `<div class="main-content"><h4 class="forum-grid-name">Student discussions</h4><div class="forum-grid" role="table">${rows}</div></div>`;
+    return shell({ url, tab: 'Campus Life', title: 'Forums (sample)', body: portlet('pt_ForumPortlet', 'Forums', `<div class="forums-portlet"><a class="topic-navigation-main-screen-link" href="${link('Main')}">All forums</a>${inner}</div>`, FORUM_URL + '&screen=Main') });
+  }
   function notFound(url) {
     return shell({ url, tab: 'Home', title: 'Not in the demo', body: portlet('pi_Free_form_Content', 'Not in the demo', '<p>This page is not part of the sample portal. Use the tabs above or press Ctrl K to search.</p>') });
   }
@@ -410,6 +433,7 @@
     const form = { get: (k) => { if (raw.has(k)) return raw.get(k); for (const [n, v] of raw) if (n.endsWith(k)) return v; return null; }, keys: () => raw.keys() };
     const full = u.pathname + u.search;
     const p = path.toLowerCase();
+    if (p === '/ics/campus_life/forums.jnz') return forumPage(full, (u.searchParams.get('screen') || 'Main').toLowerCase());
     if (p === '/ics' || p === '/ics/portal_homepage.jnz' || p === '/ics/default.aspx') return homePage(full);
     if (p === '/ics/academics/home.jnz') {
       if (portletName === 'student_schedule') return schedulePage(full, form);

@@ -1,7 +1,6 @@
 // aBetterMyGCC feedback: a small fixed button (bottom left) that opens a panel
 // where students write a note, optionally attach a screenshot of the page, copy
-// both to the clipboard, and then paste them into a Telegram chat with the author.
-// Nothing is sent anywhere by the extension; the student sends it themselves.
+// both to the clipboard, and then paste them into a Telegram chat with the author (or email).
 (function () {
   'use strict';
   const TELEGRAM = 'https://t.me/aidanmccants';
@@ -50,7 +49,7 @@
       body,
       '',
       '---',
-      'Page: ' + location.pathname,
+      'Page: ' + (typeof GCCX !== 'undefined' ? GCCX.loc().pathname : location.pathname),
       'aBetterMyGCC: v' + version(),
       'Browser: ' + shortUA(),
       'Time: ' + new Date().toISOString(),
@@ -234,8 +233,19 @@
     if (refocus) btn.focus();
   }
 
+  // Main action: copy the note (and screenshot) and open the Telegram chat to paste it.
+  async function sendTelegram() {
+    if (busy) return;
+    // Copy first: the clipboard only works while this page has focus. The click's user
+    // activation lasts a few seconds, so the Telegram tab can still open afterwards.
+    await copyAll();
+    const w = window.open(TELEGRAM, '_blank'); // noopener would always return null
+    if (w) w.opener = null;
+    else say('Copied. Open Telegram (@aidanmccants) and paste with Ctrl V.', 'ok');
+  }
+
   function build() {
-    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: LABEL, title: LABEL });
+    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: 'Feedback', title: LABEL });
     btn.setAttribute('aria-label', LABEL);
     btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('aria-controls', WRAP_ID + '-panel');
@@ -245,30 +255,28 @@
     const closeBtn = el('button', { type: 'button', className: 'gccx-fb-close', textContent: '×' });
     closeBtn.setAttribute('aria-label', 'Close feedback');
     closeBtn.addEventListener('click', () => close(true));
-
-    const scope = el('p', { className: 'gccx-fb-scope', textContent: 'This is feedback for aBetterMyGCC (the extension), not for myGCC or Grove City College.' });
-    const help = el('p', { className: 'gccx-fb-help', textContent: 'Write your note, press Copy, then open Telegram and paste it into the chat.' });
+    const help = el('p', { id: WRAP_ID + '-help', className: 'gccx-fb-help', textContent: 'For the extension, not myGCC. Goes straight to the developer.' });
 
     note = el('textarea', { id: WRAP_ID + '-note', className: 'gccx-fb-note', rows: 4, maxLength: 2000, placeholder: 'What happened, or what would help?' });
+    note.setAttribute('aria-describedby', WRAP_ID + '-help');
     const noteLabel = el('label', { className: 'gccx-fb-label', htmlFor: note.id, textContent: 'Your note' });
 
     shotChk = el('input', { type: 'checkbox', id: WRAP_ID + '-shot' });
-    shotBox = el('label', { className: 'gccx-fb-check', htmlFor: shotChk.id }, [shotChk, el('span', { textContent: 'Add a screenshot' })]);
+    shotBox = el('label', { className: 'gccx-fb-check', htmlFor: shotChk.id }, [shotChk, el('span', { textContent: 'Include a screenshot of this page' })]);
     shotChk.addEventListener('change', onShotToggle);
-
     thumb = el('img', { className: 'gccx-fb-thumb', alt: 'Preview of the screenshot', hidden: true });
     manual = el('textarea', { className: 'gccx-fb-manual', rows: 5, readOnly: true, hidden: true });
     manual.setAttribute('aria-label', 'Text to copy manually');
 
-    copyBtn = el('button', { type: 'button', className: 'gccx-fb-copy', textContent: 'Copy' });
+    const send = el('button', { type: 'button', className: 'gccx-fb-copy gccx-fb-main', textContent: 'Copy and open Telegram' });
+    send.addEventListener('click', sendTelegram);
+    const steps = el('p', { className: 'gccx-fb-steps', textContent: 'Then paste (Ctrl V) into the chat and press Send.' });
+    copyBtn = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Copy only' });
     copyBtn.addEventListener('click', copyAll);
-    const tg = el('a', { className: 'gccx-fb-tg', href: TELEGRAM, target: '_blank', rel: 'noopener noreferrer', textContent: 'Send on Telegram' });
-    tg.setAttribute('aria-label', 'Send on Telegram (opens in a new tab)');
-    // Email is a button, so it reuses the Telegram link's look (.gccx-fb-tg).
-    const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email' });
+    const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email instead' });
     mail.setAttribute('aria-label', 'Email feedback (opens your email app)');
     mail.addEventListener('click', emailAll);
-    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, tg, mail]);
+    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, mail]);
 
     status = el('p', { className: 'gccx-fb-status' });
     status.setAttribute('role', 'status');
@@ -276,7 +284,7 @@
 
     panel = el('div', { id: WRAP_ID + '-panel', className: 'gccx-fb-panel', hidden: true }, [
       el('div', { className: 'gccx-fb-head' }, [title, closeBtn]),
-      scope, help, noteLabel, note, shotBox, actions, status, thumb, manual,
+      help, noteLabel, note, shotBox, thumb, send, steps, actions, status, manual,
     ]);
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-labelledby', title.id);

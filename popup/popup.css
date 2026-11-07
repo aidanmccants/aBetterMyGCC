@@ -2,21 +2,6 @@
    critique: one crimson action per row, the rest is type and hairlines.
    waive 24b: popup spacing is tuned to a 300px window. */
 
-@font-face {
-  font-family: "Host Grotesk";
-  font-style: normal;
-  font-weight: 500 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/hostgrotesk/v5/co3BmWBnlCJ3U42vbbfdwMjZpFjm.woff2) format("woff2");
-}
-@font-face {
-  font-family: "Instrument Sans";
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2) format("woff2");
-}
-
 /* Grove City College palette; same tokens as src/theme.css */
 :root {
   --bg: #f5f5f6; --surface: #ffffff; --ink: #1e1e1e; --muted: #504f54; --faint: #6d6c71;
@@ -76,3 +61,7 @@ button.link:disabled { color: var(--faint); text-decoration: none; cursor: not-a
 .tools { margin: 10px 0 0; }
 .tools + .tools { margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { button.primary { transition: none; } }
+
+/* Advanced settings button */
+.advanced { margin: 12px 0 4px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.advanced button { display: block; width: 100%; box-sizing: border-box; text-align: center; margin: 0; padding: 8px 12px; }

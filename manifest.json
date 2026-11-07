@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "aBetterMyGCC",
-  "version": "1.0.1",
-  "description": "Unofficial myGCC upgrade: Today dashboard, course planner with register-all, optional AI help, dark mode. Not affiliated with GCC.",
+  "name": "A Better myGCC – Unofficial myGCC Upgrade",
+  "short_name": "aBetterMyGCC",
+  "version": "1.1.0",
+  "description": "Unofficial upgrade for Grove City College's myGCC: Today dashboard, course planner, register-all, dark mode, AI. Not affiliated.",
   "icons": {
     "16": "icons/16.png",
     "48": "icons/48.png",
@@ -43,26 +44,40 @@
         "https://my.gcc.edu/ics/*"
       ],
       "css": [
+        "src/theme-engine/fonts.css",
+        "src/theme-engine/tokens.css",
         "src/theme.css",
+        "src/loading.css",
         "src/signedout.css",
         "src/onboarding.css",
+        "src/whatsnew.css",
         "src/builder-split.css",
         "src/degree.css",
         "src/search.css",
         "src/community.css",
+        "src/forums.css",
+        "src/quicklinks.css",
+        "src/home-portlets.css",
         "src/feedback.css"
       ],
       "js": [
+        "src/theme-engine/default-theme.js",
+        "src/theme-engine/runtime.js",
+        "src/loading.js",
         "src/lib.js",
         "src/terms.js",
+        "src/facilities.js",
         "src/content.js",
         "src/builder.js",
         "src/degree.js",
         "src/signedout.js",
         "src/onboarding.js",
+        "src/whatsnew.js",
         "src/contrast.js",
         "src/links.js",
         "src/community.js",
+        "src/forums.js",
+        "src/home-portlets.js",
         "src/feedback.js"
       ],
       "run_at": "document_start"

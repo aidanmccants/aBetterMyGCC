@@ -2,62 +2,101 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settings · aBetterMyGCC</title>
+  <link rel="stylesheet" href="../src/theme-engine/fonts.css">
   <link rel="stylesheet" href="options.css">
+  <link rel="stylesheet" href="../src/theme-engine/shell.css">
+  <script src="../src/theme-engine/default-theme.js"></script>
+  <script src="../src/theme-engine/runtime.js"></script>
 </head>
 <body>
-  <main>
-    <h1>aBetterMyGCC settings</h1>
-    <section class="prefs" aria-label="General">
-      <label class="pref"><span>Modern look</span><input type="checkbox" data-key="enabled"></label>
-      <label class="pref"><span>Today dashboard on Home</span><input type="checkbox" data-key="dashboard"></label>
-      <label class="pref"><span>Hide promo banners</span><input type="checkbox" data-key="hidePromos"></label>
-      <label class="pref"><span>Hide GPA (press and hold to show)</span><input type="checkbox" data-key="hideGpa"></label>
-      <label class="pref"><span>Appearance</span>
-        <select data-key="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select>
-      </label>
-      <label class="pref"><span>Default dining hall</span>
-        <select data-key="hall"><option value="hicks-cafe">Hicks</option><option value="map-cafe">MAP</option></select>
-      </label>
-    </section>
+  <header class="top"><h1>Settings</h1></header>
+  <div class="layout">
+    <nav class="side" aria-label="Settings sections">
+      <a href="#general">General</a>
+      <a href="#appearance">Appearance</a>
+      <a href="#ai">AI</a>
+      <a href="#help">Help</a>
+    </nav>
+    <main>
+      <section id="general" class="panel" aria-labelledby="general-title">
+        <h2 id="general-title">General</h2>
+        <div class="prefs">
+          <label class="pref"><input type="checkbox" data-key="enabled"><span>Modern look</span></label>
+          <label class="pref"><input type="checkbox" data-key="dashboard"><span>Today dashboard on Home</span></label>
+          <label class="pref"><input type="checkbox" data-key="hidePromos"><span>Hide promo banners</span></label>
+          <label class="pref"><input type="checkbox" data-key="hideGpa"><span>Hide GPA (press and hold to show)</span></label>
+          <label class="pref"><span>Default dining hall</span>
+            <select data-key="hall"><option value="hicks-cafe">Hicks</option><option value="map-cafe">MAP</option></select>
+          </label>
+        </div>
+      </section>
 
-    <h2 id="ai">Plan with AI</h2>
-    <p class="intro">Bring your own key from Anthropic, OpenAI, xAI or Google. The key is stored only in Chrome on this computer, sent only to the service you choose, and billed to your account with that service.</p>
+      <section id="appearance" class="panel" aria-labelledby="themes-title" hidden>
+        <h2 id="themes-title">Appearance</h2>
+        <div class="prefs">
+          <label class="pref"><span>Light or dark</span>
+            <select data-key="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select>
+          </label>
+          <label class="pref"><span>Design theme</span><select data-theme-select></select></label>
+          <label class="pref"><input type="checkbox" id="holiday-themes" checked><span>Holiday themes</span></label>
+          <label class="pref"><input type="checkbox" id="animate-themes" checked><span>Animate theme artwork</span></label>
+        </div>
+        <p class="note" id="theme-active" role="status"></p>
+      </section>
 
-    <label class="field"><span>API key</span>
-      <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…, sk-…, xai-…, AIza…">
-    </label>
-    <label class="field"><span>Service</span>
-      <select id="provider">
-        <option value="">Detect from key</option>
-        <option value="anthropic">Anthropic (Claude)</option>
-        <option value="openai">OpenAI</option>
-        <option value="xai">xAI (Grok)</option>
-        <option value="google">Google (Gemini)</option>
-      </select>
-    </label>
-    <label class="field"><span>Model</span>
-      <select id="model" disabled><option>Save a key to load models</option></select>
-    </label>
+      <section id="ai" class="panel" aria-labelledby="ai-title" hidden>
+        <h2 id="ai-title">Plan with AI</h2>
+        <p class="intro">Bring your own key from Anthropic, OpenAI, xAI or Google. The key is stored only in Chrome on this computer, sent only to the service you choose, and billed to your account with that service.</p>
 
-    <div class="actions">
-      <button type="button" class="primary" id="save">Save key</button>
-      <button type="button" class="link" id="clear">Remove key</button>
-    </div>
-    <p class="msg" id="msg" role="status"></p>
+        <label class="field"><span>API key</span>
+          <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…, sk-…, xai-…, AIza…">
+        </label>
+        <label class="field"><span>Service</span>
+          <select id="provider">
+            <option value="">Detect from key</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI</option>
+            <option value="xai">xAI (Grok)</option>
+            <option value="google">Google (Gemini)</option>
+          </select>
+        </label>
+        <label class="field"><span>Model</span>
+          <select id="model" disabled><option>Save a key to load models</option></select>
+        </label>
 
-    <section class="sources">
-      <p>Where do I get a key?</p>
-      <ul>
-        <li><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic (Claude)</a></li>
-        <li><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a></li>
-        <li><a href="https://console.x.ai" target="_blank" rel="noopener">xAI (Grok)</a></li>
-        <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google (Gemini)</a></li>
-      </ul>
-    </section>
-    <p class="intro">No myGCC account? Once a key is saved, try Plan with AI and Ask AI on a sample student in the <a href="../demo/index.html" target="_blank">demo</a>.</p>
-  </main>
+        <div class="actions">
+          <button type="button" class="primary" id="save">Save key</button>
+          <button type="button" class="link" id="clear">Remove key</button>
+        </div>
+        <p class="msg" id="msg" role="status"></p>
+
+        <section class="sources">
+          <p>Where do I get a key?</p>
+          <ul>
+            <li><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic (Claude)</a></li>
+            <li><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a></li>
+            <li><a href="https://console.x.ai" target="_blank" rel="noopener">xAI (Grok)</a></li>
+            <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google (Gemini)</a></li>
+          </ul>
+        </section>
+        <p class="intro">No myGCC account? Once a key is saved, try Plan with AI and Ask AI on a sample student in the <a href="../demo/index.html" target="_blank">demo</a>.</p>
+      </section>
+
+      <section id="help" class="panel" aria-labelledby="help-title" hidden>
+        <h2 id="help-title">Help</h2>
+        <div class="prefs">
+          <div class="pref"><span>Try the demo with a sample student</span><button type="button" class="link" id="demo-btn">Open demo</button></div>
+          <div class="pref"><span>Show the welcome screen again</span><button type="button" class="link" id="welcome">Show</button></div>
+          <div class="pref"><span>See AI activity and errors live</span><button type="button" class="link" id="openlog">Open live log</button></div>
+        </div>
+        <p class="note">Press Ctrl K (⌘ K on Mac) on any myGCC page to jump anywhere. Your myGCC data stays on this computer.</p>
+      </section>
+    </main>
+  </div>
   <script src="options.js"></script>
+  <script src="../src/theme-engine/settings.js"></script>
 </body>
 </html>
