@@ -1,13 +1,8 @@
 // aBetterMyGCC feedback: a small fixed button (bottom left) that opens a panel
 // where students write a note, optionally attach a screenshot of the page, copy
-// both to the clipboard, and then paste them into a Telegram chat with the author.
-// The GCC-only Microsoft Form is an additional option; screenshots remain local.
-// Continuing to Forms shares the prefilled draft; submission stays with the student.
+// both to the clipboard, and then paste them into a Telegram chat with the author (or email).
 (function () {
   'use strict';
-  const FORM = 'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=YImRgxgi00yB_jAqjncdqWqev6TQoOlBr4NaXEioiUFUMEMxODY2QlBJUkFZNk85S1dKODZYU1FRSS4u';
-  const NOTE_FIELD = 'r60e0cb519cc1463bbbf75f622ae219bc';
-  const TYPE_FIELD = 'r0a6edc657ec44e20a9fb02ed8a4b3fdb';
   const TELEGRAM = 'https://t.me/aidanmccants';
   const EMAIL = 'abettergcc@aidanmccants.com';
   const EMAIL_SUBJECT = 'aBetterMyGCC feedback';
@@ -238,8 +233,19 @@
     if (refocus) btn.focus();
   }
 
+  // Main action: copy the note (and screenshot) and open the Telegram chat to paste it.
+  async function sendTelegram() {
+    if (busy) return;
+    // Copy first: the clipboard only works while this page has focus. The click's user
+    // activation lasts a few seconds, so the Telegram tab can still open afterwards.
+    await copyAll();
+    const w = window.open(TELEGRAM, '_blank'); // noopener would always return null
+    if (w) w.opener = null;
+    else say('Copied. Open Telegram (@aidanmccants) and paste with Ctrl V.', 'ok');
+  }
+
   function build() {
-    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: LABEL, title: LABEL });
+    btn = el('button', { type: 'button', className: 'gccx-fb-btn', textContent: 'Feedback', title: LABEL });
     btn.setAttribute('aria-label', LABEL);
     btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('aria-controls', WRAP_ID + '-panel');
@@ -249,46 +255,28 @@
     const closeBtn = el('button', { type: 'button', className: 'gccx-fb-close', textContent: '×' });
     closeBtn.setAttribute('aria-label', 'Close feedback');
     closeBtn.addEventListener('click', () => close(true));
-
-    const scope = el('p', { className: 'gccx-fb-scope', textContent: 'This is feedback for aBetterMyGCC (the extension), not for myGCC or Grove City College.' });
-    const help = el('p', { id: WRAP_ID + '-help', className: 'gccx-fb-help', textContent: 'Write your note here first, then continue to the GCC-only Microsoft Form to review and send it. GCC student sign-in is required. You can also copy your note and screenshot, email them, or send them on Telegram.' });
+    const help = el('p', { id: WRAP_ID + '-help', className: 'gccx-fb-help', textContent: 'For the extension, not myGCC. Goes straight to the developer.' });
 
     note = el('textarea', { id: WRAP_ID + '-note', className: 'gccx-fb-note', rows: 4, maxLength: 2000, placeholder: 'What happened, or what would help?' });
     note.setAttribute('aria-describedby', WRAP_ID + '-help');
     const noteLabel = el('label', { className: 'gccx-fb-label', htmlFor: note.id, textContent: 'Your note' });
 
     shotChk = el('input', { type: 'checkbox', id: WRAP_ID + '-shot' });
-    shotBox = el('label', { className: 'gccx-fb-check', htmlFor: shotChk.id }, [shotChk, el('span', { textContent: 'Add a screenshot' })]);
+    shotBox = el('label', { className: 'gccx-fb-check', htmlFor: shotChk.id }, [shotChk, el('span', { textContent: 'Include a screenshot of this page' })]);
     shotChk.addEventListener('change', onShotToggle);
-
     thumb = el('img', { className: 'gccx-fb-thumb', alt: 'Preview of the screenshot', hidden: true });
     manual = el('textarea', { className: 'gccx-fb-manual', rows: 5, readOnly: true, hidden: true });
     manual.setAttribute('aria-label', 'Text to copy manually');
 
-    copyBtn = el('button', { type: 'button', className: 'gccx-fb-copy', textContent: 'Copy' });
+    const send = el('button', { type: 'button', className: 'gccx-fb-copy gccx-fb-main', textContent: 'Copy and open Telegram' });
+    send.addEventListener('click', sendTelegram);
+    const steps = el('p', { className: 'gccx-fb-steps', textContent: 'Then paste (Ctrl V) into the chat and press Send.' });
+    copyBtn = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Copy only' });
     copyBtn.addEventListener('click', copyAll);
-    const tg = el('a', { className: 'gccx-fb-tg', href: TELEGRAM, target: '_blank', rel: 'noopener noreferrer', textContent: 'Send on Telegram' });
-    tg.setAttribute('aria-label', 'Send on Telegram (opens in a new tab)');
-    // Email is a button, so it reuses the Telegram link's look (.gccx-fb-tg).
-    const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email' });
+    const mail = el('button', { type: 'button', className: 'gccx-fb-tg', textContent: 'Email instead' });
     mail.setAttribute('aria-label', 'Email feedback (opens your email app)');
     mail.addEventListener('click', emailAll);
-    const next = el('button', { type: 'button', className: 'gccx-fb-copy', textContent: 'Continue to feedback form' });
-    next.addEventListener('click', () => {
-      note.setCustomValidity(note.value.trim() ? '' : 'Write a note before continuing.');
-      if (!note.reportValidity()) return;
-      const url = new URL(FORM);
-      url.searchParams.set(TYPE_FIELD, JSON.stringify('Issue'));
-      url.searchParams.set(NOTE_FIELD, buildText());
-      window.open(url.href, '_blank', 'noopener,noreferrer');
-      say(shotChk.checked
-        ? 'Your note and system details open in the GCC-only form. Screenshots cannot transfer automatically: use Copy, Email, or Telegram below to send the screenshot separately.'
-        : 'Review your note in the GCC-only form and press Submit. If no tab opened, allow pop-ups and try again.', 'ok');
-    });
-    note.addEventListener('input', () => note.setCustomValidity(''));
-    const privacy = el('p', { className: 'gccx-fb-help', textContent: 'Continuing shares your note, extension version, browser/OS, page path and timestamp with Microsoft Forms in a prefilled URL. Your draft is not saved by the extension.' });
-    const alternatives = el('p', { className: 'gccx-fb-help', textContent: 'Other ways to send your note and screenshot:' });
-    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, tg, mail]);
+    const actions = el('div', { className: 'gccx-fb-actions' }, [copyBtn, mail]);
 
     status = el('p', { className: 'gccx-fb-status' });
     status.setAttribute('role', 'status');
@@ -296,7 +284,7 @@
 
     panel = el('div', { id: WRAP_ID + '-panel', className: 'gccx-fb-panel', hidden: true }, [
       el('div', { className: 'gccx-fb-head' }, [title, closeBtn]),
-      scope, help, noteLabel, note, privacy, next, shotBox, alternatives, actions, status, thumb, manual,
+      help, noteLabel, note, shotBox, thumb, send, steps, actions, status, manual,
     ]);
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-labelledby', title.id);

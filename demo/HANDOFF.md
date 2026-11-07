@@ -39,7 +39,7 @@ Tested in an isolated Playwright Chromium with the extension unpacked, driven ov
 - Manifest asset parity restored, including loading, forums, Quick Links and home portlets.
 - Home has fictional event/announcement fixtures. Need help includes a link to sample Forums (Main, TopicView, PostView, AddPost); posts are never saved or sent.
 - Forums and What's New now honor the demo's virtual URL.
-- Feedback prepares a prefilled GCC-only Microsoft Form. Reviewers without a GCC account can inspect the local panel but cannot submit; QA intercepts the outgoing URL without contacting Forms.
+- Feedback copies the note (and optional screenshot) and opens Telegram or an email draft; nothing is sent automatically.
 - Browser QA harness: `node store/src/qa-release.cjs` from the workspace root. Output images live in store/qa and are not packaged.
 - Live JICS pagination, resource toggles, authenticated registration dry run and actual form submission still need real-browser verification.
 

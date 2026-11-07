@@ -241,7 +241,12 @@
         } else if (!src && !hit) {
           await store.set('chapel', { ts: Date.now(), user, data: null });
         }
-      } catch (e) { console.warn('[aBetterMyGCC] chapel', e); }
+      } catch (e) {
+        // "Failed to fetch" means the request never finished (page left mid-load, offline,
+        // sign-in expired). Cached numbers stay; the next page load tries again.
+        if (e instanceof TypeError) console.debug('[aBetterMyGCC] chapel fetch interrupted', e.message);
+        else console.warn('[aBetterMyGCC] chapel', e);
+      }
     }
     return hit && hit.user === user ? hit.data : null;
   }
