@@ -25,7 +25,7 @@ It works for anyone signed in to myGCC. Everything it shows comes from that pers
 - Redesigned forums and Quick Links, loading feedback, and an update summary.
 - Campus announcement and event lists with readable titles.
 - Building public and keycard hours with access restrictions; follow building links for official schedules. Breaks and holidays may differ.
-- Feedback: write a note, review system details, then continue to the developer's GCC-only Microsoft Form. Your draft and details travel in the prefilled URL; you review and submit in Forms. College sign-in is required. Optional screenshot capture, Copy, Email and Telegram remain available; screenshots do not transfer to Forms automatically. The extension does not submit feedback automatically.
+- Feedback: write a note, optionally add a screenshot, then Copy and open Telegram (or Copy only / Email instead) and paste it. Nothing is sent automatically.
 
 ## Themes
 
