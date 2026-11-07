@@ -17,8 +17,6 @@
   </header>
 
   <label class="row"><span>Modern look</span><input type="checkbox" data-key="enabled"></label>
-  <label class="row"><span>Today dashboard on Home</span><input type="checkbox" data-key="dashboard"></label>
-  <label class="row"><span>Hide promo banners</span><input type="checkbox" data-key="hidePromos"></label>
   <label class="row"><span>Hide GPA (press and hold to show)</span><input type="checkbox" data-key="hideGpa"></label>
 
   <div class="row">
@@ -30,26 +28,7 @@
     </div>
   </div>
 
-  <label class="row"><span>Design theme</span><select data-theme-select aria-label="Design theme"></select></label>
-  <label class="row"><span>Automatic holiday themes</span><input type="checkbox" id="holiday-themes" checked></label>
-      <label class="row"><span>Animate theme artwork</span><input type="checkbox" id="animate-themes" checked></label>
-  <p class="note" id="theme-active" role="status"></p>
-  <p class="tools"><a href="../options/options.html#themes-title" target="_blank">Customize or install themes</a></p>
-
-  <div class="row plan">
-    <span class="plan-text"><span>Plan with AI</span><small id="ai-state">Not set up</small></span>
-    <button type="button" class="primary" id="ai-btn">Set up</button>
-  </div>
-
-  <div class="row plan">
-    <span class="plan-text"><span>Try the demo</span><small>Sample student, no myGCC account needed</small></span>
-    <button type="button" class="secondary" id="demo-btn">Open demo</button>
-  </div>
-
-  <p class="note">Press Ctrl K (⌘ K on Mac) on any myGCC page to jump anywhere. Your myGCC data stays on this computer.</p>
-  <p class="tools"><button type="button" class="link" id="welcome">Show welcome screen again</button></p>
-  <p class="tools"><button type="button" class="link" id="openlog">Open live log</button></p>
+  <p class="advanced"><button type="button" class="secondary" id="advanced">Advanced settings</button></p>
   <script src="popup.js"></script>
-  <script src="../src/theme-engine/settings.js"></script>
 </body>
 </html>

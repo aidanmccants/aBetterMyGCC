@@ -29,7 +29,7 @@ It works for anyone signed in to myGCC. Everything it shows comes from that pers
 
 ## Themes
 
-Choose a design in the toolbar popup or Settings > Design themes. Automatic holiday themes are enabled by default and temporarily override the selected design on their scheduled dates; your selected custom theme returns afterward. Light/Dark/Auto remains separate. Settings can create or import personal theme JSON files locally. Autumn pixels includes code-generated SVG artwork and a subtle looping GIF banner with swaying trees and falling leaves, and runs September 1-November 30. Turn off Animate theme artwork in the popup or Settings to keep it still; OS reduced-motion preferences always use the original static SVG.
+Choose a design in the toolbar popup or Settings > Design themes. Automatic holiday themes are enabled by default and temporarily override the selected design on their scheduled dates; your selected theme returns afterward. Light/Dark/Auto remains separate. Themes ship as folders in `themes/`; there are no imported or personal themes. Autumn pixels includes code-generated SVG artwork and a subtle looping GIF banner with swaying trees and falling leaves, and runs November 15-26. Turn off Animate theme artwork in the popup or Settings to keep it still; OS reduced-motion preferences always use the original static SVG.
 
 Theme sources live in the workspace's `themes/<name>/` folders; run `node themes/build.cjs` to package them into this extension's `themes/` folder. See the workspace `themes/README.md` and `themes/DESIGN.md` for the workflow and token map. `themes/manifest.json` defines installed packs and the default.
 

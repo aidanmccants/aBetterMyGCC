@@ -72,3 +72,6 @@ body.gccx-demo-frame :is(th, td) { padding: 6px 12px; border-bottom: 1px solid r
 /* Update controls must clear the always-visible demo banner. */
 html.gccx-demo #gccx-wn-pill { top: calc(var(--gccx-demo-h, 44px) + 12px) !important; }
 html.gccx-demo #gccx-wn { top: var(--gccx-demo-h, 44px) !important; }
+
+#gccx-demo-banner .gccx-demo-theme { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+#gccx-demo-banner .gccx-demo-select { background: #fffaf0 !important; border: 1px solid #c9a94a; border-radius: 4px; padding: 3px 6px; font-size: 13px; }

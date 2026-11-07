@@ -67,7 +67,7 @@ window.GCCXFacilities = {
       "reserve": "https://hbl.gcc.libguides.com/reserverooms"
     },
     {
-      "name": "Staley Hall (HAL)",
+      "name": "Staley Hall of Arts and Letters (SHAL)",
       "group": "Academic",
       "url": "https://grovecitycollege.sharepoint.com/sites/CrimsonCardOffice/SitePages/Campus-Facility-Hours.aspx?ga=1",
       "hours": [
@@ -1210,66 +1210,14 @@ window.GCCXFacilities = {
       "name": "MAP Cafe",
       "group": "Dining",
       "url": "https://grovecitycollege.sharepoint.com/sites/CrimsonCardOffice/SitePages/Campus-Facility-Hours.aspx?ga=1",
-      "hours": [
-        null,
-        [
-          420,
-          1200
-        ],
-        [
-          420,
-          1200
-        ],
-        [
-          420,
-          1200
-        ],
-        [
-          420,
-          1200
-        ],
-        [
-          420,
-          1200
-        ],
-        null
-      ],
+      "hours": [null,[420,1200],[420,1200],[420,1200],[420,1200],[420,870],null],
       "accessNote": "Weekdays: breakfast until 10:59 AM; lunch 11 AM-4:29 PM; dinner 4:30-7:59 PM."
     },
     {
       "name": "MAP Garage",
       "group": "Dining",
       "url": "https://grovecitycollege.sharepoint.com/sites/CrimsonCardOffice/SitePages/Campus-Facility-Hours.aspx?ga=1",
-      "hours": [
-        [
-          1020,
-          1439
-        ],
-        [
-          1200,
-          1380
-        ],
-        [
-          1200,
-          1380
-        ],
-        [
-          1200,
-          1380
-        ],
-        [
-          1200,
-          1380
-        ],
-        [
-          1200,
-          1380
-        ],
-        [
-          1020,
-          1439
-        ]
-      ]
+      "hours": [[600,1320],[1200,1380],[1200,1380],[1200,1380],[1200,1380],null,[1020,1439]]
     },
     {
       "name": "MAP Market",

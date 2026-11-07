@@ -175,15 +175,24 @@
     b.innerHTML = `<strong class="gccx-demo-title">Demo mode: sample data</strong>
       <span class="gccx-demo-text">A made-up student, courses and people. Nothing is sent to myGCC and nothing is registered. Unofficial; not affiliated with Grove City College.</span>
       <span class="gccx-demo-actions">
+        <label class="gccx-demo-theme">Preview theme <select class="gccx-demo-select" data-demo-theme></select></label>
         <button type="button" class="gccx-demo-btn" data-demo="welcome">Welcome screen</button>
         <button type="button" class="gccx-demo-btn" data-demo="ai">Set up AI</button>
         <button type="button" class="gccx-demo-btn" data-demo="reset">Reset demo</button>
         <button type="button" class="gccx-demo-btn" data-demo="exit">Exit demo</button>
       </span>`;
+    const sel = b.querySelector('[data-demo-theme]');
+    const fill = () => {
+      const E = window.GCCXThemes; if (!E) return;
+      sel.replaceChildren(new Option('Normal (by settings and date)', ''), ...E.builtins.map((t) => new Option(`${t.name} (${t.type})`, t.id)));
+      sel.value = E.previewId() || '';
+    };
+    fill(); window.addEventListener('gccx-themes-loaded', fill);
+    sel.addEventListener('change', () => window.GCCXThemes && window.GCCXThemes.preview(sel.value));
     b.addEventListener('click', async (e) => {
       const act = e.target.closest('[data-demo]') && e.target.closest('[data-demo]').dataset.demo;
       if (act === 'welcome') area.set({ onboarding: 'pending' });
-      if (act === 'ai') chrome.runtime.openOptionsPage();
+      if (act === 'ai') chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html#ai') });
       if (act === 'reset') {
         const all = await raw.get(null);
         await raw.remove(Object.keys(all).filter((k) => k.startsWith(NS)));
