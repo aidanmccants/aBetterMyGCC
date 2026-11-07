@@ -1,5 +1,7 @@
 # aBetterMyGCC
 
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/lnaeejdgpffaicnohajhhkpfkbfekkja)**
+
 An unofficial Chrome extension that gives Grove City College's myGCC portal a cleaner look and puts the things students check most in one place. It is not affiliated with or endorsed by Grove City College.
 
 It works for anyone signed in to myGCC. Everything it shows comes from that person's own myGCC pages, and it stays in Chrome on their computer.
