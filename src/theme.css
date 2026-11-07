@@ -860,17 +860,29 @@ html.gccx .portlet .pSection { padding-inline: 6px; }
 /* ---- dashboard: Buildings (hours + room reservations) ---- */
 #gccx-dash .x-quick + .x-bld, #gccx-dash .x-card + .x-bld { margin-top: 20px; }
 #gccx-dash .x-bld-list { list-style: none; margin: 0; padding: 0; }
-#gccx-dash .x-bld-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--x-rule); }
+#gccx-dash .x-bld-list li { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; padding: 12px 0; border-top: 1px solid var(--x-rule); }
 #gccx-dash .x-bld-list li:first-child { border-top: 0; padding-top: 0; }
-#gccx-dash .x-bld-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#gccx-dash .x-bld-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 16rem; max-width: 62ch; }
 #gccx-dash a.x-bld-name { font-size: 15px; font-weight: 600; line-height: 1.3; color: inherit; text-decoration: none; }
 #gccx-dash a.x-bld-name:hover { color: var(--x-accent); }
 #gccx-dash .x-bld-meta { font-size: 13px; color: var(--x-muted); }
 #gccx-dash .x-bld-meta a { color: var(--x-muted); }
 #gccx-dash .x-bld-open { color: var(--x-ok); font-weight: 600; }
 #gccx-dash .x-bld-closed { color: var(--x-muted); font-weight: 600; }
-#gccx-dash a.x-bld-res { flex: none; font-size: 13px; color: var(--x-muted); text-decoration: none; border-bottom: 1px dotted var(--x-faint); }
+#gccx-dash a.x-bld-res { flex: none; margin-top: 2px; font-size: 13px; color: var(--x-muted); text-decoration: none; border-bottom: 1px dotted var(--x-faint); }
 #gccx-dash a.x-bld-res:hover { color: var(--x-accent); border-bottom-color: var(--x-accent); }
+#gccx-dash .x-bld-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14px; line-height: 1.35; }
+#gccx-dash .x-bld-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; letter-spacing: .02em; padding: 1px 8px; border-radius: var(--x-radius-chip, 999px); border: 1px solid currentColor; white-space: nowrap; }
+#gccx-dash .x-bld-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+#gccx-dash .x-bld-badge.x-bld-closed::before { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+#gccx-dash .x-bld-badge.x-bld-card { color: var(--x-accent); }
+#gccx-dash .x-bld-badge.x-bld-card::before { background: linear-gradient(90deg, currentColor 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px currentColor; }
+#gccx-dash .x-bld-when { color: var(--x-ink); font-weight: 500; }
+#gccx-dash a.x-bld-when { color: var(--x-accent); }
+#gccx-dash .x-bld-note-line { font-size: 13px; line-height: 1.45; color: var(--x-muted); }
+#gccx-dash .x-bld-count { font-size: 13px; font-weight: 500; color: var(--x-muted); margin-left: 6px; }
+#gccx-dash .x-bld-hint { margin: 8px 0 0; font-size: 13px; color: var(--x-muted); }
+#gccx-dash .x-bld :is(a, summary):focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; border-radius: 2px; }
 #gccx-dash .x-bld-note { margin: 12px 0 0; font-size: 13px; color: var(--x-muted); }
 
 #gccx-dash .x-bld-more { margin-top: 16px; }

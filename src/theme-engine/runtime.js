@@ -27,7 +27,12 @@
  function fallbackTheme() { return builtins.find(t=>t.type==='default') || baked; }
  // Only default and custom themes can be picked; holiday themes appear by date.
  function pickable() { return builtins.filter(t=>t.type==='default'||t.type==='custom'); }
+ // Demo page only: preview any theme (holiday ones too) in this tab, ignoring dates.
+ const isDemo = /-extension:$/.test(location.protocol) && /\/demo\//.test(location.pathname);
+ function previewId(){try{return isDemo ? sessionStorage.getItem('gccx-preview-theme') : null;}catch(_){return null;}}
  function choose(settings={}, date=new Date()) {
+  const pid=previewId(), preview=pid && builtins.find(t=>t.id===pid);
+  if(preview)return {theme:preview, selected:preview, holiday:preview.type==='holiday'};
   const selected=pickable().find(t=>t.id===settings.designTheme) || fallbackTheme();
   const holiday=settings.holidayThemes!==false ? builtins.filter(t=>t.type==='holiday' && activeHoliday(t.holiday,date)).sort((a,b)=>(b.holiday.priority||0)-(a.holiday.priority||0)||a.id.localeCompare(b.id))[0] : null;
   return {theme:holiday || selected, selected, holiday:!!holiday};
@@ -111,6 +116,14 @@
  }
  // Load the packs from the themes/ folder. Invalid packs are skipped; if no valid
  // default pack is found the baked-in GCC theme stays in use.
+ // On portal pages, hold the first paint until packs load (max 400 ms) so a
+ // holiday theme doesn't flash GCC first. Skipped when the extension is off.
+ let hold=null;
+ try{if(!ownUI && JSON.parse(localStorage.getItem('gccx-settings')||'{}').enabled!==false){
+  hold=document.createElement('style');hold.textContent='html{visibility:hidden!important}';
+  (document.head||root).appendChild(hold);setTimeout(()=>hold&&hold.remove(),400);
+ }}catch(_){}
+ const release=()=>{if(hold){hold.remove();hold=null;}};
  const ready=new Promise(resolve=>{
   try{chrome.runtime.sendMessage({type:'gccx-themes'},res=>{
    void chrome.runtime.lastError;
@@ -119,13 +132,15 @@
    if(loaded.length)builtins=loaded;
    if(!builtins.some(t=>t.type==='default'))builtins=[baked,...builtins];
    api.builtins=builtins;
-   stamp='';apply();
+   stamp='';apply();release();
    window.dispatchEvent(new CustomEvent('gccx-themes-loaded'));
    resolve(builtins);
-  });}catch(_){resolve(builtins);}
+  });}catch(_){release();resolve(builtins);}
  });
  const api={choose,apply,validate,activeHoliday,pickable,manifest,builtins,ready};
  window.GCCXThemes=api;
+ api.previewId=previewId;
+ api.preview=id=>{if(!isDemo)return;try{id?sessionStorage.setItem('gccx-preview-theme',id):sessionStorage.removeItem('gccx-preview-theme');}catch(_){}stamp='';apply();};
  try{apply(JSON.parse(localStorage.getItem('gccx-settings')||'{}'));}catch(_){apply({});}
  chrome.storage.local.get('settings',r=>apply(r.settings||{}));
  chrome.storage.onChanged.addListener(ch=>{if(ch.settings)apply(ch.settings.newValue||{});});

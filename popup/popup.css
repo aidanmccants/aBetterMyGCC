@@ -61,3 +61,7 @@ button.link:disabled { color: var(--faint); text-decoration: none; cursor: not-a
 .tools { margin: 10px 0 0; }
 .tools + .tools { margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { button.primary { transition: none; } }
+
+/* Advanced settings button */
+.advanced { margin: 12px 0 4px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.advanced button { display: block; width: 100%; box-sizing: border-box; text-align: center; margin: 0; padding: 8px 12px; }

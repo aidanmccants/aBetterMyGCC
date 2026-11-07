@@ -59,3 +59,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   gccxLoadThemes().then(reply, (e) => reply({ packs: [], errors: [String(e)] }));
   return true;
 });
+
+// Start reading packs as soon as the worker wakes, so the first page does not wait.
+gccxLoadThemes().catch(() => {});

@@ -93,7 +93,7 @@ self.addEventListener('unhandledrejection', (e) => emitLog('error', 'background'
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg && msg.type === 'open-options') {
-    chrome.runtime.openOptionsPage();
+    chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html#ai') });
     return;
   }
   if (msg && msg.type === 'log') {

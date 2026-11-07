@@ -525,7 +525,7 @@
       if (prior[1] > 1440 && min < prior[1] - 1440) return { open: true, text: `until ${fmtMin(prior[1])}` };
     }
     const today = slots(b.hours[day]);
-    const current = today.find(t => min >= t[0] && min < t[1]);
+    const current = today.find(t => min >= t[0] && min < (t[1] === 1439 ? 1440 : t[1])); // 11:59 PM means open through the last minute
     if (current) return { open: true, text: `until ${fmtMin(current[1])}` };
     const next = today.find(t => min < t[0]);
     if (next) return { open: false, text: `opens ${fmtMin(next[0])}` };
@@ -535,30 +535,51 @@
     }
     return { open: false, text: 'closed' };
   }
+  // Presentation only: rewords buildingStatus() text ("opens tomorrow 7 AM" -> "Opens 7 AM tomorrow").
+  function bldPhrase(t, cap = true) {
+    if (!t) return '';
+    const m = /^opens (tomorrow|Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) (.+)$/.exec(t);
+    if (m) t = `opens ${m[2]} ${m[1] === 'tomorrow' ? 'tomorrow' : m[1]}`;
+    return cap ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
   function buildingsCard() {
     const now = new Date();
-    const row = (b) => {
+    const info = (b) => {
       let s = null;
       try { s = buildingStatus(b, now); } catch (e) { /* fall through */ }
-      const card = b.keycard ? buildingStatus({ hours: b.keycard }, now) : null;
-      const publicLabel = b.always ? s?.text : s ? `Public ${s.text}` : '';
-      const cardLabel = card ? `Keycard ${card.text}` : '';
+      let card = null;
+      try { card = b.keycard ? buildingStatus({ hours: b.keycard }, now) : null; } catch (e) { /* fall through */ }
+      return { b, s, card, rank: s?.open ? 0 : card?.open ? 1 : s ? 2 : 3 };
+    };
+    const row = ({ b, s, card, rank }) => {
       const { day, min } = easternNow(now);
       const restricted = b.name === 'Pew Fine Arts Center' && day === 0 && min >= hm(13, 30) && min < hm(16, 30);
-      const openLabel = s?.open ? 'Open now' : card?.open ? (restricted ? 'Music students only' : 'Keycard access') : 'Closed';
-      const status = s ? `<span class="${s.open || card?.open ? 'x-bld-open' : 'x-bld-closed'}">${openLabel}</span> &middot; ${esc([publicLabel, cardLabel].filter(Boolean).join(' / '))}`
-        : `<a href="${b.url}" target="_blank" rel="noopener">Check hours</a>`;
-      const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener">Reserve a room</a>` : '';
-      return `<li><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
-        <span class="x-bld-meta">${status}</span>${b.accessNote ? `<span class="x-bld-meta">${esc(b.accessNote)}</span>` : ''}</div>${res}</li>`;
+      const state = rank === 0 ? ['open', 'Open'] : rank === 1 ? ['card', restricted ? 'Music students only' : 'Keycard only'] : ['closed', 'Closed'];
+      let lines = '';
+      if (s) {
+        const pub = rank === 1 ? `Public: ${bldPhrase(s.text, false)}` : bldPhrase(s.text);
+        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-${state[0]}">${esc(state[1])}</span><span class="x-bld-when">${esc(pub)}</span></span>`;
+        if (card) lines += `<span class="x-bld-meta">Keycard: ${esc(bldPhrase(card.text, false))}</span>`;
+      } else {
+        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-closed">Hours vary</span><a class="x-bld-when" href="${b.url}" target="_blank" rel="noopener">Check hours</a></span>`;
+      }
+      const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener" aria-label="Reserve a room in ${esc(b.name)}">Reserve a room</a>` : '';
+      return `<li class="is-${state[0]}"><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
+        ${lines}${b.accessNote ? `<span class="x-bld-note-line">${esc(b.accessNote)}</span>` : ''}</div>${res}</li>`;
     };
-    const rows = BUILDINGS.slice(0, 5).map(row).join('');
+    const all = BUILDINGS.map(info);
+    const openCount = all.filter(x => x.rank === 0).length;
+    const byOpen = (list) => list.map((x, i) => [x, i]).sort((p, q) => p[0].rank - q[0].rank || p[1] - q[1]).map(p => p[0]);
+    const TOP = ['Buhl Library', 'Staley Hall of Arts and Letters (SHAL)', 'STEM Hall'];
+    const top = all.filter(x => TOP.includes(x.b.name)), rest = all.filter(x => !TOP.includes(x.b.name));
+    const rows = top.map(row).join('');
     const more = ['Academic', 'Administrative', 'Athletic', 'Dining'].map(group => {
-      const items = BUILDINGS.slice(5).filter(b => b.group === group);
-      return `<h4>${group}</h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
+      const items = byOpen(rest.filter(x => x.b.group === group));
+      const n = items.filter(x => x.rank === 0).length;
+      return `<h4>${group} <span class="x-bld-count">${n} of ${items.length} open</span></h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
     }).join('');
     return `<div class="x-card x-bld"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
-      <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length})</summary>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
+      <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length}) &middot; ${openCount} open now</summary><p class="x-bld-hint">Open places are listed first in each group.</p>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
   }
 
   function glanceCard() {
