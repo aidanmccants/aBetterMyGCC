@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "A Better myGCC – Unofficial myGCC Upgrade",
+  "name": "A Better myGCC – myGCC Upgrade",
   "short_name": "aBetterMyGCC",
   "version": "1.2.0",
   "description": "Unofficial upgrade for Grove City College's myGCC: Today dashboard, course planner, register-all, dark mode, AI. Not affiliated.",
@@ -58,7 +58,9 @@
         "src/forums.css",
         "src/quicklinks.css",
         "src/home-portlets.css",
-        "src/feedback.css"
+        "src/feedback.css",
+        "src/academics.css",
+        "src/myinfo.css"
       ],
       "js": [
         "src/theme-engine/default-theme.js",
@@ -73,6 +75,8 @@
         "src/signedout.js",
         "src/onboarding.js",
         "src/whatsnew.js",
+        "src/academics.js",
+        "src/myinfo.js",
         "src/contrast.js",
         "src/links.js",
         "src/community.js",
@@ -88,6 +92,16 @@
       ],
       "js": [
         "src/chapel.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://custom.gcc.edu/gcc_misc/*"
+      ],
+      "js": [
+        "src/framefit.js"
       ],
       "all_frames": true,
       "run_at": "document_idle"

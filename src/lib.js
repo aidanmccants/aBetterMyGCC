@@ -278,8 +278,61 @@
   const loc = () => (demo ? new URL(demo.url, location.origin) : location);
   const go = (href) => { if (demo) demo.go(href); else location.href = href; };
 
+  // Tie a feature to the extension's on/off switch (the `gccx` class content.js toggles live).
+  // start() runs whenever the look turns on, stop() whenever it turns off, so switching the
+  // extension off removes layout changes too, not just styling, without a page reload.
+  function onLook(start, stop) {
+    const r = document.documentElement;
+    let on = false;
+    const sync = () => {
+      const now = r.classList.contains('gccx');
+      if (now === on) return;
+      on = now;
+      try { (now ? start : stop)(); } catch (e) { log('error', 'content', `onLook ${now ? 'start' : 'stop'} failed: ${e.message || e}`, { stack: e.stack }); }
+    };
+    new MutationObserver(sync).observe(r, { attributes: true, attributeFilter: ['class'] });
+    sync();
+  }
+
+  // Size a custom.gcc.edu <iframe> to its content. The page inside runs framefit.js, which
+  // posts its height; we only accept it from that frame's window and from custom.gcc.edu.
+  // Returns an undo function that restores the portal's own size.
+  function fitFrame(frame) {
+    if (!frame || frame.dataset.gccxFit) return () => {};
+    frame.dataset.gccxFit = '1';
+    // The portal sets the frame's inline size with its own script, possibly after we run,
+    // so remember its height at the moment we first replace it.
+    let prevH = null;
+    frame.classList.add('gccx-fit-frame');
+    const onMsg = (e) => {
+      if (e.origin !== 'https://custom.gcc.edu' || e.source !== frame.contentWindow || !e.data || !e.data.gccxFrame) return;
+      const h = Number(e.data.height);
+      if (!(h > 50 && h < 6000)) return;
+      if (prevH === null) prevH = frame.style.getPropertyValue('height');
+      frame.style.setProperty('height', `${h}px`, 'important');
+    };
+    window.addEventListener('message', onMsg);
+    // The frame's script may start before or after ours; ask a few times while both settle.
+    const ask = () => { try { frame.contentWindow.postMessage({ gccxFrameAsk: 1 }, 'https://custom.gcc.edu'); } catch (e) { /* not loaded yet */ } };
+    // Frames on these pages load late (after the dashboard), so keep asking for a while.
+    const timers = [0, 400, 1200, 3000, 6000, 10000].map((ms) => setTimeout(ask, ms));
+    frame.addEventListener('load', ask);
+    window.addEventListener('load', ask, { once: true });
+    return () => {
+      window.removeEventListener('message', onMsg);
+      frame.removeEventListener('load', ask);
+      timers.forEach(clearTimeout);
+      frame.classList.remove('gccx-fit-frame');
+      delete frame.dataset.gccxFit;
+      if (prevH !== null) {
+        frame.style.removeProperty('height');
+        if (prevH) frame.style.setProperty('height', prevH);
+      }
+    };
+  }
+
   root.GCCX = {
-    demo: !!demo, loc, go, alive,
+    demo: !!demo, loc, go, alive, fitFrame, onLook,
     log, aiErrorText, pulseHTML,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,

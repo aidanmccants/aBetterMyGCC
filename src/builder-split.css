@@ -1,21 +1,21 @@
-/* Split-screen schedule builder: hover ghosts on the plan calendar, locked Save buttons. */
+/* Every rule is gated on html.gccx (the live on/off class). Split-screen schedule builder: hover ghosts on the plan calendar, locked Save buttons. */
 
 /* ghost preview of the section under the pointer */
-#gccx-plan .x-blk.is-ghost {
+html.gccx #gccx-plan .x-blk.is-ghost {
   background: color-mix(in srgb, var(--x-accent) 18%, transparent);
   border: 1.5px dashed var(--x-accent);
   color: var(--x-accent);
   pointer-events: none;
   z-index: 2;
 }
-#gccx-plan .x-blk.is-ghost.is-ghost-clash {
+html.gccx #gccx-plan .x-blk.is-ghost.is-ghost-clash {
   background: var(--x-bad-soft);
   border-color: var(--x-bad);
   color: var(--x-bad);
 }
 
 /* existing blocks that the hovered section overlaps */
-#gccx-plan .x-blk.is-hit {
+html.gccx #gccx-plan .x-blk.is-hit {
   outline: 2px solid var(--x-bad);
   outline-offset: 1px;
   box-shadow: 0 0 0 4px var(--x-bad-ring);
@@ -23,8 +23,8 @@
 }
 
 /* Save button on a section that conflicts with your schedule */
-.pt_CourseSchedules .gccx-save.is-locked,
-.pt_CourseSchedules .gccx-save.is-locked:hover {
+html.gccx .pt_CourseSchedules .gccx-save.is-locked,
+html.gccx .pt_CourseSchedules .gccx-save.is-locked:hover {
   color: var(--x-faint);
   background: var(--x-ground-muted);
   border-color: var(--x-rule);
@@ -32,10 +32,10 @@
 }
 
 /* per-course Copy sits just left of Remove */
-#gccx-plan .x-line .x-copy-one { margin-left: auto; }
-#gccx-plan .x-cal-note { margin: 6px 0 0; }
+html.gccx #gccx-plan .x-line .x-copy-one { margin-left: auto; }
+html.gccx #gccx-plan .x-cal-note { margin: 6px 0 0; }
 
 /* Item 25: missing ref # and gated Register all */
-#gccx-plan .x-get-ref { margin-left: 6px; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
-#gccx-plan .x-primary[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
-#gccx-plan .x-reg-note { margin: 6px 0 0; font-size: 12px; }
+html.gccx #gccx-plan .x-get-ref { margin-left: 6px; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+html.gccx #gccx-plan .x-primary[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
+html.gccx #gccx-plan .x-reg-note { margin: 6px 0 0; font-size: 12px; }

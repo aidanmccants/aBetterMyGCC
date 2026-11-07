@@ -1,0 +1,28 @@
+/* My Info (myinfo.js). Every rule waits for html.gccx-info, which the script sets only after its checks pass. */
+
+/* One gutter: 20px between columns and between stacked cards. */
+html.gccx-info #portlets { --gccx-gutter: 20px; }
+html.gccx-info #portlets .portlet-column { padding-left: calc(var(--gccx-gutter) / 2) !important; padding-right: calc(var(--gccx-gutter) / 2) !important; }
+html.gccx-info #portlets .portlet-column .portlet { margin-top: 0 !important; margin-bottom: var(--gccx-gutter) !important; }
+html.gccx-info #portlets .portlet-column .portlet:last-child { margin-bottom: 0 !important; }
+@media (max-width: 991px) {
+  html.gccx-info #portlets .portlet-column + .portlet-column { margin-top: var(--gccx-gutter); }
+}
+
+/* Chapel frame: fill the card; height comes from the frame (chapel.js) */
+html.gccx-info iframe.gccx-fit-frame {
+  display: block; width: 100% !important; max-width: 100%; min-height: 320px;
+  border: 0; border-radius: var(--x-radius-control); background: #fff; color-scheme: light;
+}
+
+/* Merged link card: no umbrella title, each section a card-level title */
+html.gccx-info .gccx-info-hidden { display: none !important; }
+html.gccx-info .gccx-info-merged > .portlet-header-bar,
+html.gccx-info .gccx-info-merged > .portlet-padding:not(.gccx-info-part .portlet-padding) { display: none !important; }
+html.gccx-info .gccx-info-merged .gccx-info-part { padding: 20px 0 20px; }
+html.gccx-info .gccx-info-merged .gccx-info-part + .gccx-info-part { border-top: 1px solid var(--x-rule); }
+html.gccx-info .gccx-info-merged .gccx-info-head {
+  margin: 0 0 10px !important; font: 600 20px/1.25 var(--x-display) !important; letter-spacing: -0.015em !important; color: var(--x-ink) !important;
+}
+html.gccx-info .gccx-info-merged .gccx-info-part > .portlet-padding { padding: 0 !important; margin: 0 !important; }
+html.gccx-info .gccx-info-merged .gccx-info-part a[href] { display: inline-block; margin: 2px 16px 2px 0; font-weight: 600; text-underline-offset: 3px; }

@@ -25,14 +25,14 @@
       if (!a || a.target || a.hasAttribute('download')) return;
       const u = resolve(a);
       if (!u || !/^https?:$/.test(u.protocol) || u.origin === location.origin) return;
+      if (!touched.has(a)) touched.set(a, { rel: a.getAttribute('rel') });
       a.target = '_blank';
       const rel = new Set((a.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
       rel.add('noopener');
       a.setAttribute('rel', [...rel].join(' '));
     } catch (_) { /* never break the page */ }
   }
-  document.addEventListener('click', onClick, true);
-  document.addEventListener('auxclick', onClick, true);
+  const touched = new Map(); // anchor -> its original rel (it had no target, or we would not touch it)
 
   // ---------- 2. hover prerender ----------
   const MAX_ACTIVE = 2, INTENT_MS = 150, DISCARD_MS = 3000;
@@ -130,8 +130,28 @@
     scheduleDrop(u.href);
   }
 
-  document.addEventListener('mouseover', intent, true);
-  document.addEventListener('mouseout', leave, true);
-  document.addEventListener('focusin', intent, true);
-  document.addEventListener('focusout', leave, true);
+  const LISTENERS = [['click', onClick], ['auxclick', onClick], ['mouseover', intent], ['mouseout', leave], ['focusin', intent], ['focusout', leave]];
+  let attached = false;
+  const warn = (m) => { try { window.GCCX && window.GCCX.log('warn', 'content', '[links] ' + m); } catch (_) {} };
+
+  function apply() {
+    if (attached) return;
+    attached = true;
+    LISTENERS.forEach(([t, fn]) => document.addEventListener(t, fn, true));
+  }
+  function teardown() {
+    attached = false;
+    LISTENERS.forEach(([t, fn]) => document.removeEventListener(t, fn, true));
+    clearTimeout(intentTimer); intentTimer = null; intentUrl = null; hoverLink = null;
+    [...entries.keys()].forEach((u) => { try { drop(u, 'extension switched off'); } catch (e) { warn('drop failed: ' + (e.message || e)); } });
+    touched.forEach((orig, a) => {
+      try {
+        a.removeAttribute('target');
+        if (orig.rel === null) a.removeAttribute('rel'); else a.setAttribute('rel', orig.rel);
+      } catch (e) { warn('restore failed: ' + (e.message || e)); }
+    });
+    touched.clear();
+  }
+  if (window.GCCX && window.GCCX.onLook) window.GCCX.onLook(apply, teardown);
+  else if (active()) apply();
 })();

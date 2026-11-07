@@ -24,6 +24,21 @@
         { title: 'Lots of Bugs', desc: 'Spacing, Readability, Boring Stuff.' },
       ],
     },
+    '1.2.0': {
+      sub: 'Academics and My Info feel tidier, and the home page is easier to read.',
+      features: [
+        { title: 'A clearer Academics page', desc: 'Your term, add/drop status, degree progress, advisor and major sit at the top, and your courses show up as a weekly calendar you can click through.' },
+        { title: 'Grades, Dean’s List and transcript together', desc: 'Your grade report, Dean’s List letter and unofficial transcript now sit in one card.' },
+        { title: 'A full degree audit link that works', desc: 'Full degree audit opens your audit straight from Academics.' },
+        { title: 'My Info, tidied up', desc: 'Chapel attendance fits its card, and residence, vehicle and directory links sit together in one card.' },
+        { title: 'Easier home page reading', desc: 'Announcements and events are easier to scan, and event titles no longer hang indented.' },
+        { title: 'Readable when you zoom', desc: 'Academics and My Info stay easy to read from 75% to 150% zoom, and embedded college pages resize to fit their content.' },
+      ],
+      fixes: [
+        { title: 'Turning myGCC off restores everything', desc: 'Switching the extension off brings back every page’s original layout right away, not just its colors.' },
+        { title: 'Public Events Calendar stays intact', desc: 'The full events calendar keeps its colors and fonts without scrambling its layout.' },
+      ],
+    },
   };
   const SECTIONS = [['features', 'New'], ['fixes', 'Fixed']];
 

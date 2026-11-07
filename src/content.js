@@ -9,6 +9,17 @@
   const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const TTL = { schedule: 6 * 3600e3, degree: 24 * 3600e3, chapel: 3 * 3600e3, balance: 6 * 3600e3, nav: 24 * 3600e3, pageIndex: 24 * 3600e3, standing: 24 * 3600e3, registration: 6 * 3600e3 };
 
+  // Pages the redesign does not handle well fall back to stock myGCC: no `gccx` class means
+  // every theme rule and every page script (GCCX.onLook) stays out of the way.
+  // Add a matcher here instead of shipping a broken page.
+  const STOCK_PAGES = [
+    // full-page Public Events Calendar (list/month/week/day views); the Home card is unaffected
+    (u) => /events?_calendar/i.test(u.searchParams.get('portlet') || '') && u.searchParams.has('screen'),
+  ];
+  const stockPage = (() => {
+    try { const u = new URL(location.href); return STOCK_PAGES.some((m) => m(u)); } catch (e) { return false; }
+  })();
+
   // ---- apply look synchronously (mirrored to localStorage to avoid a flash) ----
   let settings = { ...DEFAULTS, ...safeJSON(localStorage.getItem('gccx-settings')) };
   applyLook();
@@ -29,10 +40,12 @@
   });
 
   function applyLook() {
-    root.classList.toggle('gccx', settings.enabled);
+    const on = settings.enabled; // stock pages keep colours, fonts, banner hiding; only layout rules step aside
+    root.classList.toggle('gccx', on);
+    root.classList.toggle('gccx-stock-page', settings.enabled && stockPage);
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    root.classList.toggle('gccx-dark', settings.enabled && dark);
-    root.classList.toggle('gccx-nobanner', settings.enabled && settings.hidePromos);
+    root.classList.toggle('gccx-dark', on && dark);
+    root.classList.toggle('gccx-nobanner', on && settings.hidePromos);
     window.GCCXThemes?.apply(settings);
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);

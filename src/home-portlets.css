@@ -24,3 +24,45 @@ html.gccx #portlet-grid .gccx-home-events .calendar-list-view .event-date { font
   html.gccx #portlet-grid .gccx-home-feed :is(.pSection, .portlet-content, .portlet-body) { font-size: 14px; }
   html.gccx #portlet-grid .gccx-home-events .calendar-list-view :is(td, th) { padding-inline: 4px; }
 }
+
+/* ---------- Announcements: title, quiet date, readable body ---------- */
+html.gccx #portlet-grid .gccx-home-announcements .post-status-normal { border: 0 !important; }
+html.gccx #portlet-grid .gccx-home-announcements .post-wrapper + .post-wrapper,
+html.gccx #portlet-grid .gccx-home-announcements .post-wrapper > div + div { border-top: 1px solid var(--x-rule) !important; }
+html.gccx #portlet-grid .gccx-home-announcements .post-item { display: grid; gap: 8px; padding: 18px 0; }
+html.gccx #portlet-grid .gccx-home-announcements .post-item > h4 { order: 1; margin: 0 !important; font: 600 18px/1.3 var(--x-display) !important; letter-spacing: -0.01em; }
+html.gccx #portlet-grid .gccx-home-announcements .post-item > h4 a { color: var(--x-ink) !important; }
+html.gccx #portlet-grid .gccx-home-announcements .post-item > h4 a:hover { color: var(--x-accent) !important; text-decoration: none; }
+html.gccx #portlet-grid .gccx-home-announcements .post-info { order: 2; font: 500 13px/1.4 var(--x-sans) !important; font-style: normal !important; color: var(--x-muted) !important; }
+html.gccx #portlet-grid .gccx-home-announcements .top-admin-btns { order: 0; }
+html.gccx #portlet-grid .gccx-home-announcements .post-content { order: 3; max-width: 65ch; font-size: 15px; line-height: 1.6; color: var(--x-ink); }
+html.gccx #portlet-grid .gccx-home-announcements .post-content :is(p, ul, ol) { margin: 0 0 8px; }
+html.gccx #portlet-grid .gccx-home-announcements .post-content li { padding-block: 2px; border: 0; }
+html.gccx #portlet-grid .gccx-home-announcements .post-content hr { margin: 10px 0; border: 0; border-top: 1px solid var(--x-rule); }
+html.gccx #portlet-grid .gccx-home-announcements .postDiscuss { order: 4; }
+html.gccx #portlet-grid .gccx-home-announcements .read-more { font: 600 14px var(--x-sans); }
+html.gccx #portlet-grid .gccx-home-announcements #ViewMorePostsLink { display: inline-block; margin-top: 6px; font-weight: 600; }
+
+/* ---------- Events: date heads, a time column, location under the title ---------- */
+html.gccx #portlet-grid .gccx-home-events .fc-center h2 { font: 600 18px/1.3 var(--x-display) !important; letter-spacing: -0.01em; margin: 4px 0 8px !important; color: var(--x-ink) !important; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > .date {
+  margin: 14px 0 2px; padding-top: 12px; border-top: 1px solid var(--x-rule); font: 600 14px/1.3 var(--x-sans);
+}
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > .date:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > .date a { color: var(--x-ink) !important; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) {
+  display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); column-gap: 14px; row-gap: 1px; padding: 8px 0; line-height: 1.4;
+}
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; max-width: none !important; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span:first-child { grid-row: span 2; font-size: 13.5px; color: var(--x-muted); font-variant-numeric: tabular-nums; padding-top: 1px; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span:nth-child(2) a { color: var(--x-ink) !important; font-weight: 500; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span:nth-child(2) a:hover { color: var(--x-accent) !important; text-decoration: none; }
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > .location { grid-column: 2; font-size: 13.5px; color: var(--x-muted); }
+@media (max-width: 520px) {
+  html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) { grid-template-columns: minmax(0, 1fr); }
+  html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span:first-child { grid-row: auto; }
+  html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > .location { grid-column: 1; }
+}
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span { padding: 0 !important; margin: 0 !important; text-indent: 0 !important; }
+/* the portal pads the inline title link (10px), which indents only its first line */
+html.gccx #portlet-grid .gccx-home-events .calendar-list-view > div:not(.date) > span a { padding-left: 0 !important; margin-left: 0 !important; }

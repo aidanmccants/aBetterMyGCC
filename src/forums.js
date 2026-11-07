@@ -1,9 +1,47 @@
 // aBetterMyGCC Forums: restyles the JICS Forums portlet (main, topic, post, add/reply).
 // Only adds classes, a breadcrumb and a filter box; every server link, postback and
 // form stays in place. CSS hides the portlet body until we mark it ready (fallback reveal in CSS).
+// Everything runs through GCCX.onLook: nothing touches the page while the extension is off, and
+// teardown() reverses every change (undo list, newest first) when it is switched off.
 (function () {
   'use strict';
   const root = document.documentElement;
+  const undos = [];           // undo functions, run newest-first by teardown()
+  let early = '';             // forum screen name for this build
+
+  const warn = (msg, extra) => { try { if (window.GCCX && GCCX.log) GCCX.log('warn', 'content', '[forums] ' + msg, extra); } catch (e) { /* logging must never throw */ } };
+  const rec = (fn) => { undos.push(fn); };
+  function unwind(mark) {
+    while (undos.length > mark) { const u = undos.pop(); try { u(); } catch (e) { warn('undo step failed', { error: String(e) }); } }
+  }
+  // Run one independent feature; if it throws, log it and undo just that feature.
+  function feature(name, run) {
+    const mark = undos.length;
+    try { run(); } catch (e) {
+      warn(name + ' failed; reverted it', { error: String(e && e.message || e), stack: e && e.stack });
+      unwind(mark);
+    }
+  }
+  // Insert/move a node, remembering where it came from (or that it is new).
+  function put(parent, node, ref) {
+    const op = node.parentNode, ons = node.nextSibling;
+    parent.insertBefore(node, ref || null);
+    rec(() => {
+      if (op) op.insertBefore(node, ons && ons.parentNode === op ? ons : null);
+      else node.remove();
+    });
+  }
+  function addCls(node, ...names) {
+    names.forEach((c) => { if (!node.classList.contains(c)) { node.classList.add(c); rec(() => node.classList.remove(c)); } });
+  }
+  function rmCls(node, c) {
+    if (node.classList.contains(c)) { node.classList.remove(c); rec(() => node.classList.add(c)); }
+  }
+  function setText(node, text) {
+    const saved = [...node.childNodes];
+    node.textContent = text;
+    rec(() => node.replaceChildren(...saved));
+  }
 
   function screenName() {
     try {
@@ -12,9 +50,6 @@
       return (p.get('screen') || 'Main').toLowerCase();
     } catch (e) { return ''; }
   }
-
-  const early = screenName();
-  if (early) root.classList.add('gccx-forums', 'gccx-forums-' + early.replace(/[^a-z]/g, ''));
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -48,7 +83,7 @@
       nav.appendChild(n);
       if (!last) nav.appendChild(el('span', 'gccx-fx-sep', '/'));
     });
-    body.insertBefore(nav, body.firstChild);
+    put(body, nav, body.firstChild);
   }
 
   function filterBox(body) {
@@ -69,18 +104,20 @@
     wrap.append(input, count);
     // put it right above the first grid's section
     const anchor = early === 'main' ? (body.querySelector('.main-content') || grids[0]) : grids[0];
-    anchor.parentNode.insertBefore(wrap, anchor);
+    put(anchor.parentNode, wrap, anchor);
 
     const mainEmpty = early === 'main' ? el('p', 'gccx-fx-empty', 'Nothing matches that filter.') : null;
-    if (mainEmpty) { mainEmpty.hidden = true; wrap.after(mainEmpty); }
+    if (mainEmpty) { mainEmpty.hidden = true; put(wrap.parentNode, mainEmpty, wrap.nextSibling); }
     grids.forEach((g) => {
       if (mainEmpty) return;
       const e = el('p', 'gccx-fx-empty', 'Nothing matches that filter.');
       e.hidden = true;
-      g.appendChild(e);
+      put(g, e);
     });
 
-    input.addEventListener('input', () => {
+    // filtering toggles classes on portal rows/headings; clear them on teardown
+    rec(() => body.querySelectorAll('.gccx-fx-hide, .gccx-fx-dim').forEach((n) => n.classList.remove('gccx-fx-hide', 'gccx-fx-dim')));
+    const onInput = () => {
       const q = input.value.trim().toLowerCase();
       let shown = 0;
       grids.forEach((g) => {
@@ -107,19 +144,21 @@
       });
       if (mainEmpty) mainEmpty.hidden = !(q && shown === 0);
       count.textContent = q ? shown + ' of ' + total : '';
-    });
+    };
+    input.addEventListener('input', onInput);
+    rec(() => input.removeEventListener('input', onInput));
   }
 
   function markRows(body) {
     body.querySelectorAll('.forum-grid [role=row]').forEach((r) => {
-      if (r.querySelector('a.unRead, .icon-unread-post, .glyphicons-folder-new')) r.classList.add('gccx-fx-unread');
+      if (r.querySelector('a.unRead, .icon-unread-post, .glyphicons-folder-new')) addCls(r, 'gccx-fx-unread');
     });
     // threads with no posts at all: show an empty state
     body.querySelectorAll('.forum-grid').forEach((g) => {
       const rows = g.querySelectorAll('[role=row]');
       const data = [...rows].filter((r) => !r.classList.contains('header-row') && !r.classList.contains('topic-view-header') && !r.closest('.topic-view-header'));
       if (!data.length && !g.querySelector('.gccx-fx-none')) {
-        g.appendChild(el('p', 'gccx-fx-none', 'No posts here yet.'));
+        put(g, el('p', 'gccx-fx-none', 'No posts here yet.'));
       }
     });
   }
@@ -149,7 +188,7 @@
   }
   function rebuildMain(body) {
     body.querySelectorAll('.main-content .forum-grid').forEach((g) => {
-      g.classList.add('gccx-fx-list');
+      addCls(g, 'gccx-fx-list');
       g.querySelectorAll('[role=row]:not(.header-row)').forEach((row) => {
         if (row.classList.contains('gccx-fx-rebuilt')) return;
         const topic = row.querySelector('.topic-link-container');
@@ -163,7 +202,7 @@
 
         const line = el('div', 'gccx-fx-line');
         const left = el('div', 'gccx-fx-main');
-        left.appendChild(topic);
+        put(left, topic);
         const stats = el('div', 'gccx-fx-stats');
         const bits = [];
         if (posts) bits.push(fmt(posts.all) + (posts.all === 1 ? ' post' : ' posts'));
@@ -174,11 +213,11 @@
         if (unread && unread.all > 0) {
           const a = unreadCell.querySelector('a');
           const pill = a || el('span');
-          pill.classList.add('gccx-fx-pill');
-          pill.textContent = fmt(unread.all) + ' unread';
-          stats.insertBefore(pill, stats.firstChild);
+          addCls(pill, 'gccx-fx-pill');
+          setText(pill, fmt(unread.all) + ' unread');
+          put(stats, pill, stats.firstChild);
         } else {
-          row.classList.remove('gccx-fx-unread');
+          rmCls(row, 'gccx-fx-unread');
         }
         const latest = el('div', 'gccx-fx-latest');
         const link = latestCell && latestCell.querySelector('.post-link a, .forum-post-info a');
@@ -188,7 +227,8 @@
           const byLine = lines.find((l) => /^by\s/i.test(l));
           const by = byLine && byLine.replace(/^by\s+/i, '');
           const on = ((lines.find((l) => /^on\s/i.test(l)) || '').match(/(\d+\/\d+\/\d+)\s+at\s+([\d:]+\s*[AP]M)/i) || []);
-          latest.append(el('span', 'gccx-fx-latest-label', 'Latest: '), link);
+          latest.appendChild(el('span', 'gccx-fx-latest-label', 'Latest: '));
+          put(latest, link);
           if (by) latest.append(el('span', 'gccx-fx-dot', ' · '), el('span', 'gccx-fx-by', by));
           if (on[1]) {
             const d = new Date(on[1] + ' ' + on[2]);
@@ -200,8 +240,8 @@
           latest.appendChild(el('span', 'gccx-fx-muted', 'No posts yet'));
         }
         line.append(left, stats, latest);
-        row.appendChild(line);
-        row.classList.add('gccx-fx-rebuilt');
+        put(row, line);
+        addCls(row, 'gccx-fx-rebuilt');
       });
       const foot = g.querySelector('.footer-row');
       if (foot && !foot.classList.contains('gccx-fx-foot-wrap')) {
@@ -213,8 +253,8 @@
         if (p) parts.push(fmt(p.all) + ' posts');
         if (r) parts.push(fmt(r.all) + ' replies');
         if (parts.length) {
-          foot.classList.add('gccx-fx-foot-wrap');
-          foot.appendChild(el('div', 'gccx-fx-foot', parts.join(' · ')));
+          addCls(foot, 'gccx-fx-foot-wrap');
+          put(foot, el('div', 'gccx-fx-foot', parts.join(' · ')));
         }
       }
     });
@@ -245,7 +285,7 @@
   function rebuildTopic(body) {
     const g = body.querySelector('.forum-grid');
     if (!g || g.classList.contains('gccx-fx-list')) return;
-    g.classList.add('gccx-fx-list');
+    addCls(g, 'gccx-fx-list');
     // header -> compact sort bar built from the original sort links (moved, so they keep working)
     const head = g.querySelector('.topic-view-header');
     if (head) {
@@ -254,17 +294,17 @@
         const bar = el('div', 'gccx-fx-sort');
         bar.appendChild(el('span', 'gccx-fx-muted', 'Sort:'));
         links.forEach((a) => {
-          a.textContent = a.textContent.replace(/\(My\)/, '').trim();
-          bar.appendChild(a);
+          setText(a, a.textContent.replace(/\(My\)/, '').trim());
+          put(bar, a);
         });
         const active = head.querySelector('.glyphicons-chevron-up, .glyphicons-chevron-down, [class*="sort"]');
         if (active) {
           const near = active.closest('div, span');
           const a = near && near.querySelector('a');
-          if (a) a.classList.add('gccx-fx-sort-on');
+          if (a) addCls(a, 'gccx-fx-sort-on');
         }
         const filter = body.querySelector('.gccx-fx-filter');
-        (filter || g).parentNode.insertBefore(bar, g);
+        put((filter || g).parentNode, bar, g);
       }
     }
     g.querySelectorAll(':scope > [role=row]').forEach((row) => {
@@ -282,7 +322,7 @@
       const line = el('div', 'gccx-fx-line');
       const left = el('div', 'gccx-fx-main');
       const title = el('div', 'gccx-fx-title');
-      title.appendChild(link);
+      put(title, link);
       left.append(title, metaLine('gccx-fx-sub', [], at));
       const stats = el('div', 'gccx-fx-stats');
       const bits = [];
@@ -293,23 +333,24 @@
       stats.appendChild(el('span', 'gccx-fx-meta', bits.join(' · ')));
       if (unread && unread.all > 0) {
         const pill = (unreadCell.querySelector('a')) || el('span');
-        pill.classList.add('gccx-fx-pill');
-        pill.textContent = fmt(unread.all) + ' unread';
-        stats.insertBefore(pill, stats.firstChild);
+        addCls(pill, 'gccx-fx-pill');
+        setText(pill, fmt(unread.all) + ' unread');
+        put(stats, pill, stats.firstChild);
       }
       const latest = el('div', 'gccx-fx-latest');
       const lLink = replies && replies.all > 0 && latestCell && latestCell.querySelector('.post-link a, a');
       if (lLink) {
         const la = attribution(latestCell);
-        latest.append(el('span', 'gccx-fx-latest-label', 'Latest: '), lLink);
+        latest.appendChild(el('span', 'gccx-fx-latest-label', 'Latest: '));
+        put(latest, lLink);
         if (la.by) latest.append(el('span', 'gccx-fx-dot', ' · '), el('span', 'gccx-fx-by', la.by));
         if (la.date) { const t = el('time', 'gccx-fx-when', rel(la.date)); t.title = la.raw; latest.append(el('span', 'gccx-fx-dot', ' · '), t); }
         line.classList.add('gccx-fx-has-latest');
       }
       line.append(left, stats, latest);
-      row.appendChild(line);
-      row.classList.add('gccx-fx-rebuilt');
-      row.classList.remove('gccx-fx-unread');
+      put(row, line);
+      addCls(row, 'gccx-fx-rebuilt');
+      rmCls(row, 'gccx-fx-unread');
     });
     const foot = g.querySelector('.footer-row');
     if (foot && !foot.classList.contains('gccx-fx-foot-wrap')) {
@@ -319,36 +360,58 @@
       const parts = [];
       if (u) parts.push(fmt(u.all) + ' unread');
       if (r) parts.push(fmt(r.all) + ' replies' + (r.mine ? ' (' + fmt(r.mine) + ' yours)' : ''));
-      foot.classList.add('gccx-fx-foot-wrap');
-      const f = el('div', 'gccx-fx-foot', parts.length ? parts.join(' · ') : '');
-      foot.appendChild(f);
+      addCls(foot, 'gccx-fx-foot-wrap');
+      put(foot, el('div', 'gccx-fx-foot', parts.length ? parts.join(' · ') : ''));
     }
   }
 
-  function run() {
+  function build() {
+    if (!root.classList.contains('gccx') || undos.length) return;
     const portlet = document.querySelector('.pt_ForumPortlet');
-    if (!portlet) { root.classList.remove('gccx-forums'); return; }
-    const body = portlet.querySelector('.forums-portlet');
+    const body = portlet && portlet.querySelector('.forums-portlet');
     if (!body) return;
-    if (!early) root.classList.add('gccx-forums'); // forum portlet embedded on another page
+    early = screenName();
     try {
-      portlet.classList.add('gccx-fx');
-      crumbs(portlet, body);
+      // html classes: the screen class drives forums.css; gccx-forums marks "a forum portlet is here"
+      addCls(root, 'gccx-forums');
+      if (early) addCls(root, 'gccx-forums-' + early.replace(/[^a-z]/g, ''));
+      addCls(portlet, 'gccx-fx');
+      feature('breadcrumb', () => crumbs(portlet, body));
       // primary buttons are already AA via forums.css; opt them out of the dark-mode contrast pass
-      portlet.querySelectorAll('.btn-primary').forEach((b) => {
-        b.classList.add('gccx-fx-btn');
-        b.style.removeProperty('color');
+      feature('buttons', () => {
+        portlet.querySelectorAll('.btn-primary').forEach((b) => {
+          addCls(b, 'gccx-fx-btn');
+          const v = b.style.getPropertyValue('color'), pr = b.style.getPropertyPriority('color');
+          if (v) { b.style.removeProperty('color'); rec(() => b.style.setProperty('color', v, pr)); }
+        });
       });
-      markRows(body);
-      if (early === 'main') rebuildMain(body);
-      if (early === 'topicview') rebuildTopic(body);
-      filterBox(body);
+      feature('row marks', () => markRows(body));
+      if (early === 'main') feature('main list', () => rebuildMain(body));
+      if (early === 'topicview') feature('topic list', () => rebuildTopic(body));
+      feature('filter', () => filterBox(body));
     } catch (e) {
-      console.warn('[aBetterMyGCC] forums', e);
+      warn('build failed', { error: String(e && e.message || e) });
+    } finally {
+      // always reveal the body (CSS hides it until ready); teardown removes the class again
+      try { addCls(body, 'gccx-fx-ready'); } catch (e) { /* CSS fallback reveals after 1.5s */ }
     }
-    body.classList.add('gccx-fx-ready');
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
-  else run();
+  // Extension switched off: undo every change, newest first, then sweep any stragglers.
+  function teardown() {
+    unwind(0);
+    try {
+      document.querySelectorAll('.gccx-fx-crumbs, .gccx-fx-filter, .gccx-fx-empty, .gccx-fx-none, .gccx-fx-foot').forEach((n) => n.remove());
+      document.querySelectorAll('[class*="gccx-fx"]').forEach((n) => {
+        [...n.classList].filter((c) => c.startsWith('gccx-fx')).forEach((c) => n.classList.remove(c));
+        if (!n.getAttribute('class')) n.removeAttribute('class');
+      });
+    } catch (e) { warn('teardown sweep failed', { error: String(e) }); }
+    root.classList.remove('gccx-forums');
+    [...root.classList].filter((c) => c.startsWith('gccx-forums-')).forEach((c) => root.classList.remove(c));
+  }
+
+  const start = () => { if (window.GCCX && GCCX.onLook) GCCX.onLook(build, teardown); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
 })();

@@ -37,6 +37,10 @@
     return opts.length >= 3 && opts.filter((o) => /(semester|term|summer|winter|spring|fall)/i.test(o.textContent) && /\d{4}/.test(o.textContent)).length >= opts.length - 1;
   }
 
+  const arranged = new Map(); // select -> what is needed to undo it
+  let obs = null, domHandler = null, live = false;
+  const warn = (m) => { try { window.GCCX && window.GCCX.log('warn', 'content', '[terms] ' + m); } catch (e) { /* ignore */ } };
+
   function arrange(sel) {
     if (sel.dataset.gccxTerms) return;
     if (!looksLikeTerms(sel)) return;
@@ -44,6 +48,8 @@
     const items = [...sel.options].map((o) => ({ o, t: info(o) }));
     if (items.some((x) => !x.t)) return; // something we don't understand; leave it alone
     sel.dataset.gccxTerms = '1';
+    const origOpts = [...sel.options];
+    const origText = origOpts.map((o) => o.textContent);
     const selectedValue = sel.value;
     items.sort((a, b) => a.t.sort - b.t.sort);
     // current = the latest term that has already started
@@ -74,7 +80,35 @@
     sel.appendChild(frag);
     sel.value = selectedValue; // keep whatever myGCC had selected
     paint(sel);
-    sel.addEventListener('change', () => paint(sel));
+    const onChange = () => paint(sel);
+    sel.addEventListener('change', onChange);
+    arranged.set(sel, { origOpts, origText, onChange });
+  }
+  // Put one select back exactly as myGCC rendered it
+  function restore(sel, st) {
+    const cur = sel.value;
+    sel.removeEventListener('change', st.onChange);
+    sel.querySelectorAll('option.gccx-term-sep').forEach((o) => o.remove());
+    const frag = document.createDocumentFragment();
+    st.origOpts.forEach((o, i) => {
+      o.textContent = st.origText[i];
+      o.classList.remove('gccx-term', 'gccx-term-fall', 'gccx-term-winter', 'gccx-term-spring', 'gccx-term-summer');
+      if (!o.classList.length) o.removeAttribute('class');
+      delete o.dataset.gccxLabel;
+      frag.appendChild(o);
+    });
+    sel.appendChild(frag);
+    sel.value = cur;
+    sel.classList.remove('gccx-term-fall', 'gccx-term-winter', 'gccx-term-spring', 'gccx-term-summer', 'gccx-term-select');
+    if (!sel.classList.length) sel.removeAttribute('class');
+    delete sel.dataset.gccxTerms;
+  }
+  function teardown() {
+    live = false;
+    if (obs) { obs.disconnect(); obs = null; }
+    if (domHandler) { document.removeEventListener('DOMContentLoaded', domHandler); domHandler = null; }
+    arranged.forEach((st, sel) => { try { restore(sel, st); } catch (e) { warn('restore failed: ' + (e.message || e)); } });
+    arranged.clear();
   }
   // color the closed select to match the chosen term
   function paint(sel) {
@@ -84,14 +118,26 @@
     if (season) sel.classList.add(season, 'gccx-term-select');
   }
 
-  function run(rootEl) { (rootEl || document).querySelectorAll('select').forEach(arrange); }
-  function boot() {
-    if (!document.documentElement.classList.contains('gccx')) return;
-    run();
-    new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach((n) => n.nodeType === 1 && run(n)))).observe(document.body, { childList: true, subtree: true });
+  function run(rootEl) {
+    (rootEl || document).querySelectorAll('select').forEach((sel) => {
+      try { arrange(sel); } catch (e) { warn('arrange failed: ' + (e.message || e)); }
+    });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function boot() {
+    domHandler = null;
+    if (!live || obs) return;
+    run();
+    obs = new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach((n) => n.nodeType === 1 && run(n))));
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+  function apply() {
+    teardown(); // idempotent: never double-apply
+    live = true;
+    if (document.readyState === 'loading') { domHandler = boot; document.addEventListener('DOMContentLoaded', domHandler); }
+    else boot();
+  }
+  if (window.GCCX && window.GCCX.onLook) window.GCCX.onLook(apply, teardown);
+  else if (document.documentElement.classList.contains('gccx')) apply();
 
   // Shared with builder.js: the term's name without our " · current" tag
   window.GCCX_termLabel = (opt) => (opt ? opt.dataset.gccxLabel || opt.textContent.trim() : '');

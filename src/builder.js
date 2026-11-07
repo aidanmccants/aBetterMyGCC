@@ -19,9 +19,34 @@
   };
   const MAIN_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
 
+  // ---------------- live on/off ----------------
+  // `on` is true only between build() and teardown(). `gen` changes on every build and
+  // teardown, so async work started in one "on" period can tell it is stale after an await.
+  let on = false;
+  let gen = 0;
+  const alive = (g) => on && g === gen;
+  const undos = [];          // per-feature undo functions, run in reverse by teardown()
+  const timers = new Set();  // pending setTimeout ids we own
+  const rowHandlers = [];    // hover/focus listeners put on result rows
+  const hiddenOrig = new Map(); // row -> its `hidden` value before the fit filter touched it
+  const zoomOrig = new Map();   // results table -> its inline zoom before we shrank it
+  const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; };
+  const blog = (msg, data) => { try { X.log('warn', 'content', '[builder] ' + msg, data); } catch (e) { /* ignore */ } };
+  // run one independent feature; if it throws, log it and undo whatever it already did
+  function safe(name, fn) {
+    try {
+      const u = fn();
+      if (typeof u === 'function') undos.push(u);
+    } catch (e) {
+      blog(`${name} failed: ${(e && e.message) || e}`, { stack: e && e.stack });
+      try { sweepDom(); } catch (e2) { /* ignore */ }
+    }
+  }
+
   // Chrome ignores `javascript:__doPostBack(...)` links clicked from an extension script,
   // so do what __doPostBack does: set the two hidden fields and submit the page form.
   function postBackLink(a) {
+    if (!on) return;
     if (X.demo) return a.click(); // the demo shim routes link clicks itself
     const m = /__doPostBack\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/.exec(decodeURIComponent(a.getAttribute('href') || ''));
     const form = document.forms[0];
@@ -170,7 +195,7 @@
   // to the Course Search button), in addition to the plan panel.
   function addAIButtons() {
     const p = portlet();
-    if (!p) return;
+    if (!p || !on) return;
     const make = (cls) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -187,15 +212,19 @@
   async function openAI() {
     drawerOpen = true;
     await renderDrawer(true);
+    if (!on) return;
     const box = document.querySelector('#gccx-plan .x-ai');
     if (box) box.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    setTimeout(() => document.getElementById('gccx-ai-input')?.focus(), 250);
+    later(() => document.getElementById('gccx-ai-input')?.focus(), 250);
   }
 
   async function decorate() {
+    const g = gen;
+    if (!on) return;
     addAIButtons();
     const sc = screen();
     const plan = await getPlan();
+    if (!alive(g)) return;
     const term = screenTerm();
     if (sc === 'results' || sc === 'main') rememberTerm(term);
     const has = (code, termVal) => plan.some((p) => p.code === code && (!termVal || p.term === termVal));
@@ -203,12 +232,14 @@
       for (const r of resultRows()) {
         if (!r.row.dataset.gccxGhost) {
           r.row.dataset.gccxGhost = '1';
-          const on = () => { hoverSection = { code: r.code, schedule: r.schedule }; showGhost(hoverSection); };
+          const over = () => { hoverSection = { code: r.code, schedule: r.schedule }; showGhost(hoverSection); };
           const off = () => { hoverSection = null; clearGhost(); };
-          r.row.addEventListener('mouseenter', on);
+          const fout = (e) => { if (!r.row.contains(e.relatedTarget)) off(); };
+          r.row.addEventListener('mouseenter', over);
           r.row.addEventListener('mouseleave', off);
-          r.row.addEventListener('focusin', on);
-          r.row.addEventListener('focusout', (e) => { if (!r.row.contains(e.relatedTarget)) off(); });
+          r.row.addEventListener('focusin', over);
+          r.row.addEventListener('focusout', fout);
+          rowHandlers.push({ row: r.row, over, off, fout });
         }
         if (!r.addCell || r.addCell.querySelector('.gccx-save')) continue;
         const b = document.createElement('button');
@@ -231,13 +262,16 @@
       }
       await markFit(plan, term); // after the buttons exist, so it can lock them
     }
+    if (!alive(g)) return;
     if (sc === 'details') {
       const info = detailsInfo();
       // Remember reference numbers for any planned section the user opens
       const items = await getPlan();
+      if (!alive(g)) return;
       let changed = false;
       items.forEach((p) => { if (p.code === info.code && !p.ref && info.ref && (!term || !p.term || p.term === term.value || sameLabel(p.termLabel, info.termLabel))) { p.ref = info.ref; changed = true; } });
       if (changed) await setPlan(items);
+      if (!alive(g)) return;
       const anchor = byEnd('lnkAddCourse') || byEnd('lnkBack');
       if (anchor && !$('.gccx-save-detail')) {
         const b = document.createElement('button');
@@ -273,6 +307,7 @@
         // Anything in the plan you're now registered for is done; drop it.
         const left = plan.filter((p) => !(p.term === sel.value && now.some((c) => c.code === p.code)));
         if (left.length !== plan.length) await setPlan(left);
+        if (!alive(g)) return;
         addLoadButton(sel.value, left.filter((p) => p.term === sel.value));
       }
     }
@@ -282,7 +317,7 @@
   // stops, so you can check them and press Add Course(s) yourself.
   function addLoadButton(term, items) {
     const addBtn = byEnd('tabRef_gbtnSearchRef');
-    if (!addBtn) return;
+    if (!addBtn || !on) return;
     let b = $('#gccx-load-plan');
     if (!items.length) { b && b.remove(); return; }
     if (!b) {
@@ -304,9 +339,11 @@
     return { known: !!reg, courses: [...registered, ...planned.filter((p) => !registered.some((r) => r.code === p.code))] };
   }
   async function markFit(plan, term) {
-    if (!term) return;
+    const g = gen;
+    if (!term || !on) return;
     const sched = await scheduleFor(term.value, plan);
     const settings = (await store.get('settings')) || {};
+    if (!alive(g)) return;
     const onlyFit = !!settings.onlyFit;
     const table = byEnd('dgCourses');
     const rows = resultRows();
@@ -321,6 +358,7 @@
         const s = (await store.get('settings')) || {};
         s.onlyFit = e.target.checked;
         await store.set('settings', s);
+        if (!on) return;
         markFit(await getPlan(), currentSearchTerm());
       });
     }
@@ -361,7 +399,7 @@
       let n = r.row.nextElementSibling;
       while (n && !n.querySelector('a[id$="lnkCourse"]')) { group.push(n); n = n.nextElementSibling; }
       const hide = onlyFit && !fits;
-      group.forEach((g) => (g.hidden = hide));
+      group.forEach((n2) => { if (!hiddenOrig.has(n2)) hiddenOrig.set(n2, n2.hidden); n2.hidden = hide; });
       if (hide) hidden++;
     }
     if (filter) {
@@ -383,9 +421,11 @@
   const setClosed = (v) => { try { v ? sessionStorage.setItem(closedKey, '1') : sessionStorage.removeItem(closedKey); } catch (e) { /* ignore */ } };
 
   async function renderDrawer(open) {
-    if (!portlet()) return;
+    const g = gen;
+    if (!on || !portlet()) return;
     const plan = await getPlan();
     const job = await store.get('job');
+    if (!alive(g)) return;
     if (open === true) { drawerOpen = true; setClosed(false); }
     // split screen by default: open beside the search unless closed this session
     if (drawerOpen === null) drawerOpen = !wasClosed() || !!(job && job.user === userKey());
@@ -433,6 +473,7 @@
     const termLabel = (terms.find(([v]) => v === viewTerm) || [, st && st.label])[1] || '';
     const bgBusy = new Set(bgRefBusy);
     const reg = ((await store.get('registered')) || {})[userKey() + '|' + viewTerm];
+    if (!alive(g)) return;
     const registered = reg ? reg.courses.filter((c) => !items.some((i) => i.code === c.code)) : [];
 
     const conflicts = new Map();
@@ -484,14 +525,14 @@
       const btn = e.currentTarget;
       try { await navigator.clipboard.writeText(planText(items, termLabel)); btn.textContent = 'Copied'; }
       catch (err) { btn.textContent = 'Copy failed'; }
-      setTimeout(() => (btn.textContent = 'Copy'), 1600);
+      later(() => (btn.textContent = 'Copy'), 1600);
     });
     d.querySelectorAll('[data-copy-one]').forEach((b) => b.addEventListener('click', async () => {
       const it = items.find((i) => i.code === b.dataset.copyOne);
       if (!it) return;
       try { await navigator.clipboard.writeText(planText([it], termLabel, true)); b.textContent = 'Copied'; }
       catch (err) { b.textContent = 'Failed'; }
-      setTimeout(() => (b.textContent = 'Copy'), 1600);
+      later(() => (b.textContent = 'Copy'), 1600);
     }));
     d.querySelector('[data-lookup-refs]')?.addEventListener('click', () => startJob(viewTerm, items.filter((i) => !i.ref), { lookupOnly: true }));
     d.querySelector('[data-csv]')?.addEventListener('click', () => {
@@ -732,7 +773,7 @@
   }
 
   async function saveJob(job) { job.ts = Date.now(); await store.set('job', job); }
-  function goMain() { X.go(MAIN_URL); }
+  function goMain() { if (on) X.go(MAIN_URL); }
   function setSelect(sel, value) {
     if (!sel || sel.value === value) return false;
     sel.value = value;
@@ -741,8 +782,9 @@
   }
 
   async function run() {
+    if (!on) return;
     const job = await store.get('job');
-    if (!job) return;
+    if (!job || !on) return;
     if (job.user !== userKey()) { plog('warn', 'Job belongs to another user; ignoring', { job: job.user, me: userKey() }); return; }
     if (job.phase === 'done') return;
     if (Date.now() - job.ts > 10 * 60e3) { plog('warn', 'Job abandoned (older than 10 minutes); cleared'); await store.set('job', null); return; }
@@ -769,6 +811,7 @@
         const dept = byEnd('tabSearch_ddlDept', p); if (dept) dept.selectedIndex = 0;
         job.step = 'searched'; job.current = code; await saveJob(job);
         plog('info', `Searching for ${code} (${job.term})`);
+        if (!on) return;
         return byEnd('tabSearch_btnSearch', p).click();
       }
       if (sc === 'results' && job.step === 'searched') {
@@ -837,6 +880,7 @@
         if (job.step === 'term') { plog('error', 'Could not switch the Add/Drop term', { want: job.term, have: termSel.value }); return finish(job, 'Stopped: could not switch to this term on Add/Drop.'); }
         job.step = 'term'; await saveJob(job);
         plog('info', 'Switching Add/Drop to the plan\'s term', { from: termSel.value, to: job.term });
+        if (!on) return;
         setSelect(termSel, job.term); // triggers myGCC's own postback
         return;
       }
@@ -859,6 +903,7 @@
         await saveJob(job);
         renderDrawer(true);
         // show the Add by Reference # tab so the filled boxes are visible
+        if (!on) return;
         $$('a', p).find((a) => /reference/i.test(a.textContent) && a.getAttribute('href') === '#')?.click();
         byEnd('tabRef_tbRefNum1', p)?.scrollIntoView({ block: 'center' });
         return;
@@ -874,6 +919,7 @@
       }
       job.step = 'submitted'; await saveJob(job);
       plog('info', 'Clicking Add Course(s)', { refs: job.batch.map((c) => job.refs[c]) });
+      if (!on) return;
       return addBtn.click(); // a real click, so the page's own validation and postback run
     }
   }
@@ -1017,6 +1063,7 @@ How myGCC labels courses:
     term = term || (st && st.value);
     if (!term) return;
     const termLabel = ((await getPlan()).find((p) => p.term === term) || {}).termLabel || (st && st.value === term ? st.label : term);
+    const g = gen;
     aiRun = { running: true, input, log: [], summary: '', error: '' };
     const say = (text, bad) => { aiRun.log.push({ text, bad }); X.log(bad ? 'warn' : 'info', 'plan', text); renderDrawer(true); };
     const seen = new Map(); // code -> section from searches
@@ -1044,7 +1091,7 @@ How myGCC labels courses:
       const MAX_TURNS = 24;
       const FINAL_NOTE = '\n\nYou have used all your steps. Stop searching and give your final summary now.';
       for (let turn = 0; turn < MAX_TURNS; turn++) {
-        if (aiRun.stopped) { aiRun.error = 'Stopped.'; break; }
+        if (aiRun.stopped || !alive(g)) { aiRun.error = 'Stopped.'; break; }
         const last = turn === MAX_TURNS - 1; // final turn: no tools, summarize what was done
         const r = await aiCall({ src: 'plan', system: last ? AI_SYSTEM + FINAL_NOTE : AI_SYSTEM, tools: AI_TOOLS, messages, noTools: last });
         if (!r || r.error) { aiRun.error = X.aiErrorText(r); X.log('error', 'plan', aiRun.error, r); break; }
@@ -1055,6 +1102,7 @@ How myGCC labels courses:
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
+          if (!alive(g)) break;
           let content, isError = false;
           try {
             const a = call.input || {};
@@ -1106,6 +1154,7 @@ How myGCC labels courses:
       X.log('error', 'plan', aiRun.error, { stack: e.stack });
     }
     aiRun.running = false;
+    if (!alive(g)) return; // switched off meanwhile: no reload, no page changes
     // The background searches moved myGCC's own page state on the server, so
     // reload Add/Drop with a normal link (not a refresh) and keep the summary.
     try { sessionStorage.setItem('gccx-ai-run', JSON.stringify({ ...aiRun, stopped: false })); } catch (e) { /* ignore */ }
@@ -1201,12 +1250,14 @@ How myGCC labels courses:
   // (a plain GET of a read-only page; nothing is submitted). Its term box uses
   // the same values as Add/Drop's.
   async function loadRegisteredBackground() {
+    const g = gen;
     const me = userKey();
-    if (!me || screen() === 'main') return; // the main screen scrapes itself
+    if (!on || !me || screen() === 'main') return; // the main screen scrapes itself
     try {
       const r = await fetch('/ICS/Academics/Home.jnz?portlet=Student_Schedule', { credentials: 'same-origin' });
       if (!r.ok) return;
       const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+      if (!alive(g)) return;
       const sel = [...doc.querySelectorAll('select')].find((s) => /ddlTerm$/.test(s.id) && !/Search/.test(s.id));
       const sched = X.parseSchedule(doc);
       if (!sel || !sel.value || !sched) return;
@@ -1222,30 +1273,75 @@ How myGCC labels courses:
     } catch (e) { X.log('warn', 'plan', 'Could not load registered schedule', { err: String(e) }); }
   }
 
-  chrome.storage.onChanged.addListener((ch) => { if (ch.plans || ch.registered) { renderDrawer(); refreshFit(); } if (ch.ai) aiStatus().then((x) => { aiInfo = x; renderDrawer(); }); });
+  function onStorage(ch) {
+    if (!on) return;
+    if (ch.plans || ch.registered) { renderDrawer(); refreshFit(); }
+    if (ch.ai) { const g = gen; aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); }); }
+  }
+  // re-sync the plan when the site's term box changes (item 26)
+  function onTermChange(e) {
+    if (!on) return;
+    const t = e.target;
+    if (!t || t.tagName !== 'SELECT' || !/ddlTerm(Search)?$/.test(t.id || '')) return;
+    if (/Search$/.test(t.id)) rememberTerm(currentSearchTerm());
+    renderDrawer();
+  }
 
-  function boot() {
+  // Remove every element and class this script added, and put back what it moved or hid.
+  // Safe to run any number of times (also used as the backstop after a failed feature).
+  function sweepDom() {
+    for (const h of rowHandlers.splice(0)) {
+      h.row.removeEventListener('mouseenter', h.over);
+      h.row.removeEventListener('mouseleave', h.off);
+      h.row.removeEventListener('focusin', h.over);
+      h.row.removeEventListener('focusout', h.fout);
+      delete h.row.dataset.gccxGhost;
+    }
+    $$('.pt_CourseSchedules [data-gccx-ghost]').forEach((r) => { delete r.dataset.gccxGhost; });
+    for (const [n, was] of hiddenOrig) n.hidden = was;
+    hiddenOrig.clear();
+    $$('#gccx-plan, #gccx-plan-toggle, .gccx-ai-btn, .gccx-save, #gccx-load-plan, #gccx-fit-filter, .gccx-fit').forEach((e) => e.remove());
+    document.documentElement.classList.remove('gccx-plan-open');
+  }
+
+  function teardown() {
+    on = false;
+    gen++;
+    hoverSection = null;
+    calState = null;
+    for (const id of timers) clearTimeout(id);
+    timers.clear();
+    while (undos.length) { try { undos.pop()(); } catch (e) { blog('undo failed: ' + ((e && e.message) || e)); } }
+    try { sweepDom(); } catch (e) { blog('sweep failed: ' + ((e && e.message) || e)); }
+  }
+
+  function build() {
+    if (on) return;
     if (!portlet() || !userKey()) return;
-    try { if (JSON.parse(localStorage.getItem('gccx-settings') || '{}').enabled === false) return; } catch (e) { /* default on */ }
-    try {
-      const saved = JSON.parse(sessionStorage.getItem('gccx-ai-run') || 'null');
-      if (saved) { aiRun = saved; sessionStorage.removeItem('gccx-ai-run'); drawerOpen = true; }
-    } catch (e) { /* ignore */ }
-    aiStatus().then((x) => { aiInfo = x; renderDrawer(); });
-    // a failure while decorating must not stop a running job from resuming
-    decorate().catch((e) => X.log('error', 'plan', 'decorate failed: ' + (e && e.message), { stack: e && e.stack }))
-      .then(() => renderDrawer()).catch((e) => X.log('error', 'plan', 'renderDrawer failed: ' + (e && e.message), { stack: e && e.stack }))
-      .then(runSafe);
-    // Item 26: re-sync the plan when the site's term box changes. ddlTerm posts
-    // back (fresh load re-syncs); ddlTermSearch does not, so redraw here.
-    document.addEventListener('change', (e) => {
-      const t = e.target;
-      if (!t || t.tagName !== 'SELECT' || !/ddlTerm(Search)?$/.test(t.id || '')) return;
-      if (/Search$/.test(t.id)) rememberTerm(currentSearchTerm());
-      renderDrawer();
-    }, true);
-    loadRegisteredBackground(); // fills the calendar on results/details screens and on a first visit
-    fitResults();
+    on = true;
+    gen++;
+    const g = gen;
+    safe('storage listener', () => {
+      chrome.storage.onChanged.addListener(onStorage);
+      return () => chrome.storage.onChanged.removeListener(onStorage);
+    });
+    safe('term listener', () => {
+      document.addEventListener('change', onTermChange, true);
+      return () => document.removeEventListener('change', onTermChange, true);
+    });
+    safe('plan drawer', () => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('gccx-ai-run') || 'null');
+        if (saved) { aiRun = saved; sessionStorage.removeItem('gccx-ai-run'); drawerOpen = true; }
+      } catch (e) { /* ignore */ }
+      aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); });
+      // a failure while decorating must not stop a running job from resuming
+      decorate().catch((e) => blog('decorate failed: ' + (e && e.message), { stack: e && e.stack }))
+        .then(() => renderDrawer()).catch((e) => blog('renderDrawer failed: ' + (e && e.message), { stack: e && e.stack }))
+        .then(runSafe);
+    });
+    safe('registered schedule', () => { loadRegisteredBackground(); }); // fills the calendar on results/details screens and on a first visit
+    safe('fit results', fitResults);
   }
 
   // Shrink the wide results table (down to 75%) so it fits without sideways scrolling.
@@ -1257,6 +1353,7 @@ How myGCC labels courses:
     const fit = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => tables().forEach((t) => {
+        if (!zoomOrig.has(t)) zoomOrig.set(t, t.style.zoom);
         t.style.zoom = '';
         const host = t.parentElement;
         const avail = host.clientWidth - 12; // room for the section padding
@@ -1264,9 +1361,19 @@ How myGCC labels courses:
         if (avail > 0 && need > avail + 2) t.style.zoom = String(Math.max(0.75, Math.floor((avail / need) * 100) / 100));
       }));
     };
-    new ResizeObserver(fit).observe(box);
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
     fit();
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(raf);
+      for (const [t, z] of zoomOrig) t.style.zoom = z;
+      zoomOrig.clear();
+    };
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+
+  // The `gccx` class on <html> is the live on/off switch (content.js); follow it.
+  const start = () => { if (X.onLook) X.onLook(build, teardown); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();

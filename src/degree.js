@@ -41,7 +41,7 @@
 
   // ---------- myGCC requests ----------
   async function getDoc(url, init) {
-    const res = await fetch(url, { credentials: 'include', ...init });
+    const res = await fetch(url, { credentials: 'include', signal: ctl ? ctl.signal : undefined, ...init });
     if (!res.ok) throw new Error(`${res.status} ${url}`);
     return new DOMParser().parseFromString(await res.text(), 'text/html');
   }
@@ -193,18 +193,24 @@
 
   // Summary first, then each unmet requirement in turn. Every detail starts from a
   // fresh summary page, because opening one requirement replaces the view.
-  async function loadAll() {
+  async function loadAll(g) {
+    const stop = () => { if (g !== gen) throw new Error('stopped'); };
     const summary = parseSummary(await ensureSummary(await getDoc(PAGE)));
+    stop();
     for (const q of summary.reqs) {
       if (!q.hasDetail) continue;
+      stop();
       try {
         const base = await ensureSummary(await getDoc(PAGE));
+        stop();
         const link = findRequirementLink(base, q.name);
         if (link) q.detail = parseDetail(await postback(base, targetOf(link)));
       } catch (e) {
-        console.warn('[aBetterMyGCC] degree detail', q.name, e);
+        stop();
+        warn(`detail for "${q.name}" failed`, { error: String(e && e.message || e) });
       }
     }
+    stop();
     return summary;
   }
 
@@ -272,14 +278,39 @@
   }
 
   let hideGpa = true;   // settings.hideGpa (default on)
-  try {
-    chrome.storage.local.get('settings', (o) => { hideGpa = !(o && o.settings && o.settings.hideGpa === false); paint(); });
-    chrome.storage.onChanged.addListener((ch) => { if (ch.settings) { hideGpa = !(ch.settings.newValue && ch.settings.newValue.hideGpa === false); paint(); } });
-  } catch (e) { /* extension reloaded */ }
   let root = null;      // #gccx-degree, while the roadmap is showing
+  let hiddenEls = [];   // portlet children we hid
   let current = null;   // { data, ts } currently rendered
   let busy = false;
   let note = '';
+  let gen = 0;          // bumped on every build and teardown; async work compares to drop stale results
+  let ctl = null;       // AbortController for this build's requests
+  const undos = [];
+
+  function warn(msg, extra) {
+    try { if (window.GCCX && GCCX.log) GCCX.log('warn', 'content', `[degree] ${msg}`, extra); } catch (e) { /* logging is best effort */ }
+  }
+  // Run one independent feature; if it throws, log and undo it so the others keep working.
+  function safe(name, run, undo) {
+    try { run(); undos.push(undo); return true; } catch (e) {
+      warn(`${name} failed; reverted it`, { error: String(e && e.message || e), stack: e && e.stack });
+      try { undo(); } catch (e2) { warn(`${name} undo failed`, { error: String(e2) }); }
+      return false;
+    }
+  }
+
+  let settingsListener = null;
+  function startSettings() {
+    const g = gen;
+    chrome.storage.local.get('settings', (o) => { if (g !== gen) return; hideGpa = !(o && o.settings && o.settings.hideGpa === false); paint(); });
+    settingsListener = (ch) => { if (ch.settings) { hideGpa = !(ch.settings.newValue && ch.settings.newValue.hideGpa === false); paint(); } };
+    chrome.storage.onChanged.addListener(settingsListener);
+  }
+  function stopSettings() {
+    if (!settingsListener) return;
+    try { chrome.storage.onChanged.removeListener(settingsListener); } catch (e) { /* extension reloaded */ }
+    settingsListener = null;
+  }
 
   function footHTML() {
     const bits = [];
@@ -305,28 +336,46 @@
   }
 
   // ---------- controller ----------
+  function mountRoadmap(portlets) {
+    root = document.createElement('section');
+    root.id = ROOT_ID;
+    root.setAttribute('aria-label', 'Degree roadmap');
+    hiddenEls = [...portlets.children];
+    hiddenEls.forEach((el) => el.setAttribute(HIDDEN_ATTR, ''));
+    portlets.insertBefore(root, portlets.firstChild);
+    root.addEventListener('click', onClick);
+  }
+  // Remove the roadmap and bring the portal's own content back. Safe to call twice.
   function restoreOriginal() {
-    if (root) root.remove();
+    if (root) { root.removeEventListener('click', onClick); root.remove(); }
     root = null;
+    hiddenEls.forEach((el) => el.removeAttribute(HIDDEN_ATTR));
+    hiddenEls = [];
     document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => el.removeAttribute(HIDDEN_ATTR));
   }
 
   async function refresh() {
     if (busy) return;
+    const g = gen;
     busy = true;
     note = '';
     paint();
     let error = null;
+    let data = null;
     try {
-      const data = await loadAll();
-      current = { data, ts: Date.now() };
-      try { await store.set(CACHE_KEY, { ts: current.ts, user: userKey(), data }); } catch (e) { /* cache is optional */ }
+      data = await loadAll(g);
     } catch (e) {
       error = e;
     }
+    if (g !== gen) return; // torn down meanwhile; teardown already reset the state
+    if (data) {
+      current = { data, ts: Date.now() };
+      try { await store.set(CACHE_KEY, { ts: current.ts, user: userKey(), data }); } catch (e) { /* cache is optional */ }
+      if (g !== gen) return;
+    }
     busy = false;
     if (error) {
-      console.warn('[aBetterMyGCC] degree', error);
+      warn(`refresh failed: ${String(error && error.message || error)}`);
       if (!current) { restoreOriginal(); return; }
       note = 'Could not refresh. Showing saved data.';
     }
@@ -344,50 +393,69 @@
     if (e.target.closest('[data-gccx-refresh]')) refresh();
   }
 
-  async function init() {
+  async function init(g) {
     const here = window.GCCX && window.GCCX.loc ? window.GCCX.loc() : location; // differs from location only in the demo
     if (!/My_Degree_Progress/i.test(here.search)) return;
-    if (!document.documentElement.classList.contains('gccx')) return;
     const portlets = document.getElementById('portlets');
     if (!portlets || document.getElementById(ROOT_ID)) return;
+    if (!safe('roadmap', () => mountRoadmap(portlets), restoreOriginal)) return;
 
-    root = document.createElement('section');
-    root.id = ROOT_ID;
-    root.setAttribute('aria-label', 'Degree roadmap');
-    [...portlets.children].forEach((el) => el.setAttribute(HIDDEN_ATTR, ''));
-    portlets.insertBefore(root, portlets.firstChild);
-    root.addEventListener('click', onClick);
-
-    const user = userKey();
-    let hit = null;
-    try { hit = await store.get(CACHE_KEY); } catch (e) { /* no cache */ }
-    const usable = !!(hit && hit.user === user && hit.data);
-    if (usable) { current = { data: hit.data, ts: hit.ts }; paint(); }
-    if (!usable || Date.now() - hit.ts >= TTL) await refresh();
-  }
-
-  // Add/Drop: if the roadmap sent us here with a course to look up, fill the search and run it.
-  function runPrefill() {
     try {
-      const code = sessionStorage.getItem(PREFILL_KEY);
-      const box = code && document.querySelector('[id$="tabSearch_txtCourseRestrictor"]');
-      if (!box) return;
-      sessionStorage.removeItem(PREFILL_KEY);
-      box.value = code;
-      const sel = document.querySelector('[id$="tabSearch_ddlCourseRestrictor"]');
-      const opt = sel && [...sel.options].find((o) => /begins/i.test(o.text));
-      if (opt) sel.value = opt.value;
-      const go = document.querySelector('[id$="tabSearch_btnSearch"]');
-      if (go) go.click();
+      const user = userKey();
+      let hit = null;
+      try { hit = await store.get(CACHE_KEY); } catch (e) { /* no cache */ }
+      if (g !== gen) return;
+      const usable = !!(hit && hit.user === user && hit.data);
+      if (usable) { current = { data: hit.data, ts: hit.ts }; paint(); }
+      if (!usable || Date.now() - hit.ts >= TTL) await refresh();
     } catch (e) {
-      console.warn('[aBetterMyGCC] prefill', e);
+      warn(`roadmap failed; restored the original page: ${String(e && e.message || e)}`, { stack: e && e.stack });
+      if (g === gen) restoreOriginal();
     }
   }
 
-  function boot() {
-    runPrefill();
-    init().catch((e) => console.warn('[aBetterMyGCC] degree', e));
+  // Add/Drop: if the roadmap sent us here with a course to look up, fill the search and run it.
+  // Filling the fields is undone on teardown; the search click itself is a server postback and cannot be.
+  function runPrefill() {
+    const code = sessionStorage.getItem(PREFILL_KEY);
+    const box = code && document.querySelector('[id$="tabSearch_txtCourseRestrictor"]');
+    if (!box) return null;
+    sessionStorage.removeItem(PREFILL_KEY);
+    const sel = document.querySelector('[id$="tabSearch_ddlCourseRestrictor"]');
+    const prev = { box, boxVal: box.value, sel, selVal: sel ? sel.value : '' };
+    box.value = code;
+    const opt = sel && [...sel.options].find((o) => /begins/i.test(o.text));
+    if (opt) sel.value = opt.value;
+    const go = document.querySelector('[id$="tabSearch_btnSearch"]');
+    if (go) go.click();
+    return prev;
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+
+  function build() {
+    gen++;
+    ctl = new AbortController();
+    safe('settings', startSettings, stopSettings);
+    let prev = null;
+    safe('prefill', () => { prev = runPrefill(); }, () => {
+      if (!prev) return;
+      if (prev.box.isConnected) prev.box.value = prev.boxVal;
+      if (prev.sel && prev.sel.isConnected) prev.sel.value = prev.selVal;
+      prev = null;
+    });
+    init(gen).catch((e) => warn(`init failed: ${String(e && e.message || e)}`));
+  }
+
+  function teardown() {
+    gen++;
+    if (ctl) { try { ctl.abort(); } catch (e) { /* already aborted */ } ctl = null; }
+    busy = false;
+    current = null;
+    note = '';
+    undos.splice(0).reverse().forEach((u) => { try { u(); } catch (e) { warn('teardown step failed', { error: String(e && e.message || e) }); } });
+    restoreOriginal();
+  }
+
+  const start = () => { if (window.GCCX && GCCX.onLook) GCCX.onLook(build, teardown); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+  else start();
 })();

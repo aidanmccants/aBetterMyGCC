@@ -6,6 +6,10 @@
    waive 47a: .page-title-bar is JICS's own page header, not re-drawn chrome.
    waive 39a: inputs also get the global 2px :focus-visible outline below; the border tint on :focus is additive. */
 
+/* Off-switch safety net: anything the extension inserted (every gccx- id) disappears the moment
+   the extension is switched off, even if a script has no live teardown for it yet. */
+html:not(.gccx) [id^="gccx-"] { display: none !important; }
+
 /* aBetterMyGCC theme. Everything is scoped to html.gccx so the extension can be
    switched off from the popup without reloading styles.
    Palette: Grove City College brand (gcc.edu): crimson #a60000, red #cc0000, hover #990000,
@@ -559,9 +563,9 @@ html.gccx #siteNavBar_searchBox_SearchButton { visibility: hidden; }
 #gccx-plan-toggle:hover { background: var(--x-accent-hover); transform: translateY(-1px); }
 #gccx-plan-toggle:active { transform: none; }
 #gccx-plan-toggle:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 3px; }
-html.gccx-plan-open #gccx-plan-toggle { display: none; }
-html.gccx-plan-open body { margin-right: 380px !important; }
-html.gccx-plan-open #gccx-search-btn { right: 540px; }
+html.gccx.gccx-plan-open #gccx-plan-toggle { display: none; }
+html.gccx.gccx-plan-open body { margin-right: 380px !important; }
+html.gccx.gccx-plan-open #gccx-search-btn { right: 540px; }
 
 #gccx-plan {
   position: fixed; z-index: 1035; top: 0; right: 0; bottom: 0; width: 380px; overflow-y: auto;
@@ -625,7 +629,7 @@ html.gccx-plan-open #gccx-search-btn { right: 540px; }
 #gccx-plan .x-job li { display: flex; justify-content: space-between; font-size: 14.5px; padding: 3px 0; }
 #gccx-plan .x-ok { color: var(--x-ok); }
 #gccx-plan .x-bad { color: var(--x-bad); }
-@media (max-width: 1100px) { html.gccx-plan-open body { margin-right: 0 !important; } html.gccx-plan-open #gccx-search-btn { right: 160px; } #gccx-plan { box-shadow: var(--x-shadow-pop); } }
+@media (max-width: 1100px) { html.gccx.gccx-plan-open body { margin-right: 0 !important; } html.gccx.gccx-plan-open #gccx-search-btn { right: 160px; } #gccx-plan { box-shadow: var(--x-shadow-pop); } }
 @media (max-width: 480px) { #gccx-plan { width: 100%; } }
 
 /* ---------- term dropdowns: color by season ---------- */
@@ -777,7 +781,7 @@ html.gccx .pt_CourseSchedules [id$="tabRef_Panel2"] { display: none !important; 
 
 #gccx-dash .x-reg { background: var(--x-accent-soft); border-color: transparent; }
 #gccx-dash .x-reg h3 { margin: 0 0 6px !important; }
-#gccx-dash .x-reg p { margin: 0 0 14px; color: var(--x-ink); font-size: 15.5px; line-height: 1.5; }
+#gccx-dash .x-reg p { max-width: 68ch; margin: 0 0 14px; color: var(--x-ink); font-size: 15.5px; line-height: 1.5; }
 #gccx-dash .x-reg-btn { display: inline-block; padding: 9px 16px; border-radius: var(--x-radius-control); font-size: 15px; font-weight: 600; line-height: 1.2; text-decoration: none; background: var(--x-accent); color: var(--x-accent-ink); }
 #gccx-dash .x-reg-btn:hover { background: var(--x-accent-hover); color: var(--x-accent-ink); }
 
@@ -801,7 +805,7 @@ html.gccx .pt_StudentSchedule .groupedGrid :is(td:last-child, td:nth-last-child(
 html.gccx .pt_StudentSchedule .groupedGrid td:nth-last-child(3) { min-width: 8.6em; } /* Meets: keep "2:00 PM - 3:15" on one line */
 
 /* ---------- nothing truncated with an ellipsis: JICS cuts event and course names at 200px ---------- */
-html.gccx .portlet :is(.truncateShort, .truncateMedium, .truncateLong, .truncate) {
+html.gccx:not(.gccx-stock-page) .portlet :is(.truncateShort, .truncateMedium, .truncateLong, .truncate) {
   display: inline !important;
   white-space: normal !important;
   overflow: visible !important;
@@ -809,7 +813,7 @@ html.gccx .portlet :is(.truncateShort, .truncateMedium, .truncateLong, .truncate
   max-width: none !important;
   width: auto !important;
 }
-html.gccx .portlet .calendar-list-view a { overflow-wrap: anywhere; }
+html.gccx:not(.gccx-stock-page) .portlet .calendar-list-view a { overflow-wrap: anywhere; }
 /* link-list "cards" (Student Life, Financial) are a fixed 300px tall and hide long descriptions */
 html.gccx .portlet .sortable-list .card.item { height: auto !important; min-height: 0 !important; overflow: visible !important; }
 html.gccx .portlet .sortable-list .card.item .wysiwygtext { max-height: none !important; overflow: visible !important; }
@@ -883,7 +887,7 @@ html.gccx .portlet .pSection { padding-inline: 6px; }
 #gccx-dash .x-bld-count { font-size: 13px; font-weight: 500; color: var(--x-muted); margin-left: 6px; }
 #gccx-dash .x-bld-hint { margin: 8px 0 0; font-size: 13px; color: var(--x-muted); }
 #gccx-dash .x-bld :is(a, summary):focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; border-radius: 2px; }
-#gccx-dash .x-bld-note { margin: 12px 0 0; font-size: 13px; color: var(--x-muted); }
+#gccx-dash .x-bld-note { max-width: 72ch; margin: 12px 0 0; font-size: 13px; color: var(--x-muted); }
 
 #gccx-dash .x-bld-more { margin-top: 16px; }
 #gccx-dash .x-bld-more summary { cursor: pointer; color: var(--x-accent); padding-block: 6px; }
@@ -909,3 +913,6 @@ html.gccx #gccx-search-btn:focus-visible { outline: 2px solid currentColor !impo
 @media (prefers-reduced-motion: reduce) {
   html.gccx[data-gccx-animated-art] #sitemasthead { background-image: var(--x-header-still-art, none) !important; }
 }
+
+/* Readable measure for portal-authored rich text (news posts, announcements). */
+html.gccx .wysiwygtext p { max-width: 75ch; }

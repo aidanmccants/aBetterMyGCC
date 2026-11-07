@@ -10,11 +10,12 @@
   const root = document.documentElement;
   let enabled = true;
   try { enabled = (JSON.parse(localStorage.getItem('gccx-settings')) || {}).enabled !== false; } catch (e) { /* default on */ }
-  if (!enabled) return;
 
   const KEY = 'gccx-nav';
   const AREA = ['#portlets', '#mainLayout .main-content', '#portlet-grid', '#mainLayout'];
-  let bar = null, skel = null, tick = 0, skelTimer = 0, giveUp = 0, p = 0, busyEl = null, active = false;
+  let bar = null, skel = null, tick = 0, skelTimer = 0, giveUp = 0, p = 0, busyEl = null, active = false, attached = false;
+  const isOn = () => root.classList.contains('gccx');
+  const warn = (m) => { try { window.GCCX && window.GCCX.log('warn', 'content', '[loading] ' + m); } catch (e) { /* ignore */ } };
 
   function kindOf(url) {
     try {
@@ -79,7 +80,7 @@
 
   // ---- outgoing navigation ----
   function start(url) {
-    if (active) return;
+    if (active || !attached) return;
     active = true;
     makeBar();
     bar.classList.remove('is-done');
@@ -119,33 +120,55 @@
     return u.href;
   }
   // bubbling listener on window + setTimeout 0, so handlers that preventDefault have run
-  window.addEventListener('click', (e) => {
+  const onClickWin = (e) => {
     const url = linkTarget(e);
     if (!url) return;
     setTimeout(() => { if (!e.defaultPrevented) start(url); }, 0);
-  });
-  window.addEventListener('submit', (e) => {
+  };
+  const onSubmit = (e) => {
     const f = e.target;
     if (!f || (f.getAttribute('target') || '').toLowerCase() === '_blank') return;
     setTimeout(() => { if (!e.defaultPrevented) start(f.action || location.href); }, 0);
-  });
+  };
   // fallback for __doPostBack (form.submit() skips the submit event), back/forward, typed URLs
-  window.addEventListener('beforeunload', () => {
+  const onBeforeUnload = () => {
     setTimeout(() => { if (!active) start(location.href); }, 0); // after any leave-page prompt
     saveP();
-  });
-  window.addEventListener('pagehide', saveP);
-  window.addEventListener('pageshow', (e) => { if (e.persisted) reset(); });
+  };
+  const onPageShow = (e) => { if (e.persisted) reset(); };
+  function attach() {
+    if (attached) return;
+    attached = true;
+    window.addEventListener('click', onClickWin);
+    window.addEventListener('submit', onSubmit);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('pagehide', saveP);
+    window.addEventListener('pageshow', onPageShow);
+  }
+  function detach() {
+    attached = false;
+    window.removeEventListener('click', onClickWin);
+    window.removeEventListener('submit', onSubmit);
+    window.removeEventListener('beforeunload', onBeforeUnload);
+    window.removeEventListener('pagehide', saveP);
+    window.removeEventListener('pageshow', onPageShow);
+  }
 
   // ---- incoming: continue the bar and show the skeleton until our layout is ready ----
-  let saved = null;
-  try { saved = JSON.parse(sessionStorage.getItem(KEY)); sessionStorage.removeItem(KEY); } catch (e) { /* ignore */ }
-  if (saved && Date.now() - saved.t < 15000) {
+  let cancelIncoming = () => {};
+  function startIncoming() {
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem(KEY)); sessionStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    if (!(saved && Date.now() - saved.t < 15000)) return;
     const kind = kindOf(location.href);
+    const timers = [];
+    const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
+    let done = false, rafId = 0;
+    const listeners = [];
+    const listen = (t, ev, fn, opts) => { t.addEventListener(ev, fn, opts); listeners.push([t, ev, fn, opts]); };
     makeBar(); setP(Math.max(saved.p || 0.5, 0.5));
     tick = setInterval(() => setP(p + (0.95 - p) * 0.08), 250);
     if (saved.rect && Date.now() - saved.t > 250) showSkel(kind, saved.rect, true);
-    let done = false;
     const finish = () => {
       if (done) return; done = true;
       if (active) return; // user already navigated again; start() owns the bar now
@@ -162,15 +185,38 @@
       const t0 = Date.now();
       const check = () => {
         if (done) return;
-        if (ready() || Date.now() - t0 > 2000) requestAnimationFrame(finish);
-        else setTimeout(check, 50);
+        if (ready() || Date.now() - t0 > 2000) rafId = requestAnimationFrame(finish);
+        else later(check, 50);
       };
-      requestAnimationFrame(check);
+      rafId = requestAnimationFrame(check);
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onDom, { once: true });
+    if (document.readyState === 'loading') listen(document, 'DOMContentLoaded', onDom, { once: true });
     else onDom();
-    setTimeout(finish, 8000); // absolute fail-safe
-    window.addEventListener('load', () => setTimeout(finish, 2000), { once: true });
-    window.addEventListener('error', () => setTimeout(finish, 2000), { once: true });
+    later(finish, 8000); // absolute fail-safe
+    listen(window, 'load', () => later(finish, 2000), { once: true });
+    listen(window, 'error', () => later(finish, 2000), { once: true });
+    cancelIncoming = () => {
+      done = true;
+      timers.forEach(clearTimeout);
+      cancelAnimationFrame(rafId);
+      listeners.forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o));
+      clearInterval(tick);
+      cancelIncoming = () => {};
+    };
   }
+
+  // The extension's live switch: undo everything (bar, skeleton, aria-busy, listeners,
+  // timers) the moment `gccx` is removed, and re-arm when it comes back.
+  function teardown() {
+    try { detach(); cancelIncoming(); reset(); } catch (e) { warn('teardown failed: ' + (e.message || e)); }
+  }
+  let wasOn = isOn();
+  // loading.js runs before content.js sets `gccx`, so the saved setting decides the early path.
+  if (enabled || wasOn) { attach(); try { startIncoming(); } catch (e) { warn('incoming failed: ' + (e.message || e)); } }
+  new MutationObserver(() => {
+    const now = isOn();
+    if (now === wasOn) return;
+    wasOn = now;
+    if (now) attach(); else teardown();
+  }).observe(root, { attributes: true, attributeFilter: ['class'] });
 })();
