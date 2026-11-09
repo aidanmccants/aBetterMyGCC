@@ -589,6 +589,7 @@
     }
     const terms = [...new Map(plan.filter((p) => p.term).map((p) => [p.term, p.termLabel])).entries()];
     if (st && st.value && !terms.some(([v]) => v === st.value)) terms.unshift([st.value, st.label]);
+    if (pt && pt.value && !terms.some(([v]) => v === pt.value)) terms.push([pt.value, pt.label || pt.value]); // the planning term always has a tab, even before anything is saved for it
     // Item 26: the plan always follows the site's selected term. Only a running
     // job (its own term) or a tab the user clicked since the site term last
     // changed may show another term. Unknown site term: show nothing stale.
@@ -1527,7 +1528,13 @@ How myGCC labels courses:
   function onStorage(ch) {
     if (!on) return;
     if (ch.plans || ch.registered) { renderDrawer(); refreshFit(); }
-    else if (ch.planTerm) renderDrawer();
+    else if (ch.planTerm) {
+      // A new planning term (Academics "Planning for", a drawer tab, a search Term box) is the student's
+      // own pick: show that term's calendar, like clicking its tab, until the site's term changes.
+      const t = ((ch.planTerm.newValue || {})[userKey()] || {}).value;
+      if (t && t !== viewTerm) { viewTerm = t; userPickedTerm = t !== lastSiteTerm; }
+      renderDrawer();
+    }
     if (ch.ai) { const g = gen; aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); }); }
   }
   // re-sync the plan when the site's term box changes (item 26)
