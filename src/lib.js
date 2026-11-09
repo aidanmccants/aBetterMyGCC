@@ -194,10 +194,11 @@
   function parseNav(doc, baseHref) {
     const links = [];
     const add = (a, group) => {
-      const href = a.getAttribute('href');
+      const raw = a.getAttribute('href');
       const label = clean(a.textContent);
-      if (!href || !label || href.startsWith('#') || href.startsWith('javascript')) return;
-      links.push({ label, href: new URL(href, baseHref).href, group });
+      if (!raw || !label || raw.startsWith('#')) return;
+      const href = safeUrl(raw, 'nav', baseHref); // http(s) only: drops javascript:, data:, mailto: in any letter case
+      if (href) links.push({ label, href, group });
     };
     doc.querySelectorAll('#main-nav > li > a').forEach((a) => add(a, 'Tab'));
     doc.querySelectorAll('#this-context-pages a, #contextPages a, #pagePortlets a').forEach((a) => add(a, 'Page'));
@@ -331,6 +332,39 @@
     };
   }
 
+  // ---------- URL safety ----------
+  // One gate for every URL the extension fetches or prerenders by itself (as the signed-in
+  // student), so a link that changes something is never followed without a click:
+  //   'nav'       search-palette links, opened only when the student picks one: any http(s) or
+  //               same-origin link; javascript:, data:, mailto: and the like are dropped.
+  //   'prerender' hover prerender (links.js)        } same-origin /ICS/ pages only, no files,
+  //   'crawl'     background page index (content.js)} no sign-out/delete/drop/register... words
+  //   'ai'        Ask AI's read_page: as above, plus no financial or GPA pages, and only URLs the
+  //               run has already seen (search results or links on a page it read), so page text
+  //               written by someone else cannot steer the model to an arbitrary address.
+  // Returns the normalized href (no #fragment except in 'nav'), or null when it is not allowed.
+  const URL_FILE = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|png|jpe?g|gif|mp4)$/i;
+  const URL_ACTION = /(logout|logoff|signout|sign-out|delete|drop|remove|cancel|register|withdraw|action=)/i;
+  // content.js loaders: BALANCE_URL / CASHNET_URL (money) and DEGREE_URL (GPA, standing), plus grade pages
+  const URL_PRIVATE = [/^\/ics\/financial(\/|$)/i, /cashnet/i, /portlet=[^&#]*(degree_progress|gpa|grade|transcript)/i];
+  function safeUrl(raw, mode, extra) {
+    let u;
+    const here = typeof location !== 'undefined' ? location : null;
+    try { u = new URL(String(raw), mode === 'nav' && extra ? extra : here ? here.origin : undefined); } catch (e) { return null; }
+    const sameOrigin = !!here && u.origin === here.origin;
+    if (mode === 'nav') return sameOrigin || /^https?:$/.test(u.protocol) ? u.href : null;
+    if (!sameOrigin || !/^\/ics\//i.test(u.pathname)) return null;
+    let rest = u.pathname + u.search;
+    try { rest = decodeURIComponent(rest); } catch (e) { /* keep the raw text */ }
+    if (URL_FILE.test(u.pathname) || URL_ACTION.test(rest)) return null;
+    u.hash = '';
+    if (mode === 'ai') {
+      if (URL_PRIVATE.some((re) => re.test(rest))) return null;
+      if (!extra || !extra.has(u.href)) return null;
+    }
+    return u.href;
+  }
+
   // ---------- state machines ----------
   // A named table of states and the events each one accepts: states = { idle: { START: 'running' }, ... }.
   // send() moves only along the table; anything else is refused with a warning on the Logs page.
@@ -358,7 +392,7 @@
 
   root.GCCX = {
     demo: !!demo, loc, go, alive, fitFrame, onLook,
-    log, aiErrorText, pulseHTML, machine,
+    log, aiErrorText, pulseHTML, machine, safeUrl,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };

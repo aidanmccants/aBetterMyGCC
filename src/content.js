@@ -660,9 +660,10 @@
         try {
           const d = await getDoc(t.href);
           d.querySelectorAll('#this-context-pages a, #contextPages a').forEach((a) => {
-            const href = a.getAttribute('href');
+            const raw = a.getAttribute('href');
             const label = X.clean(a.textContent);
-            if (href && label && !href.startsWith('#') && !href.startsWith('javascript')) all.push({ label, href: new URL(href, location.origin).href, group: t.label });
+            const href = raw && label && !raw.startsWith('#') ? X.safeUrl(raw, 'nav', location.origin) : null; // http(s) only
+            if (href) all.push({ label, href, group: t.label });
           });
         } catch (e) { /* skip tab */ }
       }));
@@ -695,12 +696,9 @@
     const seen = new Set();
     const list = [];
     for (const l of nav) {
-      let u;
-      try { u = new URL(l.href, location.origin); } catch (e) { continue; }
-      if (u.origin !== location.origin || !/^\/ICS/i.test(u.pathname)) continue;
-      if (/\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif)$/i.test(u.pathname) || /log(out|off)|signout/i.test(u.pathname + u.search)) continue;
-      const k = pageKey(u.href);
-      if (seen.has(k)) continue;
+      // fetched in the background as the student: same-origin /ICS/ pages only, nothing that acts (GCCX.safeUrl)
+      const k = X.safeUrl(l.href, 'crawl');
+      if (!k || seen.has(k)) continue;
       seen.add(k);
       list.push({ title: l.label, href: k, group: l.group || '' });
       if (list.length >= PAGE_MAX) break;
@@ -866,12 +864,13 @@ Known resources (official; you may link these without searching, but read_page c
       title: it.label, url: pageKey(it.href), snippet: snippetAround(it.text, toks, 400).s,
     }));
   }
-  async function readPageTool(url) {
-    let u;
-    try { u = new URL(String(url), location.origin); } catch (e) { throw new Error('That is not a valid URL.'); }
-    if (u.origin !== location.origin) throw new Error('Only my.gcc.edu pages can be read.');
-    if (!/^\/ICS/i.test(u.pathname)) throw new Error('Only pages under /ICS/ can be read.');
-    if (/\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif)$/i.test(u.pathname)) throw new Error('That is a file, not a web page; link it instead of reading it.');
+  // The model picks this URL, and it reads page text other people wrote (prompt injection), so the
+  // URL must pass GCCX.safeUrl in 'ai' mode: a page this run has already seen, never one that acts
+  // (sign out, delete, register...) or holds money or GPA. The refusal does not say which rule hit.
+  async function readPageTool(url, seenUrls) {
+    const href = X.safeUrl(url, 'ai', seenUrls);
+    if (!href) throw new Error('That page is not allowed. Use a url from search_pages or from the links of a page you already read, or link it for the student instead.');
+    const u = new URL(href);
     const doc = await getDoc(u.href);
     if (!doc.querySelector('#portlets')) throw new Error('That page has no readable content (it may need a form submitted or a new sign-in). Try another page.');
     const links = [], seen = new Set();
@@ -943,7 +942,7 @@ Known resources (official; you may link these without searching, but read_page c
               if (typeof a.url !== 'string' || !a.url.trim()) throw new Error('url is required');
               const hit = (navIndex || []).find((l) => pageKey(l.href) === pageKey(a.url));
               step(`Reading ${hit ? hit.label : 'page'}…`);
-              const page = await readPageTool(a.url);
+              const page = await readPageTool(a.url, seenUrls);
               seenUrls.add(pageKey(page.url));
               page.links.forEach((l) => seenUrls.add(pageKey(l.href)));
               content = JSON.stringify(page);
