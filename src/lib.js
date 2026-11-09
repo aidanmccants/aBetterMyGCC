@@ -228,7 +228,7 @@
       return JSON.parse(JSON.stringify(d, (k, v) => (typeof v === 'string' && v.length > 20000 ? v.slice(0, 20000) + `… [${v.length - 20000} more chars]` : v)));
     } catch (e) { return String(d); }
   }
-  // level: info | warn | error | ai ; source: ask | plan | content | background
+  // level: info | warn | error | ai ; source: ask | plan | content | background | state | prerender
   function log(level, source, message, data) {
     if (!alive()) return;
     try {
@@ -331,9 +331,34 @@
     };
   }
 
+  // ---------- state machines ----------
+  // A named table of states and the events each one accepts: states = { idle: { START: 'running' }, ... }.
+  // send() moves only along the table; anything else is refused with a warning on the Logs page.
+  // `el` (an element, or a function returning one) gets data-gccx-state on every move.
+  // No DOM or chrome is needed, so Node can test it. Tables live in machines.js; docs/STATE_MACHINES.md.
+  function machine(name, { initial, states, el }) {
+    let state = initial;
+    const mark = () => { const n = typeof el === 'function' ? el() : el; if (n && n.dataset) n.dataset.gccxState = state; };
+    const next = (event) => (states[state] || {})[event];
+    mark();
+    return {
+      get state() { return state; },
+      can: (event) => !!next(event),
+      send(event, data) {
+        const to = next(event);
+        if (!to) { log('warn', 'state', `${name}: ${event} is not allowed in ${state}`, data); return false; }
+        const from = state;
+        state = to;
+        mark();
+        log('info', 'state', `${name}: ${from} → ${to}`, data);
+        return true;
+      },
+    };
+  }
+
   root.GCCX = {
     demo: !!demo, loc, go, alive, fitFrame, onLook,
-    log, aiErrorText, pulseHTML,
+    log, aiErrorText, pulseHTML, machine,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };
