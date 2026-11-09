@@ -65,6 +65,11 @@
     if (byEnd('tbRefNum1', p)) return 'main';
     return 'other';
   }
+  // Advanced Course Search: its ddlTerm IS a search-term box (on the main screen ddlTerm is "Your Schedule")
+  function isAdvancedSearch() {
+    const p = portlet();
+    return !!(p && byEnd('ddlCourseFrom', p) && byEnd('ddlTerm', p) && !byEnd('tabSearch_ddlTermSearch', p));
+  }
   function userKey() { const u = X.parseUser(document); return u ? u.name : null; }
 
   // ---------------- plan storage (per signed-in person) ----------------
@@ -77,6 +82,46 @@
     const all = (await store.get('plans')) || {};
     all[userKey()] = items;
     await store.set('plans', all);
+  }
+
+  // ---------------- planning term (per signed-in person) ----------------
+  // chrome.storage.local.planTerm = { [user]: { value, label, ts } }; termOptions = { [user]: [{ value, label }] }
+  async function getPlanTerm() {
+    const u = userKey();
+    const all = (await store.get('planTerm')) || {};
+    return (u && all[u] && all[u].value) ? all[u] : null;
+  }
+  async function setPlanTerm(t) {
+    const u = userKey();
+    if (!u || !t || !t.value) return;
+    const all = (await store.get('planTerm')) || {};
+    if (all[u] && all[u].value === t.value) return; // unchanged: avoid a storage-change loop
+    all[u] = { value: t.value, label: t.label || '', ts: Date.now() };
+    await store.set('planTerm', all);
+  }
+  // term options of the Term box on this screen (no separator rows)
+  function termOptionsHere() {
+    const sel = byEnd('tabSearch_ddlTermSearch') || byEnd('ddlTermSearch');
+    if (!sel) return [];
+    return [...sel.options].filter((o) => o.value && !o.disabled).map((o) => ({ value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) }));
+  }
+  async function cacheTermOptions() {
+    const u = userKey(), opts = termOptionsHere();
+    if (!u || opts.length < 2) return;
+    const all = (await store.get('termOptions')) || {};
+    if (JSON.stringify(all[u]) === JSON.stringify(opts)) return;
+    all[u] = opts;
+    await store.set('termOptions', all);
+  }
+  // stored planning term, else the upcoming registration term from the cached/live term list
+  async function planTermOrDefault() {
+    const stored = await getPlanTerm();
+    if (stored) return stored;
+    const u = userKey();
+    const live = termOptionsHere();
+    const opts = live.length > 1 ? live : (((await store.get('termOptions')) || {})[u] || []);
+    const pick = window.GCCX_upcomingTerm && opts.length ? window.GCCX_upcomingTerm(opts) : null;
+    return pick ? { value: pick.value, label: pick.label } : null;
   }
 
   // ---------------- parsing ----------------
@@ -125,12 +170,15 @@
     }
     return screenTerm();
   }
+  function resultCols(t) {
+    const head = [...t.rows[0].cells].map((c) => X.clean(c.textContent).toLowerCase());
+    const col = (n) => head.findIndex((h) => h.startsWith(n));
+    return { n: head.length, iCode: col('course code'), iName: col('name'), iFac: col('faculty'), iSeats: col('seats'), iStatus: col('status'), iSched: col('schedule'), iCred: col('credits'), iAdd: col('add') };
+  }
   function resultRows(root = document) {
     const t = byEnd('dgCourses', root);
     if (!t) return [];
-    const head = [...t.rows[0].cells].map((c) => X.clean(c.textContent).toLowerCase());
-    const col = (n) => head.findIndex((h) => h.startsWith(n));
-    const iCode = col('course code'), iName = col('name'), iFac = col('faculty'), iSeats = col('seats'), iStatus = col('status'), iSched = col('schedule'), iCred = col('credits'), iAdd = col('add');
+    const { iName, iFac, iSeats, iStatus, iSched, iCred, iAdd } = resultCols(t);
     return $$('tr', t).filter((r) => r.querySelector('a[id$="lnkCourse"]')).map((r) => ({
       row: r,
       addCell: r.cells[iAdd],
@@ -227,6 +275,8 @@
     if (!alive(g)) return;
     const term = screenTerm();
     if (sc === 'results' || sc === 'main') rememberTerm(term);
+    if (sc === 'results' || sc === 'main') cacheTermOptions().catch(() => {});
+    // planTerm is written only by explicit user choices (drawer tab click, Term box change, Academics selector); never from merely viewing a screen
     const has = (code, termVal) => plan.some((p) => p.code === code && (!termVal || p.term === termVal));
     if (sc === 'results') {
       for (const r of resultRows()) {
@@ -241,11 +291,25 @@
           r.row.addEventListener('focusout', fout);
           rowHandlers.push({ row: r.row, over, off, fout });
         }
+        if (r.addCell) {
+          // name the portal's own checkbox; it is never moved or replaced
+          const cb = r.addCell.querySelector('input[type="checkbox"]');
+          if (cb && !r.addCell.querySelector('.gccx-addlbl')) {
+            if (!cb.id) blog('add label: checkbox without id');
+            else if (!r.addCell.querySelector(`label[for="${cb.id}"]`)) {
+              const lbl = document.createElement('label');
+              lbl.className = 'gccx-addlbl';
+              lbl.htmlFor = cb.id;
+              lbl.textContent = 'Add course';
+              cb.insertAdjacentElement('afterend', lbl);
+            }
+          }
+        }
         if (!r.addCell || r.addCell.querySelector('.gccx-save')) continue;
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'gccx-save';
-        const sync = (saved) => { b.textContent = saved ? 'Saved' : 'Save'; b.setAttribute('aria-pressed', String(saved)); };
+        b.className = 'gccx-save gccx-save-row';
+        const sync = (saved) => { b.textContent = saved ? 'Saved to plan' : 'Save to plan'; b.setAttribute('aria-pressed', String(saved)); };
         sync(has(r.code, term && term.value));
         b.addEventListener('click', async () => {
           let items = await getPlan();
@@ -338,6 +402,7 @@
     const planned = plan.filter((p) => p.term === termVal);
     return { known: !!reg, courses: [...registered, ...planned.filter((p) => !registered.some((r) => r.code === p.code))] };
   }
+  let seatColsLogged = false; // log the missing-columns note once per build; reset in sweepDom
   async function markFit(plan, term) {
     const g = gen;
     if (!term || !on) return;
@@ -345,15 +410,22 @@
     const settings = (await store.get('settings')) || {};
     if (!alive(g)) return;
     const onlyFit = !!settings.onlyFit;
+    const onlyOpen = !!settings.onlyOpen;
     const table = byEnd('dgCourses');
     const rows = resultRows();
 
-    // filter control above the results
+    // filter controls above the results, inside one flex row
     if (table && !$('#gccx-fit-filter')) {
+      let wrap = $('#gccx-result-filters');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'gccx-result-filters';
+        table.parentNode.insertBefore(wrap, table);
+      }
       const bar = document.createElement('label');
       bar.id = 'gccx-fit-filter';
       bar.innerHTML = `<input type="checkbox"> Only show sections that fit my schedule <span></span>`;
-      table.parentNode.insertBefore(bar, table);
+      wrap.appendChild(bar);
       bar.querySelector('input').addEventListener('change', async (e) => {
         const s = (await store.get('settings')) || {};
         s.onlyFit = e.target.checked;
@@ -364,43 +436,94 @@
     }
     const filter = $('#gccx-fit-filter');
     if (filter) filter.querySelector('input').checked = onlyFit;
+    if (filter && !$('#gccx-open-filter')) {
+      const ob = document.createElement('label');
+      ob.id = 'gccx-open-filter';
+      ob.innerHTML = `<input type="checkbox"> Open seats only`;
+      filter.insertAdjacentElement('afterend', ob);
+      ob.querySelector('input').addEventListener('change', async (e) => {
+        const s = (await store.get('settings')) || {};
+        s.onlyOpen = e.target.checked;
+        await store.set('settings', s);
+        if (!on) return;
+        markFit(await getPlan(), currentSearchTerm());
+      });
+    }
+    const openFilter = $('#gccx-open-filter');
+    if (openFilter) openFilter.querySelector('input').checked = onlyOpen;
 
     let hidden = 0;
+    let allBadged = rows.length > 0;
     for (const r of rows) {
       const meetings = parseMeetings(r.schedule);
       const others = sched.courses.filter((c) => c.code !== r.code);
       const clashing = meetings.length ? others.filter((c) => overlaps({ meetings }, c)) : [];
       const clashes = clashing.map((c) => clashLabel(meetings, c));
       const sameCourse = others.some((c) => courseKey(c.code) === courseKey(r.code));
+      const full = isFull(r.status, r.seats);
+      const cell = r.link.closest('td');
+      let tags = cell.querySelector('.gccx-tags');
+      if (!tags) {
+        tags = document.createElement('div');
+        tags.className = 'gccx-tags';
+        cell.appendChild(tags);
+      }
+      // one badge for Status + Seats (the portal cells stay in the DOM)
+      let seat = tags.querySelector('.gccx-seat');
+      if (!seat) {
+        seat = document.createElement('span');
+        tags.insertBefore(seat, tags.firstChild);
+      }
+      const word = r.status ? X.titleCase(r.status) : full ? 'Full' : 'Open';
+      seat.textContent = `${word} ${r.seats}`.trim();
+      seat.className = 'gccx-seat ' + (full ? 'is-bad' : /^open/i.test(r.status) ? 'is-ok' : 'is-neutral');
+      seat.setAttribute('aria-label', `Status ${r.status || 'not given'}, ${seatText(r.seats)}`);
+      if (!r.seats && !r.status) allBadged = false;
+
       let tag = r.row.querySelector('.gccx-fit');
       if (!tag) {
         tag = document.createElement('div');
         tag.className = 'gccx-fit';
-        const cell = r.link.closest('td');
-        cell.appendChild(tag);
       }
+      if (tag.parentNode !== tags) tags.appendChild(tag);
       let fits = true;
       if (!meetings.length) { tag.textContent = ''; tag.className = 'gccx-fit'; }
-      else if (clashes.length) { fits = false; tag.textContent = `Conflicts with ${clashes.join(', ')}`; tag.className = 'gccx-fit is-clash'; }
-      else { tag.textContent = 'Fits your schedule'; tag.className = 'gccx-fit is-fit'; }
+      else if (clashes.length) { fits = false; tag.textContent = `Conflicts with ${clashes.join(', ')}`; tag.className = 'gccx-fit is-clash is-bad'; }
+      else if (full) { tag.textContent = 'Fits your schedule, but FULL'; tag.className = 'gccx-fit is-fit-full is-warn'; }
+      else { tag.textContent = 'Fits your schedule'; tag.className = 'gccx-fit is-fit is-ok'; }
       if (sameCourse) { tag.textContent += (tag.textContent ? '. ' : '') + 'Another section is in your schedule'; }
-      // a clashing section that isn't saved can't be saved until the clash is gone
+      // only a clash locks saving; full sections stay saveable
       const btn = r.addCell && r.addCell.querySelector('.gccx-save');
       if (btn) {
         const saved = plan.some((p) => p.code === r.code && p.term === term.value);
         const lock = clashes.length > 0 && !saved;
         btn.disabled = lock;
         btn.classList.toggle('is-locked', lock);
-        btn.textContent = lock ? 'Conflicts' : saved ? 'Saved' : 'Save';
+        btn.classList.add('gccx-save-row');
+        btn.textContent = lock ? 'Conflicts' : saved ? 'Saved to plan' : 'Save to plan';
         btn.setAttribute('aria-pressed', String(saved));
       }
       // the row plus the textbook row that follows it
       const group = [r.row];
       let n = r.row.nextElementSibling;
       while (n && !n.querySelector('a[id$="lnkCourse"]')) { group.push(n); n = n.nextElementSibling; }
-      const hide = onlyFit && !fits;
+      const hide = (onlyFit && !fits) || (onlyOpen && full);
       group.forEach((n2) => { if (!hiddenOrig.has(n2)) hiddenOrig.set(n2, n2.hidden); n2.hidden = hide; });
       if (hide) hidden++;
+    }
+
+    // column classes (removed again in sweepDom): hide the merged Status/Seats cells, size Faculty/Schedule
+    if (table && rows.length) {
+      const c = resultCols(table);
+      const mark = (i, cls) => {
+        if (i < 0) return;
+        [...table.rows].forEach((tr) => { if (tr.cells.length === c.n && tr.cells[i]) tr.cells[i].classList.add(cls); });
+      };
+      mark(c.iCode, 'gccx-col-code');
+      mark(c.iFac, 'gccx-col-fac');
+      mark(c.iSched, 'gccx-col-sched');
+      if (c.iSeats >= 0 && c.iStatus >= 0 && allBadged) { mark(c.iSeats, 'gccx-col-merged'); mark(c.iStatus, 'gccx-col-merged'); }
+      else if ((c.iSeats < 0 || c.iStatus < 0) && !seatColsLogged) { seatColsLogged = true; blog('seat badge: Status/Seats columns not found'); }
     }
     if (filter) {
       const note = !sched.known && !sched.courses.length ? 'Open Add/Drop with this term selected once so aBetterMyGCC knows your registered classes.' : hidden ? `${hidden} hidden` : '';
@@ -425,6 +548,7 @@
     if (!on || !portlet()) return;
     const plan = await getPlan();
     const job = await store.get('job');
+    const pt = await planTermOrDefault();
     if (!alive(g)) return;
     if (open === true) { drawerOpen = true; setClosed(false); }
     // split screen by default: open beside the search unless closed this session
@@ -464,13 +588,15 @@
     // Item 26: the plan always follows the site's selected term. Only a running
     // job (its own term) or a tab the user clicked since the site term last
     // changed may show another term. Unknown site term: show nothing stale.
-    const siteVal = st ? st.value : null;
+    const siteVal = st && st.value ? st.value : pt ? pt.value : null; // no term on screen: the planning term
     if (siteVal !== lastSiteTerm) { lastSiteTerm = siteVal; userPickedTerm = false; }
     if (running && job.term) viewTerm = job.term;
     else if (!userPickedTerm) viewTerm = siteVal;
     if (viewTerm && !terms.some(([v]) => v === viewTerm)) viewTerm = siteVal;
     const items = plan.filter((p) => p.term === viewTerm);
-    const termLabel = (terms.find(([v]) => v === viewTerm) || [, st && st.label])[1] || '';
+    const termLabel = (terms.find(([v]) => v === viewTerm) || [, (st && st.value ? st.label : pt && pt.label) || (st && st.label)])[1] || '';
+    const stripTag = (l) => String(l || '').replace(/\s*·.*$/, '').trim();
+    const planLabel = stripTag((pt && pt.label) || (pt && pt.value && (terms.find(([v]) => v === pt.value) || [])[1]) || termLabel);
     const bgBusy = new Set(bgRefBusy);
     const reg = ((await store.get('registered')) || {})[userKey() + '|' + viewTerm];
     if (!alive(g)) return;
@@ -489,29 +615,31 @@
         <h3>My plan</h3>
         <button type="button" class="x-close" aria-label="Close plan">Close</button>
       </div>
-      ${terms.length > 1 ? `<div class="x-terms">${terms.map(([v, l]) => `<button type="button" data-term="${esc(v)}" aria-pressed="${v === viewTerm}">${esc(l)}</button>`).join('')}</div>` : termLabel ? `<p class="x-term">${esc(termLabel)}</p>` : ''}
+      <p class="x-hint">Press Save to plan on a result, then check the calendar for clashes.</p>
+      ${planLabel ? `<p class="x-planning">Planning for: <b>${esc(planLabel)}</b></p>` : '<p class="x-planning">Planning for: no term yet. Pick one in the Term box below.</p>'}
+      ${terms.length > 1 ? `<div class="x-terms">${terms.map(([v, l]) => `<button type="button" data-term="${esc(v)}" aria-pressed="${v === viewTerm}">${esc(l)}</button>`).join('')}</div>` : ''}
       ${calendarHTML(items, registered, conflicts)}
       ${items.length ? `<ul class="x-items">${items.map((i) => `
         <li>
-          <div class="x-line"><b>${esc(i.code)}</b><button type="button" class="x-remove x-copy-one" data-copy-one="${esc(i.code)}" aria-label="Copy ${esc(i.code)}">Copy</button><button type="button" class="x-remove" data-code="${esc(i.code)}" aria-label="Remove ${esc(i.code)}"${running ? ' disabled' : ''}>Remove</button></div>
+          <div class="x-line"><b>${esc(i.code)}</b><button type="button" class="x-remove x-copy-one" data-copy-one="${esc(i.code)}" aria-label="Copy ${esc(i.code)} as text">Copy as text</button><button type="button" class="x-remove" data-code="${esc(i.code)}" aria-label="Remove ${esc(i.code)}"${running ? ' disabled' : ''}>Remove</button></div>
           <div class="x-title">${esc(i.title)}</div>
           ${i.faculty ? `<div class="x-sub">${esc(prof(i.faculty))}</div>` : ''}
           <div class="x-sub">${esc(meetText(i))}</div>
           <div class="x-sub">${i.credits ? `${i.credits} credits` : ''}${i.seats ? `${i.credits ? ', ' : ''}${esc(seatText(i.seats))}` : ''}</div>
-          <div class="x-sub">${i.ref ? `Ref # ${esc(i.ref)}` : bgBusy.has(i.term + '|' + i.code) ? 'Ref # looking up…' : `Ref # missing <button type="button" class="x-link x-get-ref" data-get-ref="${esc(i.code)}"${running ? ' disabled' : ''} title="Opens this course's details on myGCC, which saves its reference number">Get course number</button>`}</div>
+          <div class="x-sub">${i.ref ? `Ref # ${esc(i.ref)} (registration number)` : bgBusy.has(i.term + '|' + i.code) ? 'Ref # looking up…' : `Ref # not saved yet <button type="button" class="x-link x-get-ref" data-get-ref="${esc(i.code)}"${running ? ' disabled' : ''} title="Opens this course's details on myGCC, which saves its reference number">Get course number</button>`}</div>
           ${conflicts.has(i.code) ? `<div class="x-conflict">Overlaps ${esc(conflicts.get(i.code).join(', '))}</div>` : ''}
           ${/full|closed/i.test(i.status || '') ? `<div class="x-conflict">Section is ${esc(i.status.toLowerCase())}</div>` : ''}
           ${job && job.results && job.results[i.code] && !job.results[i.code].ok ? `<div class="x-conflict">${esc(job.results[i.code].msg)}</div>` : ''}
-        </li>`).join('')}</ul>`
-        : `<p class="x-empty">Search for courses below, then press Save on the sections you want. They'll collect here so you can add them all at once.</p>`}
+        </li>`).join('')}</ul><p class="x-sub x-ref-help">Ref # is the registrar's 5-digit number for a section. You need it to register. Get course number opens the section on myGCC and saves it here.</p>`
+        : `<p class="x-empty">Search for courses below, then press Save to plan on the sections you want. They'll collect here so you can add them all at once.</p>`}
       ${items.length ? `<p class="x-total">${planned} credits planned${reg ? `, ${regCredits} already registered` : ''}</p>
-        <p class="x-export"><button type="button" class="x-link" data-copy>Copy</button><button type="button" class="x-link" data-csv>Download CSV</button>${items.some((i) => !i.ref) && !running ? '<button type="button" class="x-link" data-lookup-refs>Look up reference numbers</button>' : ''}</p>` : ''}
+        <p class="x-export"><button type="button" class="x-link" data-copy>Copy plan as text</button><button type="button" class="x-link" data-csv>Download CSV</button>${items.some((i) => !i.ref) && !running ? '<button type="button" class="x-link" data-lookup-refs>Look up reference numbers</button>' : ''}</p>` : ''}
       ${jobHTML(job, items, termLabel)}
       ${aiHTML(termLabel)}
     `;
     calState = { term: viewTerm, items, registered };
     d.querySelector('.x-close').addEventListener('click', () => { drawerOpen = false; setClosed(true); renderDrawer(); });
-    d.querySelectorAll('[data-term]').forEach((b) => b.addEventListener('click', () => { viewTerm = b.dataset.term; userPickedTerm = viewTerm !== lastSiteTerm; renderDrawer(); }));
+    d.querySelectorAll('[data-term]').forEach((b) => b.addEventListener('click', () => { viewTerm = b.dataset.term; userPickedTerm = viewTerm !== lastSiteTerm; setPlanTerm({ value: viewTerm, label: (terms.find(([v]) => v === viewTerm) || [])[1] }).catch(() => {}); renderDrawer(); }));
     d.querySelectorAll('[data-get-ref]').forEach((b) => b.addEventListener('click', () => getCourseNumber(b.dataset.getRef, viewTerm)));
     d.querySelectorAll('.x-remove').forEach((b) => b.addEventListener('click', async () => {
       await setPlan((await getPlan()).filter((p) => !(p.code === b.dataset.code && p.term === viewTerm)));
@@ -525,14 +653,14 @@
       const btn = e.currentTarget;
       try { await navigator.clipboard.writeText(planText(items, termLabel)); btn.textContent = 'Copied'; }
       catch (err) { btn.textContent = 'Copy failed'; }
-      later(() => (btn.textContent = 'Copy'), 1600);
+      later(() => (btn.textContent = 'Copy plan as text'), 1600);
     });
     d.querySelectorAll('[data-copy-one]').forEach((b) => b.addEventListener('click', async () => {
       const it = items.find((i) => i.code === b.dataset.copyOne);
       if (!it) return;
       try { await navigator.clipboard.writeText(planText([it], termLabel, true)); b.textContent = 'Copied'; }
       catch (err) { b.textContent = 'Failed'; }
-      later(() => (b.textContent = 'Copy'), 1600);
+      later(() => (b.textContent = 'Copy as text'), 1600);
     }));
     d.querySelector('[data-lookup-refs]')?.addEventListener('click', () => startJob(viewTerm, items.filter((i) => !i.ref), { lookupOnly: true }));
     d.querySelector('[data-csv]')?.addEventListener('click', () => {
@@ -649,6 +777,13 @@
     return s.split(/;\s*/).map((n) => { const [last, first] = n.split(/,\s*/); return first ? `${first} ${last}` : n; }).join(', ');
   }
   // "0/32" -> "Full (32 seats)", "5/32" -> "5 of 32 seats open"
+  // true when the portal says the section has no open seat. Verified live 2026-11-08:
+  // the column is "Seats Open"; "0/31" + Status "Full", "1/40" + Status "Open".
+  function isFull(status, seats) {
+    if (/full|closed/i.test(status || '')) return true;
+    const m = /(\d+)\s*(?:\/|out of)\s*(\d+)/.exec(seats || '');
+    return !!m && +m[1] === 0;
+  }
   function seatText(s) {
     const m = /(\d+)\s*(?:\/|out of)\s*(\d+)/.exec(s);
     if (!m) return s;
@@ -675,7 +810,7 @@
         <div class="x-cal-hours">${hours.join('')}</div>
         ${days.map((_, i) => `<div class="x-cal-col" data-day="${days[i]}" style="grid-column:${i + 2}">${blocks.filter((b) => b.includes(`grid-column:${i + 2};`)).join('')}</div>`).join('')}
       </div>
-      ${all.some((c) => !(c.meetings || []).length) ? `<p class="x-sub x-cal-note">Not on the calendar (no set meeting time): ${esc(all.filter((c) => !(c.meetings || []).length).map((c) => c.code).join(', '))}</p>` : ''}
+      ${all.some((c) => !(c.meetings || []).length) ? `<p class="x-sub x-cal-note">Not on the calendar: ${esc(all.filter((c) => !(c.meetings || []).length).map((c) => c.code).join(', '))}. These have no set weekly meeting time (online, arranged with the professor, or not posted yet), so they cannot clash with anything.</p>` : ''}
       ${registered.length ? `<div class="x-cal-key"><span class="is-plan"></span>Planned<span class="is-reg"></span>Registered</div>` : ''}
     </div>`;
   }
@@ -689,7 +824,7 @@
       }).join('');
       if (job.phase === 'done' && job.lookupOnly) {
         const got = job.queue.filter((c) => job.refs[c]).length;
-        return `<div class="x-job"><p><b>${got} of ${job.queue.length} reference number${job.queue.length === 1 ? '' : 's'} found.</b> Copy now includes them.</p>
+        return `<div class="x-job"><p><b>${got} of ${job.queue.length} reference number${job.queue.length === 1 ? '' : 's'} found.</b> Copy plan as text now includes them.</p>
           <ul>${lines}</ul><button type="button" class="x-link" data-dismiss>Done</button></div>`;
       }
       if (job.fillOnly || job.lookupOnly) {
@@ -1276,6 +1411,7 @@ How myGCC labels courses:
   function onStorage(ch) {
     if (!on) return;
     if (ch.plans || ch.registered) { renderDrawer(); refreshFit(); }
+    else if (ch.planTerm) renderDrawer();
     if (ch.ai) { const g = gen; aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); }); }
   }
   // re-sync the plan when the site's term box changes (item 26)
@@ -1283,13 +1419,14 @@ How myGCC labels courses:
     if (!on) return;
     const t = e.target;
     if (!t || t.tagName !== 'SELECT' || !/ddlTerm(Search)?$/.test(t.id || '')) return;
-    if (/Search$/.test(t.id)) rememberTerm(currentSearchTerm());
+    if (/Search$/.test(t.id) || (/ddlTerm$/.test(t.id) && isAdvancedSearch())) { const ct = currentSearchTerm(); rememberTerm(ct); setPlanTerm(ct).catch(() => {}); }
     renderDrawer();
   }
 
   // Remove every element and class this script added, and put back what it moved or hid.
   // Safe to run any number of times (also used as the backstop after a failed feature).
   function sweepDom() {
+    seatColsLogged = false;
     for (const h of rowHandlers.splice(0)) {
       h.row.removeEventListener('mouseenter', h.over);
       h.row.removeEventListener('mouseleave', h.off);
@@ -1300,7 +1437,10 @@ How myGCC labels courses:
     $$('.pt_CourseSchedules [data-gccx-ghost]').forEach((r) => { delete r.dataset.gccxGhost; });
     for (const [n, was] of hiddenOrig) n.hidden = was;
     hiddenOrig.clear();
-    $$('#gccx-plan, #gccx-plan-toggle, .gccx-ai-btn, .gccx-save, #gccx-load-plan, #gccx-fit-filter, .gccx-fit').forEach((e) => e.remove());
+    $$('.gccx-col-merged, .gccx-col-fac, .gccx-col-sched, .gccx-col-code').forEach((e) => e.classList.remove('gccx-col-merged', 'gccx-col-fac', 'gccx-col-sched', 'gccx-col-code'));
+    $$('#gccx-more-filters').forEach((d) => { if (d.children.length <= 1) d.remove(); }); // children are moved back by tidySearch's undo
+    $$('.gccx-search-actions').forEach((e) => e.classList.remove('gccx-search-actions'));
+    $$('#gccx-plan, #gccx-plan-toggle, .gccx-ai-btn, .gccx-save, #gccx-load-plan, #gccx-fit-filter, .gccx-fit, .gccx-seat, .gccx-tags, .gccx-addlbl, #gccx-open-filter, #gccx-result-filters').forEach((e) => e.remove());
     document.documentElement.classList.remove('gccx-plan-open');
   }
 
@@ -1342,6 +1482,91 @@ How myGCC labels courses:
     });
     safe('registered schedule', () => { loadRegisteredBackground(); }); // fills the calendar on results/details screens and on a first visit
     safe('fit results', fitResults);
+    safe('search form', () => tidySearch(g));
+    safe('advanced search term', () => presetAdvancedTerm(g));
+  }
+
+  // Advanced Course Search: pre-set Term to the stored planning term (only if the user chose one and
+  // the box is still at the portal default). No change event; undo restores.
+  function presetAdvancedTerm(g) {
+    if (!isAdvancedSearch()) return;
+    let dead = false, tsel = null, orig = -1, setVal = null;
+    getPlanTerm().then((pt) => {
+      if (dead || !alive(g) || !pt) return;
+      tsel = byEnd('ddlTerm', portlet());
+      if (!tsel) return;
+      const cur = tsel.options[tsel.selectedIndex];
+      const i = [...tsel.options].findIndex((o) => o.value === pt.value && !o.disabled);
+      if (i < 0 || i === tsel.selectedIndex || !cur || !cur.defaultSelected) return;
+      orig = tsel.selectedIndex; tsel.selectedIndex = i; setVal = tsel.value;
+      renderDrawer();
+    }).catch((e) => blog('advanced term preset failed: ' + ((e && e.message) || e)));
+    return () => { dead = true; if (tsel && orig >= 0 && tsel.value === setVal) tsel.selectedIndex = orig; };
+  }
+
+  // Main screen search form: Term / Course Code / Department first, Title + Division inside a
+  // collapsible <details> (still inside the form, so they submit), Search row kept visible.
+  function tidySearch(g) {
+    if (screen() !== 'main') return;
+    if (document.getElementById('gccx-more-filters')) return; // already tidied
+    const btn = byEnd('tabSearch_btnSearch');
+    const box = btn && btn.closest('.tabbox');
+    const rowOf = (suffix) => { const el = box && byEnd(suffix, box); return el ? el.closest('.row') : null; };
+    const term = rowOf('tabSearch_ddlTermSearch'), code = rowOf('tabSearch_ddlCourseRestrictor');
+    const deptRow = rowOf('tabSearch_ddlDept'), actions = btn && btn.closest('.row');
+    const title = rowOf('tabSearch_txtTitleRestrictor'), div = rowOf('tabSearch_ddlDivisionSearch');
+    if (!box || !term || !code || !deptRow || !actions || ![term, code, deptRow, actions].every((r) => r.parentNode === box)) {
+      blog('search form: expected rows not found, left as is');
+      return;
+    }
+    const moves = []; // [node, parent, nextSibling]
+    const move = (n, parent, before) => { moves.push([n, n.parentNode, n.nextSibling]); parent.insertBefore(n, before); };
+    const details = document.createElement('details');
+    details.id = 'gccx-more-filters';
+    const sum = document.createElement('summary');
+    sum.id = 'gccx-more-filters-summary';
+    sum.textContent = 'More filters (title, division)';
+    details.appendChild(sum);
+    box.insertBefore(details, actions);
+    const hasTitle = !!(title && title.parentNode === box), hasDiv = !!(div && div.parentNode === box);
+    move(term, box, details); move(code, box, details); move(deptRow, box, details);
+    if (hasTitle) move(title, details, null);
+    if (hasDiv) move(div, details, null);
+    const tinp = byEnd('tabSearch_txtTitleRestrictor', box), dsel = byEnd('tabSearch_ddlDivisionSearch', box);
+    if ((tinp && tinp.value.trim()) || (dsel && dsel.selectedIndex >= 0 && !dsel.options[dsel.selectedIndex].defaultSelected)) details.open = true;
+    const hadActions = actions.classList.contains('gccx-search-actions');
+    actions.classList.add('gccx-search-actions');
+
+    // Department: All only when the server pre-filled another option (not a user choice).
+    let dept = null, origDept = -1, dead = false;
+    store.get('job').then((job) => {
+      if (dead || !alive(g)) return;
+      if (job && job.phase !== 'done') return;
+      dept = byEnd('tabSearch_ddlDept', box);
+      if (!dept || !dept.options[0] || !/^\s*all\b/i.test(dept.options[0].text)) return;
+      const i = dept.selectedIndex;
+      if (i > 0 && dept.options[i].defaultSelected) { origDept = i; dept.selectedIndex = 0; } // no change event: no autopostback
+    });
+    // Planning term: pre-set the search Term box (never ddlTerm, "Your Schedule", which autoposts back).
+    // Only while the box is still at the portal's own default; no change event is fired.
+    let tsel = null, origTerm = -1, setTerm = null;
+    getPlanTerm().then((pt) => {
+      if (dead || !alive(g) || !pt) return;
+      tsel = byEnd('tabSearch_ddlTermSearch', box);
+      if (!tsel) return;
+      const cur = tsel.options[tsel.selectedIndex];
+      const i = [...tsel.options].findIndex((o) => o.value === pt.value && !o.disabled);
+      if (i < 0 || i === tsel.selectedIndex || !cur || !cur.defaultSelected) return;
+      origTerm = tsel.selectedIndex; tsel.selectedIndex = i; setTerm = tsel.value;
+    }).catch((e) => blog('planning term preset failed: ' + ((e && e.message) || e)));
+    return () => {
+      dead = true;
+      if (tsel && origTerm >= 0 && tsel.value === setTerm) tsel.selectedIndex = origTerm;
+      if (!hadActions) actions.classList.remove('gccx-search-actions');
+      if (dept && origDept > 0 && dept.selectedIndex === 0) dept.selectedIndex = origDept;
+      while (moves.length) { const [n, parent, next] = moves.pop(); if (parent) parent.insertBefore(n, next && next.parentNode === parent ? next : null); }
+      details.remove();
+    };
   }
 
   // Shrink the wide results table (down to 75%) so it fits without sideways scrolling.

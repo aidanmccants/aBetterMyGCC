@@ -142,7 +142,58 @@
     }
   }
 
+  // ---- planning term selector (design spec 7.5) ----
+  // `gen` changes on every build and teardown so async work can tell it is stale.
+  let gen = 0;
+  const store = {
+    get: (k) => new Promise((r) => { try { chrome.storage.local.get(k, (o) => r(o ? o[k] : undefined)); } catch (e) { r(undefined); } }),
+    set: (k, v) => new Promise((r) => { try { chrome.storage.local.set({ [k]: v }, () => r()); } catch (e) { r(); } }),
+  };
+  const TERM_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
+  async function addPlanTerm(acts, g) {
+    const user = window.GCCX && GCCX.parseUser && (GCCX.parseUser(document) || {}).name;
+    if (!user || !acts || $('#gccx-acad-planterm-select')) return;
+    let opts = (((await store.get('termOptions')) || {})[user]) || [];
+    if (g !== gen) return;
+    if (opts.length < 2) {
+      try { // one background read of the Add/Drop page for its Term list; cached for next time
+        const res = await fetch(TERM_URL, { credentials: 'same-origin' });
+        const html = res.ok ? await res.text() : '';
+        if (g !== gen) return;
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const sel = doc.querySelector('select[id$="tabSearch_ddlTermSearch"]');
+        opts = sel ? [...sel.options].filter((o) => o.value && !o.disabled).map((o) => ({ value: o.value, label: (o.textContent || '').replace(/\s+/g, ' ').trim() })) : [];
+        if (opts.length > 1) {
+          const all = (await store.get('termOptions')) || {};
+          all[user] = opts;
+          await store.set('termOptions', all);
+          if (g !== gen) return;
+        }
+      } catch (e) { opts = []; }
+    }
+    if (opts.length < 2) { warn('planning term: no term list'); return; }
+    if ($('#gccx-acad-planterm-select') || !acts.isConnected) return;
+    const stored = ((await store.get('planTerm')) || {})[user];
+    if (g !== gen) return;
+    const pick = (stored && opts.find((o) => o.value === stored.value)) || (window.GCCX_upcomingTerm && GCCX_upcomingTerm(opts)) || opts[0];
+    const label = el('label', 'gccx-acad-planterm');
+    const select = el('select');
+    select.id = 'gccx-acad-planterm-select';
+    opts.forEach((o) => { const op = el('option', null, String(o.label || '').replace(/\s*·.*$/, '').trim()); op.value = o.value; select.append(op); });
+    select.value = pick.value;
+    select.addEventListener('change', async () => {
+      const o = opts.find((x) => x.value === select.value);
+      if (!o) return;
+      const all = (await store.get('planTerm')) || {};
+      all[user] = { value: o.value, label: o.label, ts: Date.now() };
+      await store.set('planTerm', all);
+    });
+    label.append('Planning for ', select);
+    acts.prepend(label);
+  }
+
   function build() {
+    gen++;
     // The user switched the extension off: leave the portal exactly as it is.
     const portlets = $('#portlets');
     if (!portlets) { warn('#portlets not found; portal layout may have changed'); return; }
@@ -162,6 +213,7 @@
 
     document.documentElement.classList.add('gccx-acad');
     safe('overview', () => buildOverview(portlets), () => {
+      $$('.gccx-acad-planterm').forEach((n) => n.remove());
       $('#gccx-acad')?.remove();
       unmark($('#pg5_AcademicInformationPortlet'));
       unmark($('#pg6_DegreeAuditPortlet'));
@@ -232,6 +284,8 @@
       if (cs) { const a = el('a', 'gccx-acad-btn', 'Search courses'); a.href = cs.href; acts.append(a); }
       head.append(h, acts);
       wrap.append(head);
+      const g = gen;
+      addPlanTerm(acts, g).catch((e) => warn('planning term failed', { error: String(e && e.message || e) }));
     }
 
     const dl = el('dl', 'gccx-acad-facts');
@@ -556,6 +610,7 @@
 
   // Extension switched off: undo every feature in reverse and drop our page classes.
   function teardown() {
+    gen++;
     undos.splice(0).reverse().forEach((u) => { try { u(); } catch (e) { warn('teardown step failed', { error: String(e) }); } });
     texts.splice(0).reverse().forEach(([node, prop, value]) => { node[prop] = value; });
     ok = 0;

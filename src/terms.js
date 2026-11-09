@@ -14,7 +14,7 @@
   const START = { 10: [7, 15, 0], 15: [11, 20, 0], 20: [11, 20, 0], 30: [0, 8, 1], 40: [4, 8, 1], 50: [5, 1, 1], 55: [6, 1, 1] };
 
   function info(opt) {
-    const label = opt.dataset.gccxLabel || opt.textContent.trim();
+    const label = (opt.dataset && opt.dataset.gccxLabel) || (opt.label != null && !opt.tagName ? String(opt.label) : opt.textContent.trim());
     const m = /^(\d{4});(\d{2})$/.exec(opt.value);
     let year, code;
     if (m) { year = +m[1]; code = +m[2]; }
@@ -141,4 +141,15 @@
 
   // Shared with builder.js: the term's name without our " · current" tag
   window.GCCX_termLabel = (opt) => (opt ? opt.dataset.gccxLabel || opt.textContent.trim() : '');
+  // Shared with builder.js / academics.js (pure, no DOM change). Accept <option>s or { value, label }.
+  window.GCCX_termInfo = (opt) => { try { return opt ? info(opt) : null; } catch (e) { return null; } };
+  // The upcoming registration term: soonest "Semester" term starting after `now`;
+  // else the current term (latest started). Returns the matching input item or null.
+  window.GCCX_upcomingTerm = (opts, now = new Date()) => {
+    const items = [...(opts || [])].filter((o) => o && o.value && !o.disabled).map((o) => ({ o, t: window.GCCX_termInfo(o) })).filter((x) => x.t);
+    const next = items.filter((x) => /semester/i.test(x.t.label) && x.t.start > now).sort((a, b) => a.t.start - b.t.start)[0];
+    if (next) return next.o;
+    const started = items.filter((x) => x.t.start <= now).sort((a, b) => b.t.start - a.t.start)[0];
+    return started ? started.o : null;
+  };
 })();

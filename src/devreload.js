@@ -9,7 +9,7 @@
     'src/onboarding.js', 'src/degree.js', 'src/signedout.js', 'src/theme.css', 'src/chapel.js',
     'src/signedout.css', 'src/onboarding.css', 'src/builder-split.css', 'src/degree.css', 'src/search.css',
     'src/background.js', 'src/ai.js', 'src/devreload.js',
-    'src/links.js', 'src/community.js', 'src/community.css', 'src/forums.js', 'src/forums.css', 'src/quicklinks.css', 'src/home-portlets.js', 'src/home-portlets.css', 'src/whatsnew.js', 'src/whatsnew.css', 'src/feedback.js', 'src/feedback.css', 'src/academics.js', 'src/academics.css', 'src/myinfo.js', 'src/myinfo.css', 'src/framefit.js', 'src/loading.js', 'src/loading.css',
+    'src/links.js', 'src/community.js', 'src/community.css', 'src/forums.js', 'src/forums.css', 'src/quicklinks.css', 'src/home-portlets.js', 'src/home-portlets.css', 'src/whatsnew.js', 'src/whatsnew.css', 'src/feedback.js', 'src/feedback.css', 'src/academics.js', 'src/academics.css', 'src/myinfo.js', 'src/myinfo.css', 'src/advsearch.css','src/searchnote.js', 'src/searchnote.css', 'src/framefit.js', 'src/loading.js', 'src/loading.css',
     'logs/log.html', 'logs/log.js', 'logs/log.css', 'options/options.html', 'options/options.js', 'options/options.css',
     'popup/popup.html', 'popup/popup.js', 'popup/popup.css',
     'demo/index.html', 'demo/chapel.html', 'demo/server.js', 'demo/shim.js', 'demo/demo.css',

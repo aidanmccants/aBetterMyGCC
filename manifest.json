@@ -60,13 +60,16 @@
         "src/home-portlets.css",
         "src/feedback.css",
         "src/academics.css",
-        "src/myinfo.css"
+        "src/myinfo.css",
+        "src/advsearch.css",
+        "src/searchnote.css"
       ],
       "js": [
         "src/theme-engine/default-theme.js",
         "src/theme-engine/runtime.js",
         "src/loading.js",
         "src/lib.js",
+        "src/searchnote.js",
         "src/terms.js",
         "src/facilities.js",
         "src/content.js",

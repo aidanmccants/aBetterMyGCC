@@ -193,12 +193,23 @@ html.gccx .portlet {
   margin-bottom: 24px !important;
   overflow: visible;
 }
+/* One 20px gutter between stacked cards and between side-by-side columns (Academics sub-pages, course pages, any portlet grid).
+   Outer column padding stays 5px so card edges still line up with the page title; only the inner side of each column gets 10px. */
+html.gccx .portlet-column > .portlet { margin-top: 0 !important; margin-bottom: 20px !important; }
+@media (min-width: 992px) {
+  html.gccx .portlet-grid > .row > .portlet-column:not(:last-child) { padding-right: 10px; }
+  html.gccx .portlet-grid > .row > .portlet-column:not(:first-child) { padding-left: 10px; }
+}
 /* wide tables scroll inside their portlet instead of being cut off at its edge or pushing the page sideways */
 html.gccx .portlet div:not([class*="fc-"]):not([class*="ui-datepicker"]):has(> table) { overflow-x: auto; max-width: 100%; }
 html.gccx .portlet .wysiwygtext { overflow-x: auto; max-width: 100%; overflow-wrap: break-word; }
 /* tables pasted from Word carry fixed point widths; let them shrink to the column first */
 html.gccx .portlet .wysiwygtext table { width: auto !important; max-width: 100%; height: auto !important; }
 html.gccx .portlet .wysiwygtext img { max-width: 100%; height: auto; }
+/* dark theme: authors paste text with fixed black / white-highlight / dark-blue inline colours; keep it readable on the dark card */
+html.gccx.gccx-dark .portlet .wysiwygtext [style*="background"] { background-color: transparent !important; }
+html.gccx.gccx-dark .portlet .wysiwygtext [style*="color"] { filter: brightness(1.6); }
+html.gccx.gccx-dark .portlet .wysiwygtext :is([style*="color: rgb(0, 0, 0)"], [style*="color:#000"], [style*="color: #000"], [style*="color: black"], [style*="color:black"]) { color: var(--x-ink) !important; filter: none; }
 html.gccx .portlet .pSection > iframe { max-width: 100%; }
 html.gccx .portlet-header-bar {
   background: transparent !important;
@@ -535,24 +546,103 @@ html.gccx #siteNavBar_searchBox_SearchButton { visibility: hidden; }
 #gccx-palette li.is-active a { background: var(--x-accent-soft); }
 #gccx-palette .x-hint { padding: 8px 20px 10px; color: var(--x-faint); font-size: 13px; border-top: 1px solid var(--x-rule); }
 
+html.gccx { --gccx-warn: #8a5300; --gccx-warn-soft: rgba(232, 152, 46, 0.16); }
+html.gccx.gccx-dark { --gccx-warn: #f0b459; --gccx-warn-soft: rgba(232, 152, 46, 0.18); }
+
 /* ---------- schedule builder (Add/Drop) ---------- */
-.gccx-save {
+html.gccx .gccx-save {
   all: unset; cursor: pointer; display: inline-block; margin: 4px 0 0 6px;
   font: 14px var(--x-sans); color: var(--x-accent);
   border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control); padding: 2px 10px; line-height: 1.4; white-space: nowrap;
 }
-.gccx-save:hover { border-color: var(--x-accent); }
-.gccx-save:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-.gccx-save[aria-pressed="true"] { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink); }
-.gccx-save-detail { margin: 0 14px 0 0; padding: 3px 12px; }
+html.gccx .gccx-save:hover { border-color: var(--x-accent); }
+html.gccx .gccx-save:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx .gccx-save[aria-pressed="true"] { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink); }
+/* Course details action row: title left, Back / Save to plan / Add Course in one aligned, wrapping row */
+html.gccx .row:has(> .col-xs-2 > .gccx-save-detail) { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+html.gccx .row:has(> .col-xs-2 > .gccx-save-detail)::before,
+html.gccx .row:has(> .col-xs-2 > .gccx-save-detail)::after { display: none; }
+html.gccx .row:has(> .col-xs-2 > .gccx-save-detail) > .col-xs-8 { flex: 1 1 240px; width: auto; float: none; padding: 0; }
+html.gccx .row:has(> .col-xs-2 > .gccx-save-detail) > .col-xs-2:empty { display: none; }
+html.gccx .row > .col-xs-2:has(> .gccx-save-detail) { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; width: auto; float: none; padding: 0; margin-left: auto; }
+html.gccx .col-xs-2 > .gccx-save-detail,
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a[id$="lnkBack"],
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a[id$="lnkAddCourse"] {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; margin: 0; padding: 0 16px; font: 600 14px/1 var(--x-sans); text-decoration: none; white-space: nowrap;
+  border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control); background: transparent; color: var(--x-ink);
+  cursor: pointer; transition: background-color .15s, border-color .15s, color .15s;
+}
+html.gccx .col-xs-2 > .gccx-save-detail { color: var(--x-accent); }
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a img { width: 16px; height: 16px; }
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a[id$="lnkAddCourse"] { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink); }
+html.gccx .col-xs-2 > .gccx-save-detail:hover,
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a[id$="lnkBack"]:hover { border-color: var(--x-accent); background: var(--x-accent-soft); }
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a[id$="lnkAddCourse"]:hover { background: var(--x-accent-hover); border-color: var(--x-accent-hover); }
+html.gccx .col-xs-2 > .gccx-save-detail:active,
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a:active { transform: translateY(1px); }
+html.gccx .col-xs-2 > .gccx-save-detail[aria-pressed="true"] { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink); }
+html.gccx .col-xs-2:has(> .gccx-save-detail) > a:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { html.gccx .col-xs-2 > .gccx-save-detail, html.gccx .col-xs-2:has(> .gccx-save-detail) > a { transition: none; } }
 
-.gccx-fit { font-size: 13px; margin-top: 3px; line-height: 1.3; white-space: normal; }
-.gccx-fit.is-fit { color: var(--x-ok) !important; }
-.gccx-fit.is-clash { color: var(--x-bad) !important; }
+/* Badges: fit tag and seat badge. The shape rule comes before the fit white-space rule so clash lists can wrap. */
+html.gccx .gccx-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; }
+html.gccx .gccx-fit, html.gccx .gccx-seat { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--x-radius-chip); font: 600 13px/1.4 var(--x-sans); white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+html.gccx :is(.gccx-fit, .gccx-seat).is-ok { color: var(--x-ok) !important; background: color-mix(in srgb, var(--x-ok) 12%, transparent); }
+html.gccx :is(.gccx-fit, .gccx-seat).is-bad { color: var(--x-bad) !important; background: var(--x-bad-soft); }
+html.gccx :is(.gccx-fit, .gccx-seat).is-warn { color: var(--gccx-warn) !important; background: var(--gccx-warn-soft); }
+html.gccx :is(.gccx-fit, .gccx-seat).is-neutral { color: var(--x-muted) !important; background: var(--x-ground-muted); }
+html.gccx .gccx-fit:empty { display: none; }
+html.gccx .gccx-fit { white-space: normal; }  /* clash lists may wrap */
 
-#gccx-fit-filter { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; font: 15px var(--x-sans); color: var(--x-ink); cursor: pointer; font-weight: 400; }
-#gccx-fit-filter input { accent-color: var(--x-accent); width: 16px; height: 16px; margin: 0; }
-#gccx-fit-filter span { color: var(--x-muted); font-size: 14px; }
+html.gccx #gccx-fit-filter { display: flex; align-items: center; gap: 8px; margin: 6px 0 12px; font: 15px var(--x-sans); color: var(--x-ink); cursor: pointer; font-weight: 400; }
+html.gccx #gccx-fit-filter input { accent-color: var(--x-accent); width: 16px; height: 16px; margin: 0; }
+html.gccx #gccx-fit-filter span { color: var(--x-muted); font-size: 14px; }
+
+/* Results filters row: fit filter + Open seats only */
+html.gccx #gccx-result-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 6px 0 12px; }
+html.gccx #gccx-result-filters #gccx-fit-filter { margin: 0; }
+html.gccx #gccx-open-filter { display: flex; align-items: center; gap: 8px; font: 400 15px var(--x-sans); color: var(--x-ink); cursor: pointer; }
+html.gccx #gccx-open-filter input { accent-color: var(--x-accent); width: 16px; height: 16px; margin: 0; }
+html.gccx :is(#gccx-fit-filter, #gccx-open-filter) input:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+
+/* Status and Seats columns: visually hidden, still in the DOM (Save data, screen readers) */
+html.gccx .pt_CourseSchedules .gccx-col-merged { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip-path: inset(50%) !important; white-space: nowrap !important; border: 0 !important; }
+
+/* Results table: names wrap between words, schedule wraps at the meeting separator, table scrolls inside its card */
+html.gccx .pt_CourseSchedules .addDropSearchResults { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+html.gccx .pt_CourseSchedules [id$="dgCourses"] td, html.gccx .pt_CourseSchedules [id$="dgCourses"] th { overflow-wrap: normal; word-break: normal; }
+html.gccx .pt_CourseSchedules .gccx-col-fac { min-width: 14ch; }
+html.gccx .pt_CourseSchedules .gccx-col-sched { min-width: 22ch; white-space: normal; }
+html.gccx .pt_CourseSchedules [id$="dgCourses"] { min-width: 900px; }
+html.gccx .pt_CourseSchedules [id$="dgCourses"] .gccx-col-code { min-width: 200px; }
+html.gccx .gccx-col-code .gccx-fit { max-width: 100%; overflow-wrap: normal; }
+
+/* Results Save to plan (accent outline; filled when saved) */
+html.gccx .gccx-save.gccx-save-row { display: flex; width: max-content; margin: 8px 0 0; padding: 4px 12px; min-height: 32px; box-sizing: border-box; align-items: center; font: 600 14px/1.2 var(--x-sans); color: var(--x-accent); border: 1px solid var(--x-accent); border-radius: var(--x-radius-control); background: transparent; transition: background-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease); }
+html.gccx .gccx-save.gccx-save-row:hover { background: var(--x-accent-soft); transform: translateY(-1px); }
+html.gccx .gccx-save.gccx-save-row:active { transform: none; }
+html.gccx .gccx-save.gccx-save-row[aria-pressed="true"] { background: var(--x-accent); color: var(--x-accent-ink); }
+html.gccx .gccx-save.gccx-save-row[aria-pressed="true"]:hover { background: var(--x-accent-hover); border-color: var(--x-accent-hover); }
+
+/* Add course label (plain text, ink, never accent) */
+html.gccx .pt_CourseSchedules td:has(> .gccx-addlbl) { white-space: nowrap; }
+html.gccx .gccx-addlbl { display: inline; margin: 0 0 0 6px; font: 400 14px/1.4 var(--x-sans); color: var(--x-ink); cursor: pointer; text-decoration: none; }
+html.gccx .gccx-addlbl:hover { color: var(--x-ink); text-decoration: underline; text-underline-offset: 2px; }
+html.gccx .pt_CourseSchedules td:has(> .gccx-addlbl) input[type="checkbox"] { accent-color: var(--x-ink); width: 16px; height: 16px; vertical-align: middle; }
+html.gccx .pt_CourseSchedules td:has(> .gccx-addlbl) input[type="checkbox"]:focus-visible { outline: 2px solid var(--x-ink); outline-offset: 2px; }
+
+/* Search form: More filters disclosure, pinned Search row */
+html.gccx #gccx-more-filters { margin: 8px 0 12px; padding: 0; border: 0; }
+html.gccx #gccx-more-filters > summary { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; cursor: pointer; font: 600 14px var(--x-sans); color: var(--x-ink); list-style: none; border-radius: var(--x-radius-control); }
+html.gccx #gccx-more-filters > summary::-webkit-details-marker { display: none; }
+html.gccx #gccx-more-filters > summary::before { content: ""; width: 10px; height: 10px; background: currentColor; clip-path: polygon(25% 10%, 80% 50%, 25% 90%); transition: transform var(--x-speed) var(--x-ease); }
+html.gccx #gccx-more-filters[open] > summary::before { transform: rotate(90deg); }
+html.gccx #gccx-more-filters > summary:hover { text-decoration: underline; text-underline-offset: 2px; }
+html.gccx #gccx-more-filters > summary:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx #gccx-more-filters[open] { background: var(--x-ground-muted); border-radius: var(--x-radius-control); padding: 4px 12px 12px; }
+html.gccx .gccx-search-actions { position: sticky; bottom: 0; z-index: 2; background: var(--x-surface); padding-block: 12px; margin-top: 4px; border-top: 1px solid var(--x-rule); }
+@media (prefers-reduced-motion: reduce) { html.gccx #gccx-more-filters > summary::before { transition: none; } }
 
 #gccx-plan-toggle {
   all: unset; cursor: pointer; position: fixed; z-index: 1040; right: 20px; bottom: 20px;
@@ -629,6 +719,21 @@ html.gccx.gccx-plan-open #gccx-search-btn { right: 540px; }
 #gccx-plan .x-job li { display: flex; justify-content: space-between; font-size: 14.5px; padding: 3px 0; }
 #gccx-plan .x-ok { color: var(--x-ok); }
 #gccx-plan .x-bad { color: var(--x-bad); }
+
+/* Plan drawer: planning line, export row, outline Copy / Remove buttons, hint copy */
+html.gccx #gccx-plan .x-planning { margin: 4px 0 4px; font-size: 15px; color: var(--x-muted); }
+html.gccx #gccx-plan .x-planning b { color: var(--x-ink); font-weight: 600; }
+html.gccx #gccx-plan .x-line { align-items: center; }
+@media (max-width: 480px) { html.gccx #gccx-plan .x-line { flex-wrap: wrap; } }
+html.gccx #gccx-plan .x-line .x-remove { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; font-size: 14px; color: var(--x-muted); text-decoration: none; border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control); transition: border-color var(--x-speed) var(--x-ease), color var(--x-speed) var(--x-ease); }
+html.gccx #gccx-plan .x-line .x-remove:hover:not(:disabled) { border-color: var(--x-accent); color: var(--x-ink); }
+html.gccx #gccx-plan .x-line .x-remove:active:not(:disabled) { transform: translateY(1px); }
+html.gccx #gccx-plan .x-line .x-remove:disabled { color: var(--x-faint); background: var(--x-ground-muted); border-color: var(--x-rule); }
+html.gccx #gccx-plan .x-export { flex-wrap: wrap; gap: 8px 16px; }
+html.gccx #gccx-plan .x-export .x-link { min-height: 32px; display: inline-flex; align-items: center; }
+html.gccx #gccx-plan .x-hint { margin: 6px 0 2px; font-size: 14px; color: var(--x-muted); }
+html.gccx #gccx-plan .x-ref-help { margin: 8px 0 12px; }
+@media (prefers-reduced-motion: reduce) { html.gccx #gccx-plan .x-line .x-remove { transition: none; transform: none; } }
 @media (max-width: 1100px) { html.gccx.gccx-plan-open body { margin-right: 0 !important; } html.gccx.gccx-plan-open #gccx-search-btn { right: 160px; } #gccx-plan { box-shadow: var(--x-shadow-pop); } }
 @media (max-width: 480px) { #gccx-plan { width: 100%; } }
 
@@ -658,16 +763,16 @@ html.gccx select.gccx-term-select { font-weight: 600 !important; border-color: c
 #gccx-plan .x-ai-log li { padding: 2px 0; }
 #gccx-plan .x-ai-log li.x-bad { color: var(--x-accent); }
 #gccx-plan .x-ai-summary { margin-top: 12px; padding: 10px 12px; background: var(--x-bg); border-radius: var(--x-radius-control); font-size: 14.5px; line-height: 1.5; }
-.gccx-ai-btn {
+html.gccx .gccx-ai-btn {
   all: unset; cursor: pointer; display: inline-block; box-sizing: border-box;
   font: 600 14px var(--x-sans) !important; color: var(--x-accent) !important;
   border: 1px solid var(--x-accent); border-radius: var(--x-radius-control); padding: 6px 12px; line-height: 1.3; white-space: nowrap;
   transition: background-color var(--x-speed) var(--x-ease), color var(--x-speed) var(--x-ease);
 }
-.gccx-ai-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-.gccx-ai-btn:hover { background: var(--x-accent); color: var(--x-accent-ink) !important; }
-.gccx-ai-btn.is-head { float: right; margin: -2px 40px 0 12px; max-width: calc(100% - 52px); }
-.gccx-ai-btn.is-inline { margin-left: 10px; vertical-align: middle; }
+html.gccx .gccx-ai-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx .gccx-ai-btn:hover { background: var(--x-accent); color: var(--x-accent-ink) !important; }
+html.gccx .gccx-ai-btn.is-head { float: right; margin: -2px 40px 0 12px; max-width: calc(100% - 52px); }
+html.gccx .gccx-ai-btn.is-inline { margin-left: 10px; vertical-align: middle; }
 
 /* ---------- Add/Drop tabs and forms: real spacing ---------- */
 /* tabs */
@@ -754,6 +859,35 @@ html.gccx .pt_CourseSchedules .tabbox:has([id$="tbRefNum1"]) > .row > .col-xs-12
 html.gccx .pt_CourseSchedules .tabbox > .row > .col-xs-12:only-child { white-space: normal !important; font-weight: 400 !important; line-height: 1.55 !important; max-width: 640px; }
 /* "Reference Number" column headings repeat what the numbered boxes say */
 html.gccx .pt_CourseSchedules [id$="tabRef_Panel2"] { display: none !important; }
+
+/* ---------- Add/Drop results header: aligned filter row ---------- */
+html.gccx .pt_CourseSchedules .addDropSearchResults > h4 { margin: 0 0 16px; padding: 0; text-indent: 0; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin: 0 0 20px; padding: 0;
+}
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"])::before,
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"])::after { display: none; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > br { display: none; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > div { float: none; width: auto; padding: 0; margin: 0; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > div:has(> a[id$="glbSearchAgain"]),
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > div:has(> .hint) { flex: 1 1 100%; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > div:has(> select) { display: flex; flex-direction: column; gap: 6px; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) label { margin: 0 !important; font-size: 13px; color: var(--x-muted); line-height: 1.2; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) select { height: 40px; min-width: 200px; max-width: 100%; margin: 0; box-sizing: border-box; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) input[type="submit"] { height: 40px; padding: 0 20px !important; margin: 0; box-sizing: border-box; }
+html.gccx .pt_CourseSchedules .addDropSearchResults a[id$="glbSearchAgain"] {
+  display: inline-flex; align-items: center; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--x-muted); text-decoration: none; border-radius: var(--x-radius-control);
+  transition: color var(--x-speed) var(--x-ease);
+}
+html.gccx .pt_CourseSchedules .addDropSearchResults a[id$="glbSearchAgain"]::before { content: "\2190"; margin-right: 6px; }
+html.gccx .pt_CourseSchedules .addDropSearchResults a[id$="glbSearchAgain"]:hover { color: var(--x-accent-hover); text-decoration: underline; }
+html.gccx .pt_CourseSchedules .addDropSearchResults a[id$="glbSearchAgain"]:active { color: var(--x-accent); }
+html.gccx .pt_CourseSchedules .addDropSearchResults a[id$="glbSearchAgain"]:focus-visible { outline: 2px solid var(--x-ink); outline-offset: 2px; }
+html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) .hint { margin: 0; padding: 0; background: none; border: 0; font-size: 13px; color: var(--x-muted); line-height: 1.4; }
+@media (max-width: 520px) {
+  html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) > div:has(> select) { flex: 1 1 100%; }
+  html.gccx .pt_CourseSchedules .addDropSearchResults .row:has(> div > a[id$="glbSearchAgain"]) select { width: 100%; }
+}
 
 /* ===================== command center hero + registration card ===================== */
 #gccx-dash .x-hero {

@@ -1,0 +1,2 @@
+/* Search note (searchnote.js): one muted line under the portal's "invalid syntax" error. Gated on html.gccx. */
+html.gccx #gccx-search-note { margin: 8px 0 0; font: 400 14px/1.5 var(--x-sans); color: var(--x-muted); }

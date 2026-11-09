@@ -287,7 +287,7 @@
     // Home, plus the My Info tab (myGCC sometimes lands there after sign-in)
     const homes = ['/ics', '/ics/portal_homepage.jnz', '/ics/default.aspx',
       '/ics/my_info', '/ics/my_info/default_page.jnz', '/ics/my_info/student.jnz', '/ics/my_info/default.aspx'];
-    return homes.includes(p) && !/portlet=/i.test(L.search);
+    return homes.includes(p) && !/portlet=|[?&]tool=/i.test(L.search);
   }
 
   async function initDashboard(force) {
@@ -1039,7 +1039,23 @@ Known resources (official; you may link these without searching, but read_page c
         if (!r.siteSearch) { X.go(r.href); return; }
         const box = document.getElementById('siteNavBar_searchBox_tbSearch');
         const btn = document.getElementById('siteNavBar_searchBox_lbSearch');
-        if (box && btn) { box.value = r.siteSearch; closePalette(); btn.click(); }
+        if (box && btn) {
+          box.value = r.siteSearch;
+          // The search button is a javascript:__doPostBack link, which does not run from a content script:
+          // fill the form's two postback fields and submit it, as postBack() in academics.js does.
+          const m = /__doPostBack\('([^']*)'\s*,\s*'([^']*)'\)/.exec(btn.getAttribute('href') || '');
+          const form = box.form || document.forms[0];
+          if (m && form) {
+            const field = (name) => form.elements[name] || form.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name }));
+            field('__EVENTTARGET').value = m[1];
+            field('__EVENTARGUMENT').value = m[2];
+            closePalette();
+            HTMLFormElement.prototype.submit.call(form);
+          } else {
+            closePalette();
+            btn.click();
+          }
+        }
       };
       p._draw = draw;
       p._cancel = cancelAsk;
