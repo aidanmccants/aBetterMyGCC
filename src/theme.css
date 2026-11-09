@@ -466,6 +466,7 @@ html.gccx.gccx-dark iframe { color-scheme: light; }
 #gccx-dash .x-card h3 a.x-aside:hover { color: var(--x-accent); }
 #gccx-dash .x-muted { color: var(--x-muted); }
 #gccx-dash .x-empty { color: var(--x-muted); font-style: italic; margin: 4px 0 0; }
+#gccx-dash .x-stale { color: var(--x-muted); font-size: 13px; line-height: 1.4; margin: 8px 0 0; } /* "Couldn't refresh · showing info from 2 h ago" */
 
 /* today timeline */
 #gccx-dash .x-class { display: grid; grid-template-columns: 92px 1fr auto; gap: 14px; padding: 12px 0; border-top: 1px solid var(--x-rule); align-items: baseline; }

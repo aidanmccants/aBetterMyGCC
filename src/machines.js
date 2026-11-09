@@ -95,5 +95,49 @@
   // what src/background.js aiState() can answer
   const AI_BACKGROUND_STATES = ['none', 'needs-permission', 'needs-model', 'ready'];
 
-  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse, aiSetup, AI_BACKGROUND_STATES };
+  // ---------- dashboard data (content.js): one of these per data source ----------
+  //   loading  being fetched
+  //   ready    fresh data (or a saved copy still within its time limit)
+  //   empty    myGCC answered and there is nothing to show (no classes, registration not open...)
+  //   stale    the refresh failed, so a saved copy is shown, with a note saying how old it is
+  //   error    the refresh failed and there is no saved copy
+  // ARRIVED: data that turns up outside the loader (chapel numbers come from a frame, via storage).
+  const CARDS = ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'menu'];
+  const card = {
+    loading: { LOADED: 'ready', EMPTY: 'empty', STALE: 'stale', FAILED: 'error', ARRIVED: 'ready' },
+    ready: { REFRESH: 'loading' },
+    empty: { REFRESH: 'loading', ARRIVED: 'ready' },
+    stale: { REFRESH: 'loading', ARRIVED: 'ready' },
+    error: { REFRESH: 'loading', ARRIVED: 'ready' },
+  };
+  // Which move a finished load makes. info is cached.info[key] from content.js:
+  // { stale, ts } = fell back to the saved copy; { failed } = failed with nothing saved.
+  function cardEvent(key, data, info) {
+    info = info || {};
+    const has = key === 'menu' ? !!data && (!!data.closed || (data.stations || []).length > 0)
+      : data != null && !(Array.isArray(data) && !data.length);
+    if (has) return info.stale ? 'STALE' : 'LOADED';
+    if (key === 'menu' && !data) return 'FAILED'; // the background answers null when the menu request failed
+    return info.failed ? 'FAILED' : 'EMPTY';
+  }
+  // One status for a card drawn from several sources, and for the footer.
+  function cardsStatus(list) {
+    if (list.includes('loading')) return 'loading';
+    if (list.includes('stale')) return 'stale';
+    if (list.includes('ready')) return 'ready';
+    if (list.includes('error')) return 'error';
+    return 'empty';
+  }
+  const cardsFooter = (list) => (list.includes('loading') ? 'loading' : list.some((s) => s === 'stale' || s === 'error') ? 'problem' : 'ok');
+  // "2 h ago" for the stale note
+  function ago(ts, now) {
+    const min = Math.max(0, Math.round(((now || Date.now()) - ts) / 60000));
+    if (min < 1) return 'just now';
+    if (min < 60) return `${min} min ago`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `${h} h ago`;
+    return `${Math.round(h / 24)} days ago`;
+  }
+
+  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse, aiSetup, AI_BACKGROUND_STATES, CARDS, card, cardEvent, cardsStatus, cardsFooter, ago };
 })(typeof window !== 'undefined' ? window : globalThis);
