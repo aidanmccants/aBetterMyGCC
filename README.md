@@ -53,7 +53,11 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 - Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, so on a shared computer one person's data never shows for another.
 - The only request to a site other than myGCC is for public dining menus from Nutrislice (`gcc.api.nutrislice.com`), the service the dining halls use for their menus. Nothing about you is sent.
 - The Source Serif 4 font loads from Google Fonts.
-- Plan with AI is off until you add a key. When you use it, your request, your registered/planned course codes and times, and course search results go to the AI service you chose, using your key. The key is stored locally and only the extension's background worker reads it.
+- Plan with AI and Ask AI are off until you add a key. Both send data only to the AI service you chose, using your key:
+  - **Plan with AI** sends your request, your registered/planned course codes and times, and course search results.
+  - **Ask AI** (the question box in Ctrl K search) sends your question and text from the myGCC pages it reads to answer it: up to about 6,000 characters per page, plus short excerpts of pages that match its searches. That text can include whatever those pages say about you.
+  - Ask AI never opens or sends financial pages (anything under Financial, the account balance, CashNet) or the GPA pages it knows by address (the Degree Progress, grade and transcript portlets). It also never opens files, or links that sign out, delete, drop or register. A page it does not recognize as private is treated like any other page.
+- The key is stored locally and only the extension's background worker reads it.
 
 ## Notes
 

@@ -860,9 +860,12 @@ Known resources (official; you may link these without searching, but read_page c
   async function searchPagesTool(query) {
     await ensurePageIndex();
     const toks = tokenize(query);
-    return searchEntries(String(query || '').toLowerCase().trim(), 8).map(({ it }) => ({
-      title: it.label, url: pageKey(it.href), snippet: snippetAround(it.text, toks, 400).s,
-    }));
+    // Page text goes to the AI service only for pages read_page may open: never financial or GPA pages
+    // (README, Privacy). Other matches keep their title and url so the answer can still link them.
+    const sendable = (href) => !!X.safeUrl(href, 'ai', { has: () => true });
+    return searchEntries(String(query || '').toLowerCase().trim(), 8).map(({ it }) => (sendable(it.href)
+      ? { title: it.label, url: pageKey(it.href), snippet: snippetAround(it.text, toks, 400).s }
+      : { title: it.label, url: pageKey(it.href), snippet: '', note: 'read_page cannot open this page; link it for the student instead' }));
   }
   // The model picks this URL, and it reads page text other people wrote (prompt injection), so the
   // URL must pass GCCX.safeUrl in 'ai' mode: a page this run has already seen, never one that acts
