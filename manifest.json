@@ -69,6 +69,7 @@
         "src/theme-engine/runtime.js",
         "src/loading.js",
         "src/lib.js",
+        "src/machines.js",
         "src/searchnote.js",
         "src/terms.js",
         "src/facilities.js",

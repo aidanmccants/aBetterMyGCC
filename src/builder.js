@@ -7,7 +7,8 @@
 (function () {
   'use strict';
   const X = window.GCCX;
-  if (!X) return;
+  if (!X || !X.machines) return;
+  const M = X.machines; // state tables (machines.js)
 
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -392,7 +393,7 @@
       addBtn.parentNode.insertBefore(b, addBtn.nextSibling);
     }
     b.textContent = `Load my plan (${items.length})`;
-    b.onclick = () => startJob(term, items, { fillOnly: true });
+    b.onclick = () => startJob(term, items, 'fill');
   }
 
   // ---------------- fit tags + filter on search results ----------------
@@ -547,7 +548,7 @@
     const g = gen;
     if (!on || !portlet()) return;
     const plan = await getPlan();
-    const job = await store.get('job');
+    const job = await getJob();
     const pt = await planTermOrDefault();
     if (!alive(g)) return;
     if (open === true) { drawerOpen = true; setClosed(false); }
@@ -573,11 +574,13 @@
       document.body.appendChild(d);
     }
     d.classList.toggle('is-open', drawerOpen);
+    toggle.dataset.gccxState = drawerOpen ? 'open' : 'closed'; // the drawer itself; #gccx-plan carries the job's state
     document.documentElement.classList.toggle('gccx-plan-open', drawerOpen);
 
     // Show the term the page is on (so the registered schedule is what you see
     // first), plus any other term that has saved courses.
-    const running = job && job.user === userKey() && job.phase !== 'done';
+    const mine = job && job.user === userKey() ? job : null;
+    const running = M.jobActive(mine);
     const st = siteTerm(plan);
     if (st && st.value && plan.some((p) => !p.term)) { // saved from a screen that couldn't tell the term: adopt this one
       plan.forEach((p) => { if (!p.term) { p.term = st.value; p.termLabel = p.termLabel || st.label; } });
@@ -637,6 +640,7 @@
       ${jobHTML(job, items, termLabel)}
       ${aiHTML(termLabel)}
     `;
+    d.dataset.gccxState = mine ? mine.state : 'none'; // job state (also set on every move by jobMove)
     calState = { term: viewTerm, items, registered };
     d.querySelector('.x-close').addEventListener('click', () => { drawerOpen = false; setClosed(true); renderDrawer(); });
     d.querySelectorAll('[data-term]').forEach((b) => b.addEventListener('click', () => { viewTerm = b.dataset.term; userPickedTerm = viewTerm !== lastSiteTerm; setPlanTerm({ value: viewTerm, label: (terms.find(([v]) => v === viewTerm) || [])[1] }).catch(() => {}); renderDrawer(); }));
@@ -662,14 +666,14 @@
       catch (err) { b.textContent = 'Failed'; }
       later(() => (b.textContent = 'Copy as text'), 1600);
     }));
-    d.querySelector('[data-lookup-refs]')?.addEventListener('click', () => startJob(viewTerm, items.filter((i) => !i.ref), { lookupOnly: true }));
+    d.querySelector('[data-lookup-refs]')?.addEventListener('click', () => startJob(viewTerm, items.filter((i) => !i.ref), 'lookup'));
     d.querySelector('[data-csv]')?.addEventListener('click', () => {
       const blob = new Blob([planCSV(items, termLabel)], { type: 'text/csv;charset=utf-8' });
       const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `course-plan-${(termLabel || 'term').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv` });
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
-    d.querySelector('[data-stop]')?.addEventListener('click', async () => { await store.set('job', null); renderDrawer(); });
+    d.querySelector('[data-stop]')?.addEventListener('click', async () => { plog('info', 'Stopped by the student; job cleared', { state: mine && mine.state }); await store.set('job', null); renderDrawer(); });
     wireAI(d);
     d.querySelector('[data-dismiss]')?.addEventListener('click', async () => { await store.set('job', null); renderDrawer(); });
     if (hoverSection) showGhost(hoverSection); // the redraw wiped any ghost under the pointer
@@ -815,38 +819,67 @@
     </div>`;
   }
 
-  function jobHTML(job, items, termLabel) {
-    if (job && job.user === userKey()) {
-      const lines = job.queue.map((code) => {
-        const r = job.results[code];
-        const status = r ? (r.ok ? 'Added' : job.dryNote ? `Ref ${esc(job.refs[code])}: not submitted` : `Not added${r.msg ? ': ' + esc(r.msg) : ''}`) : job.refs[code] ? (job.phase === 'submit' ? 'Adding…' : `Ref ${esc(job.refs[code])}`) : 'Looking up…';
-        return `<li><span>${esc(code)}</span><span class="${r ? (r.ok ? 'x-ok' : 'x-bad') : ''}">${status}</span></li>`;
+  // ---------------- job status (one view per job mode and state) ----------------
+  // The job's own line for one course. Text values are escaped here.
+  function jobLine(job, code) {
+    const r = job.results[code];
+    const status = r ? (r.ok ? 'Added' : job.dryNote ? `Ref ${esc(job.refs[code])}: not submitted` : `Not added${r.msg ? ': ' + esc(r.msg) : ''}`) : job.refs[code] ? (job.state.startsWith('submit.') ? 'Adding…' : `Ref ${esc(job.refs[code])}`) : 'Looking up…';
+    return `<li><span>${esc(code)}</span><span class="${r ? (r.ok ? 'x-ok' : 'x-bad') : ''}">${status}</span></li>`;
+  }
+  const jobLines = (job) => job.queue.map((code) => jobLine(job, code)).join('');
+  const jobManual = (job) => (job.manualRefs ? `<p class="x-sub">Reference numbers: ${esc(job.manualRefs)}</p>` : '');
+  const jobBox = (body, button, attr) => `<div class="x-job">${body}<button type="button" class="x-link" ${attr}>${button}</button></div>`;
+  const JOB_VIEW = {
+    looking: (job) => jobBox(`<p><b>Looking up reference numbers.</b> Keep this tab open; the page will reload a few times.</p><ul>${jobLines(job)}</ul>`, 'Stop', 'data-stop'),
+    adding: (job) => jobBox(`<p><b>Adding your courses.</b> Keep this tab open; the page will reload a few times.</p><ul>${jobLines(job)}</ul>`, 'Stop', 'data-stop'),
+    found: (job) => {
+      const got = job.queue.filter((c) => job.refs[c]).length;
+      return jobBox(`<p><b>${got} of ${job.queue.length} reference number${job.queue.length === 1 ? '' : 's'} found.</b> Copy plan as text now includes them.</p>
+          <ul>${jobLines(job)}</ul>`, 'Done', 'data-dismiss');
+    },
+    filled: (job) => {
+      const missing = job.queue.filter((c) => job.results[c] && !job.results[c].ok);
+      return jobBox(`<p><b>${job.filled || 0} reference number${job.filled === 1 ? '' : 's'} filled in.</b> Check them, then press Add Course(s).${job.remaining ? ` After that, press Load my plan again for the other ${job.remaining}.` : ''}</p>
+          ${missing.length ? `<ul>${missing.map((c) => `<li><span>${esc(c)}</span><span class="x-bad">${esc(job.results[c].msg)}</span></li>`).join('')}</ul>` : ''}`, 'Done', 'data-dismiss');
+    },
+    added: (job) => {
+      if (job.dryNote) return jobBox(`<p><b>${esc(job.dryNote)}</b></p><ul>${jobLines(job)}</ul>${jobManual(job)}`, 'Dismiss', 'data-dismiss');
+      const ok = job.queue.filter((c) => job.results[c] && job.results[c].ok).length;
+      return jobBox(`<p><b>${ok} of ${job.queue.length} added.</b>${ok < job.queue.length ? ' The rest stay in your plan.' : ''}</p><ul>${jobLines(job)}</ul>
+          ${jobManual(job)}`, 'Done', 'data-dismiss');
+    },
+    // Left for more than 10 minutes (the job used to vanish here): say what happened to each course.
+    abandoned: (job) => {
+      const TEXT = {
+        added: () => 'Added',
+        notAdded: (c) => `Not added${c.msg ? ': ' + esc(c.msg) : ''}`,
+        unconfirmed: (c) => `Sent to myGCC with Ref ${esc(c.ref)}, result not checked. Look under Your Schedule.`,
+        refOnly: (c) => `Not added. Reference number only: ${esc(c.ref)}`,
+        none: () => 'Not added. Not looked up yet.',
+      };
+      const rows = job.queue.map((code) => {
+        const c = M.jobCourse(job, code);
+        return `<li><span>${esc(code)}</span><span class="${c.kind === 'added' ? 'x-ok' : c.kind === 'notAdded' ? 'x-bad' : ''}">${TEXT[c.kind](c)}</span></li>`;
       }).join('');
-      if (job.phase === 'done' && job.lookupOnly) {
-        const got = job.queue.filter((c) => job.refs[c]).length;
-        return `<div class="x-job"><p><b>${got} of ${job.queue.length} reference number${job.queue.length === 1 ? '' : 's'} found.</b> Copy plan as text now includes them.</p>
-          <ul>${lines}</ul><button type="button" class="x-link" data-dismiss>Done</button></div>`;
-      }
-      if (job.fillOnly || job.lookupOnly) {
-        if (job.phase !== 'done') return `<div class="x-job"><p><b>Looking up reference numbers.</b> Keep this tab open; the page will reload a few times.</p><ul>${lines}</ul><button type="button" class="x-link" data-stop>Stop</button></div>`;
-      }
-      if (job.phase === 'done' && job.fillOnly) {
-        const missing = job.queue.filter((c) => job.results[c] && !job.results[c].ok);
-        return `<div class="x-job"><p><b>${job.filled || 0} reference number${job.filled === 1 ? '' : 's'} filled in.</b> Check them, then press Add Course(s).${job.remaining ? ` After that, press Load my plan again for the other ${job.remaining}.` : ''}</p>
-          ${missing.length ? `<ul>${missing.map((c) => `<li><span>${esc(c)}</span><span class="x-bad">${esc(job.results[c].msg)}</span></li>`).join('')}</ul>` : ''}
-          <button type="button" class="x-link" data-dismiss>Done</button></div>`;
-      }
-      if (job.phase === 'done') {
-        const ok = job.queue.filter((c) => job.results[c] && job.results[c].ok).length;
-        if (job.dryNote) return `<div class="x-job"><p><b>${esc(job.dryNote)}</b></p><ul>${lines}</ul>${job.manualRefs ? `<p class="x-sub">Reference numbers: ${esc(job.manualRefs)}</p>` : ''}
-          <button type="button" class="x-link" data-dismiss>Dismiss</button></div>`;
-        return `<div class="x-job"><p><b>${ok} of ${job.queue.length} added.</b>${ok < job.queue.length ? ' The rest stay in your plan.' : ''}</p><ul>${lines}</ul>
-          ${job.manualRefs ? `<p class="x-sub">Reference numbers: ${esc(job.manualRefs)}</p>` : ''}
-          <button type="button" class="x-link" data-dismiss>Done</button></div>`;
-      }
-      if (job.fillOnly) return `<div class="x-job"><p><b>Looking up reference numbers.</b> Keep this tab open; the page will reload a few times.</p><ul>${lines}</ul><button type="button" class="x-link" data-stop>Stop</button></div>`;
-      return `<div class="x-job"><p><b>Adding your courses.</b> Keep this tab open; the page will reload a few times.</p><ul>${lines}</ul><button type="button" class="x-link" data-stop>Stop</button></div>`;
-    }
+      const what = job.mode === 'register' ? 'Adding your courses' : 'Looking up reference numbers';
+      return jobBox(`<p><b>${what} was abandoned.</b> The page was left for more than 10 minutes, so it stopped. Here is where each course ended up:</p><ul>${rows}</ul>${jobManual(job)}`, 'Dismiss', 'data-dismiss');
+    },
+  };
+  // mode -> state (or its "lookup" / "submit" / "done" group) -> view
+  const JOB_VIEWS = {
+    register: { lookup: 'adding', submit: 'adding', done: 'added' },
+    fill: { lookup: 'looking', submit: 'looking', done: 'filled' },
+    lookup: { lookup: 'looking', done: 'found' },
+    lookupStay: { lookup: 'looking', done: 'found' },
+  };
+  function jobView(job) {
+    if (job.state === 'done.abandoned') return 'abandoned';
+    const views = JOB_VIEWS[job.mode] || JOB_VIEWS.lookup;
+    return views[job.state] || views[job.state.split('.')[0]] || (M.jobActive(job) ? 'looking' : 'found');
+  }
+
+  function jobHTML(job, items, termLabel) {
+    if (job && job.user === userKey()) return JOB_VIEW[jobView(job)](job);
     if (!items.length) return '';
     const noRef = items.filter((i) => !i.ref).map((i) => i.code);
     if (noRef.length) {
@@ -867,19 +900,28 @@
   }
 
   // ---------------- the add-all job ----------------
-  async function startJob(term, items, opts = {}) {
+  // State and mode are explicit (tables in machines.js, diagram in docs/STATE_MACHINES.md):
+  //   job.state  lookup.search | lookup.results | lookup.details | submit.term | submit.fill |
+  //              submit.sent | submit.verify | done.ok | done.stopped | done.abandoned | done.failed
+  //   job.mode   register | fill | lookup | lookupStay
+  // Every change of state goes through jobMove(), which refuses a move the mode's table lacks.
+  const getJob = async () => M.upgradeJob(await store.get('job')); // converts jobs saved in the old phase/step shape
+  function jobMove(job, event, data) {
+    const m = X.machine('job', { initial: job.state, states: M.jobStates(job.mode), el: () => document.getElementById('gccx-plan') });
+    const ok = m.send(event, data);
+    job.state = m.state;
+    return ok;
+  }
+  async function startJob(term, items, mode = 'register') {
     const refs = {};
     items.forEach((i) => { if (i.ref) refs[i.code] = String(i.ref).trim(); });
     let ssDry = false; try { ssDry = sessionStorage.getItem('gccx-dry-run') === '1'; } catch (e) { /* ignore */ }
     const job = {
-      user: userKey(), term, queue: items.map((i) => i.code), refs, results: {}, phase: 'lookup', step: null, batch: [], guard: 0, ts: Date.now(),
+      user: userKey(), term, queue: items.map((i) => i.code), refs, results: {}, state: 'lookup.search', mode: M.JOB_MODES.includes(mode) ? mode : 'lookup', batch: [], guard: 0, ts: Date.now(),
       dryRun: !!window.__gccxDryRun || ssDry,
-      fillOnly: !!opts.fillOnly,
-      lookupOnly: !!opts.lookupOnly,
-      stayOnDetails: !!opts.stayOnDetails,
     };
     await store.set('job', job);
-    plog('info', 'Start', { term, courses: job.queue, known: Object.keys(refs).length, dryRun: job.dryRun, fillOnly: job.fillOnly, lookupOnly: job.lookupOnly, screen: screen() });
+    plog('info', 'Start', { term, courses: job.queue, known: Object.keys(refs).length, dryRun: job.dryRun, mode: job.mode, screen: screen() });
     runSafe();
   }
   function plog(level, msg, data) { try { X.log(level, 'plan', 'Register: ' + msg, data); } catch (e) { /* ignore */ } }
@@ -888,7 +930,7 @@
     try { await run(); }
     catch (e) {
       plog('error', 'Exception in job: ' + (e && e.message || e), { stack: e && e.stack, screen: screen() });
-      try { const job = await store.get('job'); if (job && job.phase !== 'done') await finish(job, 'Stopped: ' + (e && e.message || 'unexpected error')); } catch (e2) { /* ignore */ }
+      try { const job = await getJob(); if (M.jobActive(job)) await finish(job, 'Stopped: ' + (e && e.message || 'unexpected error'), 'FAIL'); } catch (e2) { /* ignore */ }
     }
   }
   // anything the page says about the last submit (errors, conflicts, closed, prerequisites)
@@ -918,21 +960,44 @@
 
   async function run() {
     if (!on) return;
-    const job = await store.get('job');
+    const job = await getJob();
     if (!job || !on) return;
     if (job.user !== userKey()) { plog('warn', 'Job belongs to another user; ignoring', { job: job.user, me: userKey() }); return; }
-    if (job.phase === 'done') return;
-    if (Date.now() - job.ts > 10 * 60e3) { plog('warn', 'Job abandoned (older than 10 minutes); cleared'); await store.set('job', null); return; }
+    if (!M.jobActive(job)) return;
+    if (!M.jobStates(job.mode)[job.state]) {
+      // a state this mode does not have (damaged data): end it where the student can see it, never act on it
+      plog('error', 'Job is in a state its mode does not allow; stopping', { state: job.state, mode: job.mode });
+      return finish(job, 'Stopped: the saved job was not readable.');
+    }
+    if (Date.now() - job.ts > 10 * 60e3) {
+      // Left for more than 10 minutes. Keep the job so the drawer can say what was and was not added.
+      plog('warn', 'Job abandoned (older than 10 minutes); kept so its summary can be shown', { state: job.state, refs: job.refs, results: job.results, batch: job.batch });
+      job.leftIn = job.state;
+      jobMove(job, 'ABANDON');
+      const refsLeft = job.queue.filter((c) => job.refs[c] && !(job.results[c] && job.results[c].ok)).map((c) => job.refs[c]);
+      if (refsLeft.length && !job.manualRefs) job.manualRefs = refsLeft.join(', ');
+      await saveJob(job);
+      renderDrawer(true);
+      return;
+    }
     const sc = screen();
-    plog('info', `Resume: phase=${job.phase} step=${job.step || '-'} screen=${sc} guard=${job.guard}`, { current: job.current, refs: job.refs, results: job.results, title: document.title });
+    plog('info', `Resume: state=${job.state} mode=${job.mode} screen=${sc} guard=${job.guard}`, { current: job.current, refs: job.refs, results: job.results, title: document.title });
     if (++job.guard > job.queue.length * 8 + 12) { plog('error', 'Too many page loads without progress; stopping'); return finish(job, 'Stopped: myGCC did not respond as expected.'); }
     renderDrawer(true);
 
-    if (job.phase === 'lookup') {
+    if (job.state.startsWith('lookup.')) {
       const code = job.queue.find((c) => !job.refs[c] && !job.results[c]);
-      if (!code && job.lookupOnly) { plog('info', 'Lookup finished (nothing is submitted)'); job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); decorateRefresh(); return; } // refs are in the plan now; nothing is submitted
-      if (!code) { plog('info', 'All reference numbers known; going to submit', { refs: job.refs }); job.phase = 'submit'; job.step = null; await saveJob(job); return run(); }
-      if (sc === 'main' && job.step !== 'searched') {
+      if (!code) {
+        // Every course has a reference number or a reason. Lookup modes end here: their table has no submit states.
+        if (job.state !== 'lookup.search') jobMove(job, 'LOST');
+        jobMove(job, 'REFS_DONE');
+        await saveJob(job);
+        if (!M.jobActive(job)) { plog('info', 'Lookup finished (nothing is submitted)'); renderDrawer(true); decorateRefresh(); return; } // refs are in the plan now
+        plog('info', 'All reference numbers known; going to submit', { refs: job.refs });
+        return run();
+      }
+      if (sc === 'main' && job.state !== 'lookup.results') {
+        if (job.state === 'lookup.details') jobMove(job, 'LOST'); // the course link did not open its details
         const p = portlet();
         const need = ['tabSearch_ddlCourseRestrictor', 'tabSearch_txtCourseRestrictor', 'tabSearch_txtTitleRestrictor', 'tabSearch_ddlTermSearch', 'tabSearch_btnSearch'];
         const missing = need.filter((n) => !byEnd(n, p));
@@ -942,26 +1007,26 @@
         byEnd('tabSearch_txtTitleRestrictor', p).value = '';
         const tsel = byEnd('tabSearch_ddlTermSearch', p);
         tsel.value = job.term;
-        if (tsel.value !== job.term) { plog('error', 'Term not in the search dropdown', { want: job.term, have: [...tsel.options].map((o) => o.value) }); job.results[code] = { ok: false, msg: 'Term not available in search' }; job.step = null; await saveJob(job); return run(); }
+        if (tsel.value !== job.term) { plog('error', 'Term not in the search dropdown', { want: job.term, have: [...tsel.options].map((o) => o.value) }); job.results[code] = { ok: false, msg: 'Term not available in search' }; jobMove(job, 'SKIP', { code }); await saveJob(job); return run(); }
         const dept = byEnd('tabSearch_ddlDept', p); if (dept) dept.selectedIndex = 0;
-        job.step = 'searched'; job.current = code; await saveJob(job);
+        jobMove(job, 'SEARCH', { code }); job.current = code; await saveJob(job);
         plog('info', `Searching for ${code} (${job.term})`);
         if (!on) return;
         return byEnd('tabSearch_btnSearch', p).click();
       }
-      if (sc === 'results' && job.step === 'searched') {
+      if (sc === 'results' && job.state === 'lookup.results') {
         const rows = resultRows();
         const row = rows.find((r) => r.code === job.current);
         if (!row) {
           plog('warn', `${job.current} not in the results`, { found: rows.map((r) => r.code) });
           job.results[job.current] = { ok: false, msg: 'Section not found for this term' };
-          job.step = null; await saveJob(job); return goMain();
+          jobMove(job, 'MISSING', { code: job.current }); await saveJob(job); return goMain();
         }
-        job.step = 'details'; await saveJob(job);
+        jobMove(job, 'OPEN', { code: job.current }); await saveJob(job);
         plog('info', `Opening details for ${job.current}`);
         return postBackLink(row.link);
       }
-      if (sc === 'details' && job.step === 'details') {
+      if (sc === 'details' && job.state === 'lookup.details') {
         const info = detailsInfo();
         plog('info', `Details for ${job.current}: ref ${info.ref || '(none)'}`);
         if (info.ref) job.refs[job.current] = info.ref;
@@ -970,31 +1035,31 @@
         plan.forEach((p) => { if (p.code === job.current && p.term === job.term && info.ref) p.ref = info.ref; });
         await setPlan(plan);
         // "Get course number": leave the user on this course's details page
-        if (job.stayOnDetails && !job.queue.some((c) => !job.refs[c] && !job.results[c])) { job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); decorateRefresh(); return; }
-        job.step = null; await saveJob(job); return goMain();
+        if (job.mode === 'lookupStay' && !job.queue.some((c) => !job.refs[c] && !job.results[c])) { jobMove(job, 'REFS_DONE'); await saveJob(job); renderDrawer(true); decorateRefresh(); return; }
+        jobMove(job, 'REF', { code: job.current }); await saveJob(job); return goMain();
       }
-      if (sc === 'main' && job.step === 'searched') {
+      if (sc === 'main' && job.state === 'lookup.results') {
         // the search click did not take us to results; give it one more try, then skip this course
         job.tries = (job.tries || 0) + 1;
         plog('warn', `Search for ${job.current} did not reach the results page (try ${job.tries})`, { msgs: pageMessages() });
         if (job.tries >= 2) { job.results[job.current] = { ok: false, msg: 'Search did not respond' }; job.tries = 0; }
-        job.step = null; await saveJob(job); return run();
+        jobMove(job, 'LOST'); await saveJob(job); return run();
       }
-      plog('warn', `Unexpected screen "${sc}" at step ${job.step || '-'}; going back to Add/Drop`);
-      job.step = null; await saveJob(job); return goMain();
+      plog('warn', `Unexpected screen "${sc}" in state ${job.state}; going back to Add/Drop`);
+      if (job.state !== 'lookup.search') jobMove(job, 'LOST');
+      await saveJob(job); return goMain();
     }
 
-    if (job.phase === 'submit' && job.lookupOnly) { job.phase = 'done'; job.step = null; await saveJob(job); renderDrawer(true); return; } // never register from a lookup
-    if (job.phase === 'submit') {
-      if (job.step === 'submitted' && sc !== 'main') {
+    if (job.state.startsWith('submit.')) { // only register and fill jobs have these states
+      if (job.state === 'submit.sent' && sc !== 'main') {
         // the result came back on a screen without the form: keep what it says, then look at Add/Drop to verify
-        job.msgs = pageMessages(); job.step = 'verify'; await saveJob(job);
+        job.msgs = pageMessages(); jobMove(job, 'OFFPAGE'); await saveJob(job);
         plog('info', 'Submit returned a non-main screen; messages saved, returning to Add/Drop', { screen: sc, msgs: job.msgs });
         return goMain();
       }
-      if (sc !== 'main') { plog('warn', `Submit phase on screen "${sc}"; going to Add/Drop`); job.step = null; await saveJob(job); return goMain(); }
+      if (sc !== 'main') { plog('warn', `Submit state ${job.state} on screen "${sc}"; going to Add/Drop`); if (job.state !== 'submit.fill') jobMove(job, 'LOST'); await saveJob(job); return goMain(); }
       const p = portlet();
-      if (job.step === 'submitted' || job.step === 'verify') {
+      if (job.state === 'submit.sent' || job.state === 'submit.verify') {
         // Judge the batch by what's now listed under "Your Schedule", with the page's own messages as the reason
         const now = registeredOnMain().map((c) => c.code);
         const msgs = [...(job.msgs || []), ...pageMessages()];
@@ -1007,20 +1072,21 @@
         }
         const added = job.batch.filter((c) => job.results[c].ok);
         if (added.length) await setPlan((await getPlan()).filter((x) => !(x.term === job.term && added.includes(x.code))));
-        job.batch = []; job.msgs = null; job.step = null; await saveJob(job);
+        job.batch = []; job.msgs = null; jobMove(job, 'JUDGED', { added }); await saveJob(job);
         renderDrawer(true);
       }
       const termSel = byEnd('ddlTerm', p);
       if (termSel && termSel.value !== job.term) {
-        if (job.step === 'term') { plog('error', 'Could not switch the Add/Drop term', { want: job.term, have: termSel.value }); return finish(job, 'Stopped: could not switch to this term on Add/Drop.'); }
-        job.step = 'term'; await saveJob(job);
+        if (job.state === 'submit.term') { plog('error', 'Could not switch the Add/Drop term', { want: job.term, have: termSel.value }); return finish(job, 'Stopped: could not switch to this term on Add/Drop.'); }
+        jobMove(job, 'TERM', { to: job.term }); await saveJob(job);
         plog('info', 'Switching Add/Drop to the plan\'s term', { from: termSel.value, to: job.term });
         if (!on) return;
         setSelect(termSel, job.term); // triggers myGCC's own postback
         return;
       }
+      if (job.state === 'submit.term') jobMove(job, 'SWITCHED'); // the page is on the plan's term now
       const todo = job.queue.filter((c) => job.refs[c] && !job.results[c]);
-      if (!todo.length) { plog('info', 'Nothing left to submit'); return finish(job); }
+      if (!todo.length) { plog('info', 'Nothing left to submit'); return finish(job, null, 'NOTHING'); }
       job.batch = todo.slice(0, 6);
       const boxes = [1, 2, 3, 4, 5, 6].map((n) => byEnd('tbRefNum' + n, p));
       const addBtn = byEnd('tabRef_gbtnSearchRef', p);
@@ -1030,11 +1096,11 @@
         b.dispatchEvent(new Event('input', { bubbles: true }));
         b.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      plog('info', `Filled ${job.batch.length} reference number${job.batch.length === 1 ? '' : 's'}`, { batch: job.batch.map((c) => `${c} -> ${job.refs[c]}`), dryRun: job.dryRun, fillOnly: job.fillOnly, remaining: todo.length - job.batch.length });
-      if (job.fillOnly) {
+      plog('info', `Filled ${job.batch.length} reference number${job.batch.length === 1 ? '' : 's'}`, { batch: job.batch.map((c) => `${c} -> ${job.refs[c]}`), dryRun: job.dryRun, mode: job.mode, remaining: todo.length - job.batch.length });
+      if (job.mode === 'fill') {
         job.filled = job.batch.length;
         job.remaining = todo.length - job.batch.length;
-        job.phase = 'done';
+        jobMove(job, 'FILLED');
         await saveJob(job);
         renderDrawer(true);
         // show the Add by Reference # tab so the filled boxes are visible
@@ -1050,21 +1116,27 @@
         job.batch.forEach((c) => (job.results[c] = { ok: false, msg: X.demo ? 'Demo: looked up, nothing registered' : 'Dry run: filled in, not submitted' }));
         plog('info', job.dryNote);
         $$('a', p).find((a) => /reference/i.test(a.textContent) && a.getAttribute('href') === '#')?.click();
-        return finish(job);
+        return finish(job, null, 'FILLED');
       }
-      job.step = 'submitted'; await saveJob(job);
+      // Only a register job's table has SEND. If the move is refused, myGCC's Add button is never pressed.
+      if (!jobMove(job, 'SEND', { refs: job.batch.map((c) => job.refs[c]) })) return finish(job, 'Stopped: this job is not allowed to register.');
+      await saveJob(job);
       plog('info', 'Clicking Add Course(s)', { refs: job.batch.map((c) => job.refs[c]) });
       if (!on) return;
       return addBtn.click(); // a real click, so the page's own validation and postback run
     }
   }
-  async function finish(job, note) {
-    job.phase = 'done';
+  // End the job: STOP (a known problem, with a note), FAIL (an exception), or NOTHING / FILLED (ran to its end).
+  async function finish(job, note, event = note ? 'STOP' : 'NOTHING') {
+    if (!jobMove(job, event, note ? { note } : undefined)) {
+      plog('error', `Could not end the job with ${event} from ${job.state}; marking it stopped`);
+      job.state = 'done.stopped';
+    }
     if (note) job.queue.forEach((c) => { if (!job.results[c]) job.results[c] = { ok: false, msg: note }; });
     const missing = job.queue.filter((c) => job.refs[c] && !(job.results[c] && job.results[c].ok)).map((c) => job.refs[c]);
     if (missing.length && !job.manualRefs) job.manualRefs = missing.join(', ');
     await saveJob(job);
-    plog(note ? 'warn' : 'info', 'Job finished' + (note ? ': ' + note : ''), { refs: job.refs, results: job.results });
+    plog(note ? 'warn' : 'info', 'Job finished' + (note ? ': ' + note : ''), { state: job.state, refs: job.refs, results: job.results });
     renderDrawer(true);
     decorateRefresh();
   }
@@ -1309,7 +1381,7 @@ How myGCC labels courses:
     if (row && row.link) return postBackLink(row.link);
     getPlan().then((plan) => {
       const it = plan.find((p) => p.code === code && p.term === term);
-      if (it) startJob(term, [it], { lookupOnly: true, stayOnDetails: true });
+      if (it) startJob(term, [it], 'lookupStay');
     });
   }
 
@@ -1541,7 +1613,7 @@ How myGCC labels courses:
     let dept = null, origDept = -1, dead = false;
     store.get('job').then((job) => {
       if (dead || !alive(g)) return;
-      if (job && job.phase !== 'done') return;
+      if (M.jobActive(M.upgradeJob(job))) return;
       dept = byEnd('tabSearch_ddlDept', box);
       if (!dept || !dept.options[0] || !/^\s*all\b/i.test(dept.options[0].text)) return;
       const i = dept.selectedIndex;

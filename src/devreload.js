@@ -5,7 +5,7 @@
 (function () {
   const FILES = [
     'manifest.json', 'themes/index.json', 'themes/gcc/theme.json', 'themes/autumn-pixels/theme.json', 'src/theme-engine/default-theme.js', 'src/theme-engine/runtime.js', 'src/theme-engine/settings.js', 'src/theme-engine/loader.js', 'src/theme-engine/tokens.css', 'src/theme-engine/fonts.css', 'src/facilities.js', 'src/theme-engine/shell.css',
-    'src/lib.js', 'src/terms.js', 'src/content.js', 'src/builder.js', 'src/contrast.js',
+    'src/lib.js', 'src/machines.js', 'src/terms.js', 'src/content.js', 'src/builder.js', 'src/contrast.js',
     'src/onboarding.js', 'src/degree.js', 'src/signedout.js', 'src/theme.css', 'src/chapel.js',
     'src/signedout.css', 'src/onboarding.css', 'src/builder-split.css', 'src/degree.css', 'src/search.css',
     'src/background.js', 'src/ai.js', 'src/devreload.js',
