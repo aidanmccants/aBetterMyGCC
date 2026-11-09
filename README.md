@@ -50,7 +50,8 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 
 ## Privacy
 
-- Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, so on a shared computer one person's data never shows for another.
+- Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, and the copies read from your pages (schedule, degree progress and GPA, balance, chapel, search index) are removed when myGCC shows its signed-out page. Your saved course plan is kept so it is still there next time.
+  - Known limit: a person is recognized by the name myGCC shows in its welcome bar, because no unique ID has been confirmed in myGCC's pages yet. Two people with exactly the same name on one computer would be treated as one person (their saved course plans would be shared). Signing out still clears the cached data.
 - The only request to a site other than myGCC is for public dining menus from Nutrislice (`gcc.api.nutrislice.com`), the service the dining halls use for their menus. Nothing about you is sent.
 - The Source Serif 4 font loads from Google Fonts.
 - Plan with AI and Ask AI are off until you add a key. Both send data only to the AI service you chose, using your key:
