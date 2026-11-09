@@ -144,6 +144,7 @@
     return o ? { value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) } : null;
   }
   // The term the user last searched (kept for the details screen, which has no term box)
+  // Not a handoff: 'gccx-last-term' is a per-tab memory with no expiry (read many times, overwritten by the next search).
   function rememberTerm(t) { try { if (t && t.value) sessionStorage.setItem('gccx-last-term', JSON.stringify(t)); } catch (e) { /* ignore */ } }
   function lastTerm() { try { return JSON.parse(sessionStorage.getItem('gccx-last-term') || 'null'); } catch (e) { return null; } }
   // the term this screen is about: search term, else the Your Schedule term, else the last searched
@@ -1367,7 +1368,7 @@ How myGCC labels courses:
     if (!alive(g)) return; // switched off meanwhile: no reload, no page changes
     // The background searches moved myGCC's own page state on the server, so
     // reload Add/Drop with a normal link (not a refresh) and keep the summary.
-    try { sessionStorage.setItem('gccx-ai-run', JSON.stringify({ ...aiRun, stopped: false })); } catch (e) { /* ignore */ }
+    X.handoff.put('session', 'gccx-ai-run', { ...aiRun, stopped: false }, 10 * 60e3); // shown again after the reload below
     goMain();
   }
 
@@ -1545,10 +1546,8 @@ How myGCC labels courses:
       return () => document.removeEventListener('change', onTermChange, true);
     });
     safe('plan drawer', () => {
-      try {
-        const saved = JSON.parse(sessionStorage.getItem('gccx-ai-run') || 'null');
-        if (saved) { aiRun = saved; sessionStorage.removeItem('gccx-ai-run'); drawerOpen = true; }
-      } catch (e) { /* ignore */ }
+      const saved = X.handoff.take('session', 'gccx-ai-run'); // a run summary from before the reload (10 minutes)
+      if (saved) { aiRun = saved; drawerOpen = true; }
       aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); });
       // a failure while decorating must not stop a running job from resuming
       decorate().catch((e) => blog('decorate failed: ' + (e && e.message), { stack: e && e.stack }))

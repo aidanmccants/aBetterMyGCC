@@ -374,6 +374,50 @@
     return u.href;
   }
 
+  // ---------- expiring handoffs ----------
+  // A value one page (or frame, or worker run) leaves for the next one to pick up: stored as
+  // { v, exp }, read once with take(), which deletes it whether or not it was still good.
+  //   area 'session'  sessionStorage (this tab only), synchronous
+  //   area 'local'    chrome.storage.local (any tab or frame), returns a Promise
+  // A value saved without `exp` by an older version counts as expired, except chapelPending,
+  // whose old { user, ts } shape is still read with its 60-second window.
+  // Keys and expiry times are listed in docs/STATE_MACHINES.md.
+  function handoffOpen(key, rec, now) {
+    if (!rec || typeof rec !== 'object') return null;
+    if (typeof rec.exp === 'number') return now < rec.exp ? rec.v : null;
+    if (key === 'chapelPending' && rec.user && typeof rec.ts === 'number' && now - rec.ts < 60000) return { user: rec.user };
+    return null;
+  }
+  const handoff = {
+    put(area, key, value, ttlMs) {
+      const rec = { v: value, exp: Date.now() + ttlMs };
+      if (area === 'local') {
+        return new Promise((done) => {
+          try { chrome.storage.local.set({ [key]: rec }, () => { void chrome.runtime.lastError; done(); }); } catch (e) { done(); }
+        });
+      }
+      try { sessionStorage.setItem(key, JSON.stringify(rec)); } catch (e) { /* storage blocked: the next page just starts clean */ }
+      return undefined;
+    },
+    take(area, key) {
+      if (area === 'local') {
+        return new Promise((done) => {
+          try {
+            chrome.storage.local.get(key, (o) => {
+              if (chrome.runtime.lastError || !o) return done(null);
+              if (o[key] !== undefined) chrome.storage.local.remove(key, () => { void chrome.runtime.lastError; });
+              done(handoffOpen(key, o[key], Date.now()));
+            });
+          } catch (e) { done(null); }
+        });
+      }
+      let rec = null;
+      try { rec = JSON.parse(sessionStorage.getItem(key)); } catch (e) { rec = null; } // an old plain-text value does not parse: expired
+      try { sessionStorage.removeItem(key); } catch (e) { /* ignore */ }
+      return handoffOpen(key, rec, Date.now());
+    },
+  };
+
   // ---------- state machines ----------
   // A named table of states and the events each one accepts: states = { idle: { START: 'running' }, ... }.
   // send() moves only along the table; anything else is refused with a warning on the Logs page.
@@ -401,7 +445,7 @@
 
   root.GCCX = {
     demo: !!demo, loc, go, alive, fitFrame, onLook,
-    log, aiErrorText, aiSetupText, pulseHTML, machine, safeUrl,
+    log, aiErrorText, aiSetupText, pulseHTML, machine, safeUrl, handoff,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };

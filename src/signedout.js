@@ -8,7 +8,7 @@
   const TITLE_ID = 'gccx-signedout-title';
   const LEDE_ID = 'gccx-signedout-lede';
   const LOCK_CLASS = 'gccx-signedout-open';
-  const GUEST_KEY = 'gccx-guest';
+  const GUEST_KEY = 'gccx-guest'; // sessionStorage flag, kept for the whole tab session on purpose (no expiry; not a GCCX.handoff)
   const ONBOARDING_ID = 'gccx-onboarding';
   const ONBOARDING_DONE = 'gccx:onboarding-done';
   const LOGIN_TOGGLE_ID = 'siteNavBar_welcomeBackBarLoggedOut_loginToggle';

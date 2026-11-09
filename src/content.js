@@ -254,7 +254,7 @@
         const doc = await getDoc(CHAPEL_URL);
         const src = doc.querySelector('iframe[src*="chapel"]')?.getAttribute('src');
         if (src && !document.getElementById('gccx-chapel-frame')) {
-          await store.set('chapelPending', { user, ts: Date.now() });
+          await X.handoff.put('local', 'chapelPending', { user }, 60000); // chapel.js in the frame takes it
           const f = document.createElement('iframe');
           f.id = 'gccx-chapel-frame';
           f.src = src;
@@ -285,7 +285,7 @@
     const p = (L.pathname + L.search).toLowerCase();
     if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length && covers(d)) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
-    if (document.querySelector('iframe[src*="chapel.aspx"]')) store.set('chapelPending', { user, ts: Date.now() });
+    if (document.querySelector('iframe[src*="chapel.aspx"]')) X.handoff.put('local', 'chapelPending', { user }, 60000);
     const b = X.parseBalances(document);
     if (b) store.set('balance', { ts: Date.now(), user, data: b });
   }

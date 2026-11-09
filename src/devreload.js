@@ -38,7 +38,7 @@
     if (last === null) { last = now; return; }
     if (now !== last) {
       clearInterval(timer);
-      await chrome.storage.local.set({ devReloadTabs: Date.now() });
+      await GCCX.handoff.put('local', 'devReloadTabs', true, 30000); // read after the reload, below
       chrome.runtime.reload();
     }
   }
@@ -53,9 +53,8 @@
     isDev = me && me.installType === 'development';
     if (!isDev) return;
     // After a dev reload, refresh any open myGCC tabs so new content scripts load.
-    chrome.storage.local.get('devReloadTabs', ({ devReloadTabs }) => {
-      if (!devReloadTabs || Date.now() - devReloadTabs > 30000) return;
-      chrome.storage.local.remove('devReloadTabs');
+    GCCX.handoff.take('local', 'devReloadTabs').then((pending) => {
+      if (!pending) return;
       chrome.tabs.query({ url: ['https://my.gcc.edu/*'] }, (tabs) => tabs.forEach((t) => chrome.tabs.reload(t.id)));
     });
     start();

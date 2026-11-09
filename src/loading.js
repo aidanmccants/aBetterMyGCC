@@ -11,7 +11,7 @@
   let enabled = true;
   try { enabled = (JSON.parse(localStorage.getItem('gccx-settings')) || {}).enabled !== false; } catch (e) { /* default on */ }
 
-  const KEY = 'gccx-nav';
+  const KEY = 'gccx-nav'; // per-tab note from the page being left to the next page; not a GCCX.handoff (this file runs before lib.js) and it checks its own age
   const AREA = ['#portlets', '#mainLayout .main-content', '#portlet-grid', '#mainLayout'];
   let bar = null, skel = null, tick = 0, skelTimer = 0, giveUp = 0, p = 0, busyEl = null, active = false, attached = false;
   const isOn = () => root.classList.contains('gccx');

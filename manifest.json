@@ -95,6 +95,7 @@
         "https://custom.gcc.edu/gcc_misc/chapel.aspx*"
       ],
       "js": [
+        "src/lib.js",
         "src/chapel.js"
       ],
       "all_frames": true,

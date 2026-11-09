@@ -1,7 +1,7 @@
 // aBetterMyGCC service worker: fetches public dining menus from Nutrislice (the
 // college's menu provider), and, only if you add your own AI key, talks to
 // the AI service you chose for "Plan with AI".
-importScripts('ai.js', 'devreload.js', 'theme-engine/loader.js');
+importScripts('lib.js', 'ai.js', 'devreload.js', 'theme-engine/loader.js'); // lib.js: GCCX.handoff for devreload.js
 const API = 'https://gcc.api.nutrislice.com/menu/api';
 
 // Meal windows (Eastern time), student-facing campus hours published 2026-07-17. Weekend MAP is closed.
