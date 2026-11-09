@@ -323,7 +323,10 @@
     };
     window.addEventListener('message', onMsg);
     // The frame's script may start before or after ours; ask a few times while both settle.
-    const ask = () => { try { frame.contentWindow.postMessage({ gccxFrameAsk: 1 }, 'https://custom.gcc.edu'); } catch (e) { /* not loaded yet */ } };
+    // '*': until the frame has loaded custom.gcc.edu it is still about:blank (my.gcc.edu's origin), and naming
+    // custom.gcc.edu then makes Chrome log a postMessage error. The message carries nothing private, and
+    // framefit.js answers only to https://my.gcc.edu; replies are still checked against custom.gcc.edu above.
+    const ask = () => { try { frame.contentWindow.postMessage({ gccxFrameAsk: 1 }, '*'); } catch (e) { /* not loaded yet */ } };
     // Frames on these pages load late (after the dashboard), so keep asking for a while.
     const timers = [0, 400, 1200, 3000, 6000, 10000].map((ms) => setTimeout(ask, ms));
     frame.addEventListener('load', ask);

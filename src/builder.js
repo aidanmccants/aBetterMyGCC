@@ -1535,7 +1535,14 @@ How myGCC labels courses:
     if (!on) return;
     const t = e.target;
     if (!t || t.tagName !== 'SELECT' || !/ddlTerm(Search)?$/.test(t.id || '')) return;
-    if (/Search$/.test(t.id) || (/ddlTerm$/.test(t.id) && isAdvancedSearch())) { const ct = currentSearchTerm(); rememberTerm(ct); setPlanTerm(ct).catch(() => {}); }
+    // On the results screen (and Advanced Course Search) ddlTerm is the search term box, so a change there is the
+    // student choosing a term to plan for. Only the main screen's ddlTerm ("Your Schedule") is left alone.
+    if (/Search$/.test(t.id) || (/ddlTerm$/.test(t.id) && (isAdvancedSearch() || screen() === 'results'))) {
+      // the box that changed, not whichever term box the page lists first (a results page can carry a hidden one)
+      const o = t.options[t.selectedIndex];
+      const ct = o && o.value ? { value: o.value, label: window.GCCX_termLabel ? window.GCCX_termLabel(o) : X.clean(o.textContent) } : currentSearchTerm();
+      rememberTerm(ct); setPlanTerm(ct).catch(() => {});
+    }
     renderDrawer();
   }
 
