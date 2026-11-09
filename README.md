@@ -58,7 +58,7 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
   - **Plan with AI** sends your request, your registered/planned course codes and times, and course search results.
   - **Ask AI** (the question box in Ctrl K search) sends your question and text from the myGCC pages it reads to answer it: up to about 6,000 characters per page, plus short excerpts of pages that match its searches. That text can include whatever those pages say about you.
   - Ask AI never opens or sends financial pages (anything under Financial, the account balance, CashNet) or the GPA pages it knows by address (the Degree Progress, grade and transcript portlets). It also never opens files, or links that sign out, delete, drop or register. A page it does not recognize as private is treated like any other page.
-- The key is stored locally and only the extension's background worker reads it.
+- The key is stored in Chrome's extension storage on your computer and is sent only to the AI service it belongs to. Within the extension, only the Settings page (which saves it) and the background worker (which uses it) read it; the scripts that run on myGCC pages never do, though Chrome itself does not block them from that storage.
 
 ## Notes
 

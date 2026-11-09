@@ -128,7 +128,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     getMenu(msg.hall || 'hicks-cafe').then(reply, () => reply(null));
     return true;
   }
-  // The key never leaves the service worker: pages ask, the worker adds it.
+  // Pages never handle the AI key: they send the conversation, and this worker adds the key and
+  // talks to the AI service. What that does and does not guarantee:
+  //   - The key lives in chrome.storage.local under "ai" (written by the Settings page). Chrome
+  //     lets content scripts read that area by default (Chrome storage docs, checked 2026-11-09),
+  //     so this is a rule our code keeps, not something the browser enforces: no content script
+  //     reads "ai" (tests/aikey.test.js checks it); only this worker and the Settings page do.
+  //   - Moving the key to chrome.storage.session (trusted contexts only) would enforce it, at the
+  //     cost of re-entering the key after every browser restart. Maintainer's decision; see
+  //     docs/STATE_MACHINES.md, "AI key storage".
+  //   - The key is sent only to the provider it belongs to, and is never logged.
   if (msg && msg.type === 'ai-chat') {
     aiState().then(({ state, ai, provider }) => {
       // Not ready: say exactly which step is missing (kind 'auth' = "fix it in Settings", not a network error)
