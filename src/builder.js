@@ -1376,7 +1376,13 @@ How myGCC labels courses:
               content = JSON.stringify({ ok: true, added: code });
             } else if (call.name === 'remove_from_plan') {
               const code = String(a.code || '').trim().toUpperCase().replace(/\s+/g, ' ');
-              await setPlan((await getPlan()).filter((p) => !(p.code === code && p.term === term)));
+              const list = await getPlan();
+              const it = list.find((p) => p.code === code && p.term === term);
+              if (!it) throw new Error(`${code} is not in the plan for this term.`);
+              // The student's own picks stay unless their request names that course; sections the AI added may go.
+              const asked = input.toUpperCase().replace(/\s+/g, ' ').includes(courseKey(code).replace(/ lab$/, '').toUpperCase());
+              if (!it.byAI && !asked) throw new Error(`${code} was saved by the student. Leave it in the plan; say in the summary if it conflicts.`);
+              await setPlan(list.filter((p) => p !== it));
               say(`Removed ${code}`);
               content = JSON.stringify({ ok: true, removed: code });
             } else {

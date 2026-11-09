@@ -1,5 +1,5 @@
 // ---------- general settings (same storage as the popup) ----------
-const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
 chrome.storage.local.get('settings', ({ settings }) => {
   const st = { ...DEFAULTS, ...(settings || {}) };
   const save = async (key, value) => { const { settings: latest } = await chrome.storage.local.get('settings'); await chrome.storage.local.set({ settings: { ...(latest || {}), [key]: value } }); };

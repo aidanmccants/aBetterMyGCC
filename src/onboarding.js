@@ -3,7 +3,7 @@
 
   const ID = 'gccx-onboarding';
   const LOCK = 'gccx-onboarding-lock';
-  const DEFAULTS = { enabled: true, theme: 'auto', dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
   const hasChrome = () => typeof chrome !== 'undefined' && !!chrome.runtime?.id && !!chrome.storage?.local;
   const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
 
