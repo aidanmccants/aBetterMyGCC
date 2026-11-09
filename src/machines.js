@@ -77,5 +77,23 @@
     return { kind: ref ? 'refOnly' : 'none', ref };
   }
 
-  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse };
+  // ---------- AI key setup (options/options.js; the background reports the same states) ----------
+  //   none              no key saved
+  //   verifying         asking Chrome for access, then checking the key (Settings page only)
+  //   needs-permission  key saved, Chrome's access to the AI service denied or switched off
+  //   invalid           the service rejected the key, or no models came back (Settings page only)
+  //   needs-model       key and access fine, no model chosen
+  //   ready
+  const aiSetup = {
+    none: { SAVE: 'verifying', CLEAR: 'none' },
+    verifying: { DENIED: 'needs-permission', REJECTED: 'invalid', VERIFIED: 'ready', CLEAR: 'none' },
+    'needs-permission': { SAVE: 'verifying', ALLOW: 'verifying', CLEAR: 'none' },
+    invalid: { SAVE: 'verifying', CLEAR: 'none' },
+    'needs-model': { SAVE: 'verifying', PICK: 'ready', REVOKED: 'needs-permission', CLEAR: 'none' },
+    ready: { SAVE: 'verifying', PICK: 'ready', REVOKED: 'needs-permission', CLEAR: 'none' },
+  };
+  // what src/background.js aiState() can answer
+  const AI_BACKGROUND_STATES = ['none', 'needs-permission', 'needs-model', 'ready'];
+
+  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse, aiSetup, AI_BACKGROUND_STATES };
 })(typeof window !== 'undefined' ? window : globalThis);

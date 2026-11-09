@@ -239,6 +239,8 @@
   // Friendly, specific text for a failed AI call (kind comes from ai.js)
   function aiErrorText(r, what) {
     const raw = (r && r.error) || 'no response';
+    // setup is not finished (no key, permission missing, no model): the background's own sentence says which
+    if (r && r.state && r.state !== 'ready') return raw;
     switch (r && r.kind) {
       case 'auth': return 'Your AI key was rejected (invalid, expired or out of credit). Check it in the aBetterMyGCC popup.';
       case 'rate': return 'The AI service is rate-limiting this key. Wait a minute and try again.';
@@ -246,6 +248,13 @@
       case 'server': return `The AI service had a problem (${raw}). Try again in a moment.`;
       default: return /reload|context invalidated/i.test(raw) ? 'The extension was updated or reloaded. Refresh this page.' : `The AI service rejected the request: ${raw}`;
     }
+  }
+  // What a page says when AI can't run, from the background's ai-status state (see aiState in background.js)
+  function aiSetupText(state) {
+    return {
+      'needs-permission': 'Chrome\'s permission to reach your AI service is missing. Open aBetterMyGCC Settings, AI, and choose Allow access.',
+      'needs-model': 'Your AI key is saved, but no model is chosen yet. Open aBetterMyGCC Settings, AI, and choose Continue setup.',
+    }[state] || '';
   }
   // One-line "what the AI is doing now" with a pulsing dot (styles injected once; no css file needed)
   function pulseHTML(text, esc) {
@@ -392,7 +401,7 @@
 
   root.GCCX = {
     demo: !!demo, loc, go, alive, fitFrame, onLook,
-    log, aiErrorText, pulseHTML, machine, safeUrl,
+    log, aiErrorText, aiSetupText, pulseHTML, machine, safeUrl,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };

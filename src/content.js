@@ -975,7 +975,7 @@ Known resources (official; you may link these without searching, but read_page c
       const hint = p.querySelector('.x-hint');
       const ansBox = p.querySelector('.x-answer');
       const list = p.querySelector('ul[role=listbox]');
-      let active = 0, results = [], aiReady = false, drawSeq = 0, askTimer = 0;
+      let active = 0, results = [], aiReady = false, aiSetup = 'none', drawSeq = 0, askTimer = 0;
       const startAsk = (raw) => {
         if (!aiReady || !raw) return;
         clearTimeout(askTimer);
@@ -1010,7 +1010,7 @@ Known resources (official; you may link these without searching, but read_page c
             : X.pulseHTML(latest, esc);
         } else ansBox.innerHTML = '';
         ansBox.hidden = !run;
-        const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">Add an AI key from the toolbar icon to ask questions</li>` : '';
+        const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">${esc(X.aiSetupText(aiSetup) || 'Add an AI key from the toolbar icon to ask questions')}</li>` : '';
         list.innerHTML = results.map((r, i) => `<li class="${i === active ? 'is-active' : ''}${r.ask ? ' x-ask' : ''}" role="option" data-i="${i}"><a href="${esc(r.href)}"><b class="x-t">${esc(r.label)}</b><span class="x-g">${esc(r.group || '')}</span>${r.snip ? `<em class="x-s">${r.snip}</em>` : ''}</a></li>`).join('') + note || `<li><a>Nothing matches</a></li>`;
         list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
       };
@@ -1058,7 +1058,7 @@ Known resources (official; you may link these without searching, but read_page c
       };
       p._draw = draw;
       p._cancel = cancelAsk;
-      p._setReady = (v) => { aiReady = v; p._hint(); };
+      p._setReady = (v, state) => { aiReady = v; aiSetup = state || (v ? 'ready' : 'none'); p._hint(); };
     }
     p.classList.add('is-open');
     const input = p.querySelector('input');
@@ -1066,7 +1066,7 @@ Known resources (official; you may link these without searching, but read_page c
     p._cancel();
     p._hint();
     p._draw();
-    askStatus().then((r) => { p._setReady(!!(r && r.ready)); p._draw(); });
+    askStatus().then((r) => { p._setReady(!!(r && r.ready), r && r.state); p._draw(); });
     ensurePageIndex();
     setTimeout(() => input.focus(), 0);
   }

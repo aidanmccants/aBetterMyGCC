@@ -48,6 +48,7 @@ button.primary {
   padding: 8px 16px; border-radius: var(--radius);
   transition: background-color var(--speed) ease-out, transform var(--speed) ease-out;
 }
+button.primary[hidden] { display: none; } /* `all: unset` above also unsets the browser's [hidden] rule */
 button.primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
 button.primary:active { transform: none; }
 button.primary:disabled { background: var(--rule-soft); color: var(--muted); cursor: not-allowed; transform: none; }

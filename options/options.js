@@ -28,7 +28,6 @@ function detect(key) {
   if (k.startsWith('sk-')) return 'openai';
   return null;
 }
-const msg = (t, bad) => { $('#msg').textContent = t; $('#msg').classList.toggle('bad', !!bad); };
 const send = (m) => new Promise((r) => chrome.runtime.sendMessage(m, r));
 
 function fillModels(models, selected) {
@@ -46,53 +45,111 @@ function fillModels(models, selected) {
   if (selected && models.some((m) => m.id === selected)) sel.value = selected;
 }
 
-// Button reads "Continue setup" when a key is saved but no model is chosen yet
-function refresh(ai) {
-  $('#save').textContent = ai && ai.key && !ai.model ? 'Continue setup' : 'Save key';
+// ---------- AI setup: one state decides the button label and the message ----------
+// none | verifying | needs-permission | invalid | needs-model | ready
+// (table: GCCX.machines.aiSetup in src/machines.js; diagram: docs/STATE_MACHINES.md).
+// The background reports the same states (minus verifying / invalid, which exist only while
+// this page is open), so Settings, Ask AI and Plan with AI always agree.
+let setup = null;  // the machine, created once the saved state is known
+let detail = {};   // what the current state's message needs: provider, model, reason, saved, removed
+let checks = 0;    // drops the result of a check that was overtaken by a newer click
+const who = (p) => NAMES[p] || p || 'the AI service';
+const VIEW = {
+  none: (d) => ({ label: 'Save key', text: d.removed ? 'Key removed.' : '' }),
+  verifying: () => ({ label: 'Save key', text: 'Checking key…', busy: true }),
+  'needs-permission': (d) => ({ label: 'Save key', text: `Chrome needs permission to reach ${who(d.provider)}. Choose Allow access, then Allow.`, bad: true, allow: true }),
+  invalid: (d) => ({ label: 'Save key', text: d.reason || 'That key did not work.', bad: true }),
+  'needs-model': () => ({ label: 'Continue setup', text: 'Your key is saved. Choose Continue setup to finish.' }),
+  ready: (d) => ({ label: 'Save key', text: `${d.saved ? 'Saved. ' : ''}Using ${who(d.provider)} · ${d.model}.` }),
+};
+// `hint` is a one-off note about what was typed (nothing saved, state unchanged)
+function render(hint) {
+  if (!setup) return;
+  const v = VIEW[setup.state](detail);
+  $('#save').textContent = v.label;
+  $('#save').disabled = !!v.busy;
+  $('#allow').hidden = !v.allow;
+  $('#msg').textContent = hint || v.text;
+  $('#msg').classList.toggle('bad', !!(hint || v.bad));
 }
 
-chrome.storage.local.get('ai', ({ ai }) => {
-  if (!ai || !ai.key) return refresh(null);
-  $('#key').value = ai.key;
-  $('#provider').value = ai.provider || '';
-  const list = ai.models && ai.models.length ? ai.models : (ai.model ? [{ id: ai.model, name: ai.model }] : []);
-  fillModels(list, ai.model);
-  refresh(ai);
-  if (ai.model) msg(`Using ${NAMES[ai.provider] || ai.provider} · ${ai.model}.`);
-  else msg('Your key is saved. Choose Continue setup to finish.');
+chrome.storage.local.get('ai', async ({ ai }) => {
+  if (ai && ai.key) {
+    $('#key').value = ai.key;
+    $('#provider').value = ai.provider || '';
+    const list = ai.models && ai.models.length ? ai.models : (ai.model ? [{ id: ai.model, name: ai.model }] : []);
+    fillModels(list, ai.model);
+  }
+  // The background checks Chrome's permission too, so a key whose access was switched off in
+  // chrome://extensions shows as needs-permission here instead of looking ready.
+  const st = await send({ type: 'ai-status' });
+  detail = { provider: (st && st.provider) || (ai && ai.provider) || '', model: (st && st.model) || '' };
+  const initial = st && GCCX.machines.aiSetup[st.state] ? st.state : 'none';
+  setup = GCCX.machine('ai-setup', { initial, states: GCCX.machines.aiSetup, el: $('#ai') });
+  render();
 });
 
-$('#save').addEventListener('click', async () => {
-  const key = $('#key').value.trim();
-  if (!key) return msg('Paste a key first.', true);
-  const provider = $('#provider').value || detect(key);
-  if (!provider) return msg("Couldn't tell which service this key is from. Pick it under Service.", true);
-  // Keep the key before the permission prompt, which can close this page and lose what was typed
-  await chrome.storage.local.set({ ai: { provider, key, model: '', models: [] } });
-  // Ask Chrome for access to just this one service (needs the click as a user gesture)
+// Ask Chrome for access to one service, then check the key by loading its models.
+// Called straight from a click (Save key or Allow access): the permission prompt needs the user gesture.
+async function verify(provider, key) {
+  const my = ++checks;
+  const stale = () => my !== checks || setup.state !== 'verifying';
   const granted = await chrome.permissions.request({ origins: [ORIGINS[provider]] });
-  if (!granted) return msg(`Chrome needs permission to reach ${NAMES[provider]}. Click Save key again and choose Allow.`, true);
-  msg('Checking key…');
+  if (stale()) return;
+  if (!granted) { setup.send('DENIED', { provider }); return render(); }
   const r = await send({ type: 'ai-models', provider, key });
-  if (!r || r.error) return msg(r && r.kind === 'auth' ? `${NAMES[provider]} rejected this key.` : `Couldn't load models: ${r ? r.error : 'no response'}`, true);
-  const models = r.ok.models.slice(0, 40);
-  if (!models.length) return msg('That key works, but no chat models came back for it.', true);
+  if (stale()) return;
+  const models = r && r.ok ? r.ok.models.slice(0, 40) : [];
+  if (!r || r.error || !models.length) {
+    detail.reason = !r || r.error
+      ? (r && r.kind === 'auth' ? `${who(provider)} rejected this key.` : `Couldn't load models: ${r ? r.error : 'no response'}`)
+      : 'That key works, but no chat models came back for it.';
+    setup.send('REJECTED', { provider, kind: (r && r.kind) || 'no-models' });
+    return render();
+  }
   const current = $('#model').disabled ? null : $('#model').value;
   fillModels(models, current);
   const ai = { provider, key, model: $('#model').value, models };
   await chrome.storage.local.set({ ai });
+  if (stale()) return;
   $('#provider').value = provider;
-  refresh(ai);
-  msg(`Saved. Using ${NAMES[provider]} · ${ai.model}.`);
+  detail = { provider, model: ai.model, saved: true };
+  setup.send('VERIFIED', { provider, model: ai.model });
+  render();
+}
+
+$('#save').addEventListener('click', async () => {
+  if (!setup) return;
+  const key = $('#key').value.trim();
+  if (!key) return render('Paste a key first.');
+  const provider = $('#provider').value || detect(key);
+  if (!provider) return render("Couldn't tell which service this key is from. Pick it under Service.");
+  if (!setup.send('SAVE', { provider })) return;
+  detail = { provider };
+  render();
+  // Keep the key before the permission prompt, which can close this page and lose what was typed
+  await chrome.storage.local.set({ ai: { provider, key, model: '', models: [] } });
+  await verify(provider, key);
+});
+
+// needs-permission: ask Chrome again (it only shows its prompt in answer to a click)
+$('#allow').addEventListener('click', () => {
+  const key = $('#key').value.trim();
+  const provider = detail.provider || $('#provider').value || detect(key);
+  if (!setup || !key || !provider || !setup.send('ALLOW', { provider })) return;
+  detail = { provider };
+  render();
+  verify(provider, key);
 });
 
 $('#model').addEventListener('change', async () => {
   const { ai } = await chrome.storage.local.get('ai');
-  if (!ai) return;
+  if (!ai || !setup) return;
   ai.model = $('#model').value;
   await chrome.storage.local.set({ ai });
-  refresh(ai);
-  msg(`Using ${NAMES[ai.provider] || ai.provider} · ${ai.model}.`);
+  detail = { provider: ai.provider, model: ai.model };
+  setup.send('PICK', { model: ai.model }); // refused (and the message unchanged) unless the key is usable
+  render();
 });
 
 $('#clear').addEventListener('click', async () => {
@@ -102,8 +159,17 @@ $('#clear').addEventListener('click', async () => {
   $('#key').value = '';
   $('#provider').value = '';
   fillModels([], null);
-  refresh(null);
-  msg('Key removed.');
+  checks++;
+  detail = { removed: true };
+  if (setup) setup.send('CLEAR');
+  render();
+});
+
+// Access switched off in chrome://extensions while this page is open
+chrome.permissions.onRemoved.addListener((p) => {
+  if (!setup || !detail.provider || !(p.origins || []).includes(ORIGINS[detail.provider]) || !setup.can('REVOKED')) return;
+  setup.send('REVOKED', { provider: detail.provider });
+  render();
 });
 
 // ---------- sidebar sections ----------

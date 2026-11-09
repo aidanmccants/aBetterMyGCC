@@ -1193,7 +1193,9 @@ How myGCC labels courses:
     const log = run.running ? X.pulseHTML(lastStep ? lastStep.text : 'Working…', esc) : '';
     return `<div class="x-ai">
       <h4>Plan with AI</h4>
-      ${!ready ? `<p class="x-sub">Paste a list of the courses you need and let AI find sections that fit your schedule. To turn this on, click the aBetterMyGCC icon in Chrome's toolbar and add an API key from Anthropic, OpenAI, xAI or Google.</p>` : `
+      ${!ready ? (X.aiSetupText(aiInfo && aiInfo.state)
+        ? `<p class="x-sub x-conflict">${esc(X.aiSetupText(aiInfo.state))}</p><button type="button" class="x-link" data-ai-setup>Open AI settings</button>`
+        : `<p class="x-sub">Paste a list of the courses you need and let AI find sections that fit your schedule. To turn this on, click the aBetterMyGCC icon in Chrome's toolbar and add an API key from Anthropic, OpenAI, xAI or Google.</p>`) : `
         <textarea id="gccx-ai-input" rows="4" placeholder="COMP 220, STAT 131, a 300-level HUMA, Spanish 202. Mornings if possible, no Friday afternoons."${run.running ? ' disabled' : ''}>${esc(run.input || '')}</textarea>
         <button type="button" class="x-primary" data-ai-run${run.running ? ' disabled' : ''}>${run.running ? 'Working…' : `Find courses${termLabel ? ` for ${esc(termLabel)}` : ''}`}</button>
         <p class="x-sub x-ai-note">Uses ${esc(aiInfo.model || 'your model')}. It only adds sections to your plan; you still review them and register.</p>`}
@@ -1210,6 +1212,7 @@ How myGCC labels courses:
       runAgent(text, viewTerm);
     });
     d.querySelector('[data-ai-stop]')?.addEventListener('click', () => { if (aiRun) aiRun.stopped = true; });
+    d.querySelector('[data-ai-setup]')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'open-options' }); } catch (e) { /* extension reloading */ } });
   }
 
   // Search myGCC without touching the page on screen: fetch the Add/Drop

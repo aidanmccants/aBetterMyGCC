@@ -91,6 +91,30 @@ function emitLog(level, source, message, data) {
 self.addEventListener('error', (e) => emitLog('error', 'background', e.message, { file: e.filename, line: e.lineno, stack: e.error && e.error.stack }));
 self.addEventListener('unhandledrejection', (e) => emitLog('error', 'background', 'Unhandled rejection: ' + ((e.reason && e.reason.message) || e.reason), { stack: e.reason && e.reason.stack }));
 
+// ---- AI setup state: the one answer to "can AI run right now?" (docs/STATE_MACHINES.md) ----
+//   none              no key saved
+//   needs-permission  key saved, but Chrome's access to that AI service was denied or later revoked
+//   needs-model       key and access are there, no model chosen yet
+//   ready
+// Both ai-status (what pages show) and ai-chat (what actually runs) use it, so they cannot disagree.
+async function aiState() {
+  let ai = null;
+  try { ai = (await chrome.storage.local.get('ai')).ai || null; } catch (e) { /* storage unavailable: treat as no key */ }
+  const provider = ai ? ai.provider || GCCX_AI.detectProvider(ai.key) : null;
+  const out = { state: 'none', provider, model: (ai && ai.model) || '', ai };
+  if (!ai || !ai.key) return out;
+  const p = GCCX_AI.PROVIDERS[provider];
+  let allowed = false;
+  try { allowed = !!p && await chrome.permissions.contains({ origins: [p.origin] }); } catch (e) { allowed = false; }
+  out.state = !allowed ? 'needs-permission' : !ai.model ? 'needs-model' : 'ready';
+  return out;
+}
+const AI_NOT_READY = {
+  none: 'AI is not set up yet. Add an API key in aBetterMyGCC Settings, under AI.',
+  'needs-permission': 'Chrome\'s permission to reach your AI service is missing (it was denied or turned off). Open aBetterMyGCC Settings, AI, and choose Allow access.',
+  'needs-model': 'Your AI key is saved, but no model is chosen yet. Open aBetterMyGCC Settings, AI, and choose Continue setup.',
+};
+
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg && msg.type === 'open-options') {
     chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html#ai') });
@@ -106,17 +130,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   // The key never leaves the service worker: pages ask, the worker adds it.
   if (msg && msg.type === 'ai-chat') {
-    chrome.storage.local.get('ai', ({ ai }) => {
-      if (!ai || !ai.key) return reply({ error: 'Set up Plan with AI from the aBetterMyGCC toolbar icon first.', kind: 'auth' });
+    aiState().then(({ state, ai, provider }) => {
+      // Not ready: say exactly which step is missing (kind 'auth' = "fix it in Settings", not a network error)
+      if (state !== 'ready') {
+        emitLog('warn', 'state', `ai: chat refused, setup is ${state}`);
+        return reply({ error: AI_NOT_READY[state], kind: 'auth', state });
+      }
       const src = msg.src || 'ai';
       const last = msg.messages[msg.messages.length - 1];
-      emitLog('ai', src, `Request to ${ai.provider || 'AI'} · ${ai.model} (${msg.messages.length} messages${msg.noTools ? ', tools disabled' : ''})`, {
+      emitLog('ai', src, `Request to ${provider || 'AI'} · ${ai.model} (${msg.messages.length} messages${msg.noTools ? ', tools disabled' : ''})`, {
         system: msg.messages.length <= 1 ? msg.system : '(same system prompt as first request)' + (msg.noTools ? ' + final-answer instruction' : ''),
         tools: (msg.tools || []).map((t) => t.name),
         latestMessage: last && (last.text || last.results || last.native),
       });
       const t0 = Date.now();
-      GCCX_AI.aiChat({ provider: ai.provider, key: ai.key, model: ai.model, system: msg.system, tools: msg.tools, messages: msg.messages, noTools: !!msg.noTools })
+      GCCX_AI.aiChat({ provider, key: ai.key, model: ai.model, system: msg.system, tools: msg.tools, messages: msg.messages, noTools: !!msg.noTools })
         .then((r) => {
           emitLog('ai', src, `Response (${r.stop}) in ${Date.now() - t0} ms`, { text: r.text, toolCalls: r.toolCalls });
           reply({ ok: r });
@@ -124,7 +152,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
           emitLog('error', src, `AI request failed (${e.kind || 'request'}): ${e.message || e}`);
           reply({ error: e.message || String(e), kind: e.kind || 'request' });
         });
-    });
+    }).catch((e) => reply({ error: (e && e.message) || String(e), kind: 'request' }));
     return true;
   }
   if (msg && msg.type === 'ai-models') {
@@ -133,7 +161,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     return true;
   }
   if (msg && msg.type === 'ai-status') {
-    chrome.storage.local.get('ai', ({ ai }) => reply({ ready: !!(ai && ai.key && ai.model), provider: ai && ai.provider, model: ai && ai.model }));
+    aiState().then(({ state, provider, model }) => reply({ ready: state === 'ready', state, provider, model }));
     return true;
   }
 });
