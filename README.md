@@ -65,3 +65,9 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 - Chapel attendance is read from the chapel frame on `custom.gcc.edu`, which myGCC itself embeds.
 - The account balance sits behind a "Please wait" step in myGCC. If the background fetch doesn't get it, the dashboard picks it up the next time you open My Account Balances.
 - Batch add uses only myGCC's own forms. It never touches the Drop checkboxes. Clicking **Add N courses** asks you to confirm before anything is submitted.
+
+## For developers
+
+- [AGENTS.md](AGENTS.md): how to run the tests, the rules that are easy to break, and how to test in the demo.
+- [docs/STATE_MACHINES.md](docs/STATE_MACHINES.md): every state machine (registration job, dashboard data, AI setup, AI runs), the handoff keys and their expiry times, and known limitations.
+- Tests: `npm test`.
