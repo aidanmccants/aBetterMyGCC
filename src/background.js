@@ -125,7 +125,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     return false;
   }
   if (msg && msg.type === 'menu') {
-    getMenu(msg.hall || 'hicks-cafe').then(reply, () => reply(null));
+    getMenu(MEALS[msg.hall] ? msg.hall : 'hicks-cafe') // only known halls reach the URL and cache key.then(reply, () => reply(null));
     return true;
   }
   // Pages never handle the AI key: they send the conversation, and this worker adds the key and

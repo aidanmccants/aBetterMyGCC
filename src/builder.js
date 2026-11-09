@@ -614,6 +614,9 @@
     const planned = items.reduce((s, i) => s + (i.credits || 0), 0);
     const regCredits = registered.reduce((s, i) => s + (i.credits || 0), 0);
 
+    // keep what is being typed in the Plan with AI box across this redraw
+    const typing = d.querySelector('#gccx-ai-input');
+    const draft = typing ? { v: typing.value, focus: document.activeElement === typing, a: typing.selectionStart, b: typing.selectionEnd } : null;
     d.innerHTML = `
       <div class="x-head">
         <h3>My plan</h3>
@@ -639,7 +642,7 @@
       ${items.length ? `<p class="x-total">${planned} credits planned${reg ? `, ${regCredits} already registered` : ''}</p>
         <p class="x-export"><button type="button" class="x-link" data-copy>Copy plan as text</button><button type="button" class="x-link" data-csv>Download CSV</button>${items.some((i) => !i.ref) && !running ? '<button type="button" class="x-link" data-lookup-refs>Look up reference numbers</button>' : ''}</p>` : ''}
       ${jobHTML(job, items, termLabel)}
-      ${aiHTML(termLabel)}
+      ${aiHTML(niceTerm(termLabel))}
     `;
     d.dataset.gccxState = mine ? mine.state : 'none'; // job state (also set on every move by jobMove)
     calState = { term: viewTerm, items, registered };
@@ -675,6 +678,8 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
     d.querySelector('[data-stop]')?.addEventListener('click', async () => { plog('info', 'Stopped by the student; job cleared', { state: mine && mine.state }); await store.set('job', null); renderDrawer(); });
+    const box = d.querySelector('#gccx-ai-input');
+    if (box && draft && !box.disabled) { box.value = draft.v; if (draft.focus) { box.focus(); try { box.setSelectionRange(draft.a, draft.b); } catch (e) { /* ignore */ } } }
     wireAI(d);
     d.querySelector('[data-dismiss]')?.addEventListener('click', async () => { await store.set('job', null); renderDrawer(); });
     if (hoverSection) showGhost(hoverSection); // the redraw wiped any ghost under the pointer
@@ -1199,6 +1204,13 @@ How myGCC labels courses:
   const aiStatus = () => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-status' }, (x) => r(chrome.runtime.lastError ? null : x)); } catch (e) { r(null); } });
   const aiCall = (payload) => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-chat', ...payload }, (x) => r(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : x)); } catch (e) { r({ error: 'The extension was reloaded. Refresh this page.' }); } });
 
+  // A raw term value ("2026;10") as a name ("Fall Semester 2026"); same codes and years as content.js termStart
+  function niceTerm(label) {
+    const m = /^(\d{4});(\d{2})$/.exec(String(label || '').trim());
+    if (!m) return label;
+    const T = { 10: ['Fall Semester', 0], 15: ['Winter Term', 0], 20: ['Winter Term', 0], 30: ['Spring Semester', 1], 40: ['May Term', 1], 50: ['Early Summer', 1], 55: ['Summer', 1] }[+m[2]];
+    return T ? `${T[0]} ${+m[1] + T[1]}` : label;
+  }
   function aiHTML(termLabel) {
     const ready = aiInfo && aiInfo.ready;
     const run = aiRun || {};
@@ -1289,7 +1301,7 @@ How myGCC labels courses:
     const st = currentSearchTerm();
     term = term || (st && st.value);
     if (!term) return;
-    const termLabel = ((await getPlan()).find((p) => p.term === term) || {}).termLabel || (st && st.value === term ? st.label : term);
+    const termLabel = niceTerm(((await getPlan()).find((p) => p.term === term) || {}).termLabel || (st && st.value === term ? st.label : term));
     const g = gen;
     if (aiRun && !M.aiRun[aiRun.state]) aiRun.state = 'idle';
     if (!aiMove('START', { term })) return;

@@ -286,7 +286,8 @@
     if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length && covers(d)) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
     if (document.querySelector('iframe[src*="chapel.aspx"]')) X.handoff.put('local', 'chapelPending', { user }, 60000);
-    const b = X.parseBalances(document);
+    // only the balance page itself: elsewhere "$5.00 Due" could be anyone's text (a forum post)
+    const b = /\/ics\/financial\/student_accounts\.jnz/i.test(L.pathname) ? X.parseBalances(document) : null;
     if (b) store.set('balance', { ts: Date.now(), user, data: b });
   }
 
@@ -937,7 +938,8 @@ Known resources (official; you may link these without searching, but read_page c
       try {
         const u = new URL(m[2], location.origin);
         const known = ASK_KNOWN.has(pageKey(u.href).toLowerCase().replace(/\/+$/, ''));
-        if (((u.origin === location.origin && seen.has(pageKey(u.href))) || known) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
+        // same-site links must also pass the deny-list (no sign-out / delete / drop... links offered to click)
+        if (((u.origin === location.origin && seen.has(pageKey(u.href)) && X.safeUrl(u.href, 'crawl')) || known) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
       } catch (e) { /* drop bad link */ }
     }
     return { text: lines.join('\n').replace(/\n{2,}/g, '\n').trim(), links };
