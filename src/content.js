@@ -944,6 +944,9 @@ Known resources (official; you may link these without searching, but read_page c
   }
   async function runAsk(run) {
     const alive = () => askSeq === run.id;
+    // Stop pressed (state stopping) or the question was replaced or closed: end at the next check
+    const halted = () => !alive() || run.m.state === 'stopping';
+    const end = (event, data) => { if (run.m.can(event)) run.m.send(event, data); if (alive()) document.getElementById('gccx-palette')?._draw(); };
     const update = () => { if (alive()) document.getElementById('gccx-palette')?._draw(); };
     const step = (t) => { run.steps.push(t); X.log('info', 'ask', t); update(); };
     const seenUrls = new Set((navIndex || []).map((l) => pageKey(l.href)));
@@ -956,7 +959,7 @@ Known resources (official; you may link these without searching, but read_page c
           src: 'ask', system: last ? ASK_SYSTEM + FINAL_NOTE : ASK_SYSTEM,
           tools: ASK_TOOLS, messages, noTools: last,
         });
-        if (!alive()) return;
+        if (halted()) return end('STOPPED');
         if (!r || r.error) { run.error = X.aiErrorText(r); X.log('error', 'ask', run.error, r); break; }
         const out = r.ok;
         if (out.stop === 'refusal') { run.error = 'The AI service declined to answer this question. Try rephrasing it.'; break; }
@@ -972,6 +975,7 @@ Known resources (official; you may link these without searching, but read_page c
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
+          if (halted()) return end('STOPPED'); // do not read another page after Stop
           let content, isError = false;
           try {
             const a = call.input || {};
@@ -996,15 +1000,14 @@ Known resources (official; you may link these without searching, but read_page c
           results.push({ id: call.id, name: call.name, content, isError });
         }
         messages.push({ role: 'tool', results });
-        if (!alive()) return;
+        if (halted()) return end('STOPPED');
       }
       if (!run.text && !run.error) run.error = 'The AI could not finish looking that up. Try rephrasing the question.';
     } catch (e) {
       run.error = 'Something went wrong while asking AI: ' + (e.message || e);
       X.log('error', 'ask', run.error, { stack: e.stack });
     }
-    run.done = true;
-    update();
+    end(run.error ? 'FAIL' : 'FINISH', run.error ? { error: run.error } : undefined);
   }
 
   function openPalette() {
@@ -1023,11 +1026,24 @@ Known resources (official; you may link these without searching, but read_page c
       const startAsk = (raw) => {
         if (!aiReady || !raw) return;
         clearTimeout(askTimer);
-        const run = askRun = { id: ++askSeq, q: raw, steps: [], text: '', links: [], error: '', done: false };
+        // one state per run: idle | running | stopping | done | error (GCCX.machines.aiRun)
+        const run = askRun = { id: ++askSeq, q: raw, steps: [], text: '', links: [], error: '' };
+        run.m = X.machine('ask-ai', { initial: 'idle', states: X.machines.aiRun, el: () => (askRun === run ? ansBox : null) });
+        run.m.send('START');
         draw();
         runAsk(run);
       };
-      const cancelAsk = () => { clearTimeout(askTimer); askSeq++; askRun = null; };
+      // typing a new question or closing the palette: the old run is told to stop and is no longer shown
+      const cancelAsk = () => { clearTimeout(askTimer); if (askRun && askRun.m.can('STOP')) askRun.m.send('STOP'); askSeq++; askRun = null; ansBox.dataset.gccxState = 'idle'; };
+      ansBox.dataset.gccxState = 'idle';
+      // Stop button in the answer box: feedback at once, the run ends at its next check
+      ansBox.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-ask-stop]') || !askRun || !askRun.m.can('STOP')) return;
+        askRun.m.send('STOP');
+        askRun.text = 'Stopped.';
+        draw();
+        input.focus();
+      });
       p._hint = () => {
         hint.textContent = (idxState.running ? `Indexing myGCC… (${idxState.done} of ${idxState.total}). ` : '') + '↑ ↓ to move, Enter to open, Esc to close' + (aiReady ? ', Tab to ask AI' : '');
         input.placeholder = aiReady ? 'Search myGCC or ask a question' : 'Search myGCC';
@@ -1040,8 +1056,9 @@ Known resources (official; you may link these without searching, but read_page c
         const toks = tokenize(q);
         const run = askRun && askRun.q === raw ? askRun : null;
         const rows = [];
-        if (run && run.done && run.links.length) run.links.forEach((l) => rows.push({ label: l.title, href: l.href, group: '' }));
-        else if (aiReady && wordCount(raw) >= 3 && (!run || run.error)) rows.push({ ask: true, label: `Ask AI: “${raw}”`, href: '#', group: 'Tab' });
+        const rs = run ? run.m.state : 'idle';
+        if (run && rs === 'done' && run.links.length) run.links.forEach((l) => rows.push({ label: l.title, href: l.href, group: '' }));
+        else if (aiReady && wordCount(raw) >= 3 && (!run || rs === 'error')) rows.push({ ask: true, label: `Ask AI: “${raw}”`, href: '#', group: 'Tab' });
         if (q) searchEntries(q, 20).forEach(({ it }) => rows.push({ ...it, snip: snippetHTML(it.text, toks) }));
         else entries().slice(0, 40).forEach((it) => rows.push(it));
         if (q) rows.push({ label: `Search all of myGCC for “${raw}”`, href: '#', group: '', siteSearch: raw });
@@ -1049,9 +1066,11 @@ Known resources (official; you may link these without searching, but read_page c
         active = Math.min(active, Math.max(0, results.length - 1));
         if (run) {
           const latest = run.steps[run.steps.length - 1] || 'Thinking…';
-          ansBox.innerHTML = run.error ? `<p class="x-err">${esc(run.error)}</p>`
-            : run.done ? run.text.split('\n').map((l) => `<p>${esc(l)}</p>`).join('')
-            : X.pulseHTML(latest, esc);
+          ansBox.innerHTML = rs === 'error' ? `<p class="x-err">${esc(run.error)}</p>`
+            : rs === 'done' ? (run.text || 'Stopped.').split('\n').map((l) => `<p>${esc(l)}</p>`).join('')
+            : rs === 'stopping' ? X.pulseHTML('Stopping after this step…', esc)
+            : X.pulseHTML(latest, esc) + '<button type="button" class="x-ask-stop" data-ask-stop>Stop</button>';
+          ansBox.dataset.gccxState = rs;
         } else ansBox.innerHTML = '';
         ansBox.hidden = !run;
         const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">${esc(X.aiSetupText(aiSetup) || 'Add an AI key from the toolbar icon to ask questions')}</li>` : '';

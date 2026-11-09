@@ -1182,7 +1182,19 @@ How myGCC labels courses:
 - seats_open "5/48" means 5 of 48 seats are open. "0/48" with status Full means the section is full.
 - Titles are uppercase and often abbreviated ("GEN PHYSICS II-ENGINEERING", "ADV ORGANIC CHEM"), so match on meaning, not exact words.`;
 
-  let aiRun = null; // { running, log: [], summary, error }
+  // One state field: idle | running | stopping | done | error (GCCX.machines.aiRun). aiRun.state mirrors
+  // the machine so the run can be saved to sessionStorage after every turn and shown after a reload.
+  let aiRun = null; // { state, input, log: [], summary, error, note, interrupted }
+  let aiM = null;   // the machine for the run on screen
+  const aiBox = () => document.querySelector('#gccx-plan .x-ai');
+  const aiMove = (event, data) => {
+    if (!aiM) aiM = X.machine('plan-ai', { initial: aiRun && M.aiRun[aiRun.state] ? aiRun.state : 'idle', states: M.aiRun, el: aiBox });
+    const ok = aiM.can(event) && aiM.send(event, data);
+    if (aiRun) aiRun.state = aiM.state;
+    return ok;
+  };
+  const aiBusy = () => !!aiRun && M.aiBusy(aiRun.state);
+  const saveAiRun = () => { if (aiRun) X.handoff.put('session', 'gccx-ai-run', aiRun, 10 * 60e3); };
   let aiInfo = null;
   const aiStatus = () => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-status' }, (x) => r(chrome.runtime.lastError ? null : x)); } catch (e) { r(null); } });
   const aiCall = (payload) => new Promise((r) => { try { chrome.runtime.sendMessage({ type: 'ai-chat', ...payload }, (x) => r(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : x)); } catch (e) { r({ error: 'The extension was reloaded. Refresh this page.' }); } });
@@ -1190,20 +1202,24 @@ How myGCC labels courses:
   function aiHTML(termLabel) {
     const ready = aiInfo && aiInfo.ready;
     const run = aiRun || {};
+    const busy = aiBusy();
     const lastStep = (run.log || [])[(run.log || []).length - 1]; // only the latest step, with a pulse while working
-    const log = run.running ? X.pulseHTML(lastStep ? lastStep.text : 'Working…', esc) : '';
-    return `<div class="x-ai">
+    const log = busy ? X.pulseHTML(run.state === 'stopping' ? 'Stopping after this step…' : lastStep ? lastStep.text : 'Working…', esc) : '';
+    // a run cut off by leaving the page: list what it had already changed in the plan
+    const did = run.interrupted ? (run.log || []).filter((l) => /^(Added|Removed) /.test(l.text)) : [];
+    return `<div class="x-ai" data-gccx-state="${esc(run.state || 'idle')}">
       <h4>Plan with AI</h4>
       ${!ready ? (X.aiSetupText(aiInfo && aiInfo.state)
         ? `<p class="x-sub x-conflict">${esc(X.aiSetupText(aiInfo.state))}</p><button type="button" class="x-link" data-ai-setup>Open AI settings</button>`
         : `<p class="x-sub">Paste a list of the courses you need and let AI find sections that fit your schedule. To turn this on, click the aBetterMyGCC icon in Chrome's toolbar and add an API key from Anthropic, OpenAI, xAI or Google.</p>`) : `
-        <textarea id="gccx-ai-input" rows="4" placeholder="COMP 220, STAT 131, a 300-level HUMA, Spanish 202. Mornings if possible, no Friday afternoons."${run.running ? ' disabled' : ''}>${esc(run.input || '')}</textarea>
-        <button type="button" class="x-primary" data-ai-run${run.running ? ' disabled' : ''}>${run.running ? 'Working…' : `Find courses${termLabel ? ` for ${esc(termLabel)}` : ''}`}</button>
+        <textarea id="gccx-ai-input" rows="4" placeholder="COMP 220, STAT 131, a 300-level HUMA, Spanish 202. Mornings if possible, no Friday afternoons."${busy ? ' disabled' : ''}>${esc(run.input || '')}</textarea>
+        <button type="button" class="x-primary" data-ai-run${busy ? ' disabled' : ''}>${busy ? 'Working…' : `Find courses${termLabel ? ` for ${esc(termLabel)}` : ''}`}</button>
         <p class="x-sub x-ai-note">Uses ${esc(aiInfo.model || 'your model')}. It only adds sections to your plan; you still review them and register.</p>`}
       ${log}
       ${run.summary ? `<div class="x-ai-summary">${esc(run.summary).replace(/\n/g, '<br>')}</div>` : ''}
-      ${run.error ? `<p class="x-conflict">${esc(run.error)}</p>` : ''}
-      ${run.running ? `<button type="button" class="x-link" data-ai-stop>Stop</button>` : ''}
+      ${run.error || run.note ? `<p class="x-conflict">${esc(run.error || run.note)}</p>` : ''}
+      ${did.length ? `<ul class="x-ai-did">${did.map((l) => `<li>${esc(l.text)}</li>`).join('')}</ul>` : ''}
+      ${busy ? `<button type="button" class="x-link" data-ai-stop${run.state === 'stopping' ? ' disabled' : ''}>${run.state === 'stopping' ? 'Stopping…' : 'Stop'}</button>` : ''}
     </div>`;
   }
   function wireAI(d) {
@@ -1212,7 +1228,7 @@ How myGCC labels courses:
       if (!text) { d.querySelector('#gccx-ai-input')?.focus(); return; }
       runAgent(text, viewTerm);
     });
-    d.querySelector('[data-ai-stop]')?.addEventListener('click', () => { if (aiRun) aiRun.stopped = true; });
+    d.querySelector('[data-ai-stop]')?.addEventListener('click', () => { if (aiMove('STOP')) { saveAiRun(); renderDrawer(); } }); // shows "Stopping after this step…" at once
     d.querySelector('[data-ai-setup]')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'open-options' }); } catch (e) { /* extension reloading */ } });
   }
 
@@ -1269,13 +1285,17 @@ How myGCC labels courses:
   }
 
   async function runAgent(input, term) {
-    if (aiRun && aiRun.running) return;
+    if (aiBusy()) return;
     const st = currentSearchTerm();
     term = term || (st && st.value);
     if (!term) return;
     const termLabel = ((await getPlan()).find((p) => p.term === term) || {}).termLabel || (st && st.value === term ? st.label : term);
     const g = gen;
-    aiRun = { running: true, input, log: [], summary: '', error: '' };
+    if (aiRun && !M.aiRun[aiRun.state]) aiRun.state = 'idle';
+    if (!aiMove('START', { term })) return;
+    aiRun = { state: aiM.state, input, log: [], summary: '', error: '', note: '' };
+    const stopping = () => aiRun.state === 'stopping' || !alive(g);
+    saveAiRun();
     const say = (text, bad) => { aiRun.log.push({ text, bad }); X.log(bad ? 'warn' : 'info', 'plan', text); renderDrawer(true); };
     const seen = new Map(); // code -> section from searches
 
@@ -1302,7 +1322,7 @@ How myGCC labels courses:
       const MAX_TURNS = 24;
       const FINAL_NOTE = '\n\nYou have used all your steps. Stop searching and give your final summary now.';
       for (let turn = 0; turn < MAX_TURNS; turn++) {
-        if (aiRun.stopped || !alive(g)) { aiRun.error = 'Stopped.'; break; }
+        if (stopping()) break; // Stop pressed, or the extension was switched off
         const last = turn === MAX_TURNS - 1; // final turn: no tools, summarize what was done
         const r = await aiCall({ src: 'plan', system: last ? AI_SYSTEM + FINAL_NOTE : AI_SYSTEM, tools: AI_TOOLS, messages, noTools: last });
         if (!r || r.error) { aiRun.error = X.aiErrorText(r); X.log('error', 'plan', aiRun.error, r); break; }
@@ -1313,7 +1333,7 @@ How myGCC labels courses:
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
-          if (!alive(g)) break;
+          if (stopping()) break; // do not start another plan change after Stop
           let content, isError = false;
           try {
             const a = call.input || {};
@@ -1358,17 +1378,19 @@ How myGCC labels courses:
           results.push({ id: call.id, name: call.name, content, isError });
         }
         messages.push({ role: 'tool', results }); // all results in one turn
+        saveAiRun(); // after every turn, so a reload mid-run can still show what was added
       }
-      if (!aiRun.summary && !aiRun.error) aiRun.error = 'Stopped after too many steps. What was added so far is in your plan.';
+      if (stopping()) aiRun.note = 'Stopped.';
+      else if (!aiRun.summary && !aiRun.error) aiRun.error = 'Stopped after too many steps. What was added so far is in your plan.';
     } catch (e) {
       aiRun.error = `Something went wrong: ${e.message || e}`;
       X.log('error', 'plan', aiRun.error, { stack: e.stack });
     }
-    aiRun.running = false;
+    aiMove(aiRun.error ? 'FAIL' : aiRun.state === 'stopping' ? 'STOPPED' : 'FINISH', aiRun.error ? { error: aiRun.error } : undefined);
+    saveAiRun(); // the finished run, shown again after the reload below (10 minutes)
     if (!alive(g)) return; // switched off meanwhile: no reload, no page changes
     // The background searches moved myGCC's own page state on the server, so
     // reload Add/Drop with a normal link (not a refresh) and keep the summary.
-    X.handoff.put('session', 'gccx-ai-run', { ...aiRun, stopped: false }, 10 * 60e3); // shown again after the reload below
     goMain();
   }
 
@@ -1546,8 +1568,9 @@ How myGCC labels courses:
       return () => document.removeEventListener('change', onTermChange, true);
     });
     safe('plan drawer', () => {
-      const saved = X.handoff.take('session', 'gccx-ai-run'); // a run summary from before the reload (10 minutes)
-      if (saved) { aiRun = saved; drawerOpen = true; }
+      // A run from before this page load (10 minutes). One that never reached its end is shown as interrupted.
+      const saved = M.restoreAiRun(X.handoff.take('session', 'gccx-ai-run'));
+      if (saved) { aiRun = saved; aiM = null; drawerOpen = true; if (saved.interrupted) X.log('warn', 'state', 'plan-ai: restored as error (interrupted by a page load)'); }
       aiStatus().then((x) => { if (!alive(g)) return; aiInfo = x; renderDrawer(); });
       // a failure while decorating must not stop a running job from resuming
       decorate().catch((e) => blog('decorate failed: ' + (e && e.message), { stack: e && e.stack }))

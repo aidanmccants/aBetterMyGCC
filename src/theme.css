@@ -700,6 +700,7 @@ html.gccx.gccx-plan-open #gccx-search-btn { right: 540px; }
 #gccx-plan .x-title { font-size: 16px; }
 #gccx-plan .x-sub { color: var(--x-muted); font-size: 14px; }
 #gccx-plan .x-conflict { color: var(--x-bad); font-size: 14px; margin-top: 2px; }
+#gccx-plan .x-ai-did { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--x-muted); } /* what an interrupted AI run had already changed */
 #gccx-plan .x-export { display: flex; gap: 16px; margin: -6px 0 14px; }
 #gccx-plan .x-total { color: var(--x-muted); font-size: 14px; border-top: 1px solid var(--x-rule); padding-top: 10px; margin: 0 0 14px; }
 

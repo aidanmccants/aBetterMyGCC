@@ -31,4 +31,10 @@ html.gccx-dark #gccx-palette .x-answer p.x-err { color: var(--x-accent); }
 #gccx-palette .x-answer ul.x-steps li { font-size: 14.5px; line-height: 1.7; color: var(--x-muted); font-style: italic; }
 #gccx-palette .x-answer ul.x-steps li:last-child { color: var(--x-ink); }
 
+/* Stop for a running Ask AI question */
+#gccx-palette .x-answer .x-ask-stop { all: unset; cursor: pointer; font-size: 14px; color: var(--x-muted); text-decoration: underline; text-underline-offset: 2px; padding: 4px 0; }
+#gccx-palette .x-answer .x-ask-stop:hover { color: var(--x-ink); }
+#gccx-palette .x-answer .x-ask-stop:active { color: var(--x-accent); }
+#gccx-palette .x-answer .x-ask-stop:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; border-radius: 2px; }
+
 #gccx-palette .x-hint { line-height: 1.4; }

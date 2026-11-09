@@ -139,5 +139,32 @@
     return `${Math.round(h / 24)} days ago`;
   }
 
-  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse, aiSetup, AI_BACKGROUND_STATES, CARDS, card, cardEvent, cardsStatus, cardsFooter, ago };
+  // ---------- AI runs: Plan with AI (builder.js) and Ask AI (content.js) ----------
+  //   idle      nothing has run
+  //   running   the model is working (between turns it checks for Stop)
+  //   stopping  Stop was pressed; the run ends at its next check
+  //   done      finished with an answer, or stopped on request
+  //   error     ended with a problem (also: a run cut off by leaving the page)
+  const aiRun = {
+    idle: { START: 'running' },
+    running: { STOP: 'stopping', FINISH: 'done', FAIL: 'error' },
+    stopping: { STOPPED: 'done', FINISH: 'done', FAIL: 'error' },
+    done: { START: 'running', RESET: 'idle' },
+    error: { START: 'running', RESET: 'idle' },
+  };
+  const aiBusy = (state) => state === 'running' || state === 'stopping';
+  const AI_INTERRUPTED = 'This run was interrupted before it finished (the page was reloaded or left). What it added up to then is in your plan.';
+  // A Plan with AI run read back from sessionStorage after a page load. It is saved after every
+  // turn, so one that still says running / stopping never reached its end: show it as interrupted.
+  // Runs saved by v1.2.0 and earlier had running / stopped booleans instead of state.
+  function restoreAiRun(saved) {
+    if (!saved || typeof saved !== 'object') return null;
+    const { running, stopped, ...rest } = saved;
+    const run = { input: '', log: [], summary: '', error: '', ...rest };
+    if (!aiRun[run.state]) run.state = running ? 'running' : run.error ? 'error' : 'done';
+    if (aiBusy(run.state)) { run.state = 'error'; run.interrupted = true; run.error = AI_INTERRUPTED; }
+    return run;
+  }
+
+  X.machines = { JOB_MODES, jobStates, jobActive, upgradeJob, jobCourse, aiSetup, AI_BACKGROUND_STATES, CARDS, card, cardEvent, cardsStatus, cardsFooter, ago, aiRun, aiBusy, restoreAiRun };
 })(typeof window !== 'undefined' ? window : globalThis);
