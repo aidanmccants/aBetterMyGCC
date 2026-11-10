@@ -40,8 +40,11 @@
   }
 
   // ---------- myGCC requests ----------
+  const REQUEST_MS = 20000; // a myGCC request that never answers must not leave the roadmap loading forever
   async function getDoc(url, init) {
-    const res = await fetch(url, { credentials: 'include', signal: ctl ? ctl.signal : undefined, ...init });
+    const limit = AbortSignal.timeout(REQUEST_MS);
+    const signal = ctl ? AbortSignal.any([ctl.signal, limit]) : limit;
+    const res = await fetch(url, { credentials: 'include', signal, ...init });
     if (!res.ok) throw new Error(`${res.status} ${url}`);
     return new DOMParser().parseFromString(await res.text(), 'text/html');
   }
@@ -193,10 +196,19 @@
 
   // Summary first, then each unmet requirement in turn. Every detail starts from a
   // fresh summary page, because opening one requirement replaces the view.
-  async function loadAll(g) {
+  // The summary is read from the page already open when it has one (no wait), and
+  // onStep(summary, done, total) is called after the summary and after each detail.
+  async function loadAll(g, fromPage, onStep) {
     const stop = () => { if (g !== gen) throw new Error('stopped'); };
-    const summary = parseSummary(await ensureSummary(await getDoc(PAGE)));
+    let summary = null;
+    if (fromPage && document.querySelector(SUMMARY_SEL)) {
+      try { summary = parseSummary(document); } catch (e) { summary = null; }
+    }
+    if (!summary) summary = parseSummary(await ensureSummary(await getDoc(PAGE)));
     stop();
+    const total = summary.reqs.filter((q) => q.hasDetail).length;
+    let done = 0;
+    onStep(summary, done, total);
     for (const q of summary.reqs) {
       if (!q.hasDetail) continue;
       stop();
@@ -209,6 +221,8 @@
         stop();
         warn(`detail for "${q.name}" failed`, { error: String(e && e.message || e) });
       }
+      q.loaded = true;
+      onStep(summary, ++done, total);
     }
     stop();
     return summary;
@@ -248,10 +262,11 @@
   function reqHTML(q) {
     const st = q.met ? { text: 'Complete', done: true } : stateOf(q);
     const body = q.detail ? detailHTML(q.detail) : '';
+    const waiting = partial && q.hasDetail && !q.loaded; // still being read from myGCC
     return `<details class="gx-req${q.met ? ' is-met' : ''}" data-key="${esc(q.name)}"${q.met ? '' : ' open'}>`
       + `<summary><span class="gx-name">${esc(q.name)}</span>`
       + `<span class="gx-state${st.done ? ' is-done' : ''}">${st.done ? `<span class="gx-tick" aria-hidden="true">${CHECK}</span> ` : ''}${esc(st.text)}</span></summary>`
-      + `<div class="gx-body">${body || '<p class="gx-empty">No course detail for this requirement.</p>'}</div>`
+      + `<div class="gx-body">${body || `<p class="gx-empty">${waiting ? 'Loading courses from myGCC...' : 'No course detail for this requirement.'}</p>`}</div>`
       + `</details>`;
   }
 
@@ -268,19 +283,18 @@
     const facts = [
       c.needed ? `<strong>${fmt(c.earned)}</strong> of ${fmt(c.needed)} credits earned` : `<strong>${fmt(c.earned)}</strong> credits earned`,
       `${fmt(c.progress)} in progress`,
-      gpa ? (hideGpa
-        // Same press-and-hold reveal as the dashboard (handlers live in content.js)
-        ? `<span class="gx-gpa x-gpa-locked" title="Press and hold to show your GPA">Overall GPA <span class="gx-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(gpa)}</span><span class="x-gpa-ring" aria-hidden="true"></span></span> <span class="x-gpa-hint">Click and hold to reveal</span></span>`
-        : `Overall GPA ${esc(gpa)}`) : '',
+      // Shown plainly here; the "Hide GPA" setting only covers the Home dashboard.
+      gpa ? `Overall GPA ${esc(gpa)}` : '',
     ].filter(Boolean).map((l) => `<p>${l}</p>`).join('');
     return `<div class="gx-hero"><div class="gx-ring">${ring}<span class="gx-pct">${Math.round(f * 100)}%</span></div>`
       + `<div class="gx-facts">${facts}</div></div>`;
   }
 
-  let hideGpa = true;   // settings.hideGpa (default on)
   let root = null;      // #gccx-degree, while the roadmap is showing
   let hiddenEls = [];   // portlet children we hid
   let current = null;   // { data, ts } currently rendered
+  let partial = false;  // current is a first load still filling in requirement details
+  let step = null;      // { done, total } while details are loading
   let busy = false;
   let note = '';
   let gen = 0;          // bumped on every build and teardown; async work compares to drop stale results
@@ -299,37 +313,31 @@
     }
   }
 
-  let settingsListener = null;
-  function startSettings() {
-    const g = gen;
-    chrome.storage.local.get('settings', (o) => { if (g !== gen) return; hideGpa = !(o && o.settings && o.settings.hideGpa === false); paint(); });
-    settingsListener = (ch) => { if (ch.settings) { hideGpa = !(ch.settings.newValue && ch.settings.newValue.hideGpa === false); paint(); } };
-    chrome.storage.onChanged.addListener(settingsListener);
-  }
-  function stopSettings() {
-    if (!settingsListener) return;
-    try { chrome.storage.onChanged.removeListener(settingsListener); } catch (e) { /* extension reloaded */ }
-    settingsListener = null;
-  }
-
   function footHTML() {
     const bits = [];
-    if (current) bits.push(`Updated ${new Date(current.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
-    bits.push(busy ? 'Updating from myGCC...' : note);
+    if (current && !partial) bits.push(`Updated ${new Date(current.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
+    const count = step && step.total ? ` (${step.done} of ${step.total} requirements)` : '';
+    bits.push(busy ? (partial ? `Loading course details from myGCC...${count}` : `Updating from myGCC...${count}`) : note);
     const msg = bits.filter(Boolean).join(' · ');
     return `<div class="gx-foot"><span>${esc(msg)}</span>`
       + `<button type="button" class="gx-refresh" data-gccx-refresh${busy ? ' disabled' : ''}>Refresh</button></div>`;
   }
 
+  // myGCC's own page stays visible until the roadmap has something to show in its place.
+  function showOriginal(on) {
+    hiddenEls.forEach((el) => (on ? el.removeAttribute(HIDDEN_ATTR) : el.setAttribute(HIDDEN_ATTR, '')));
+  }
+
   function paint() {
     if (!root) return;
+    showOriginal(!current);
     // keep whatever the reader opened or closed across re-renders
     const open = new Map([...root.querySelectorAll('details[data-key]')].map((d) => [d.dataset.key, d.open]));
     root.innerHTML = current
       ? heroHTML(current.data.credits, current.data.gpa)
         + `<div class="gx-reqs">${current.data.reqs.map(reqHTML).join('') || '<p class="gx-empty">No requirements listed.</p>'}</div>`
         + footHTML()
-      : '<p class="gx-status">Loading your degree progress from myGCC...</p>';
+      : '<p class="gx-status">Building your degree roadmap from myGCC...</p>';
     root.querySelectorAll('details[data-key]').forEach((d) => {
       if (open.has(d.dataset.key)) d.open = open.get(d.dataset.key);
     });
@@ -340,8 +348,7 @@
     root = document.createElement('section');
     root.id = ROOT_ID;
     root.setAttribute('aria-label', 'Degree roadmap');
-    hiddenEls = [...portlets.children];
-    hiddenEls.forEach((el) => el.setAttribute(HIDDEN_ATTR, ''));
+    hiddenEls = [...portlets.children]; // hidden by paint() once there is a roadmap to show
     portlets.insertBefore(root, portlets.firstChild);
     root.addEventListener('click', onClick);
   }
@@ -362,12 +369,23 @@
     paint();
     let error = null;
     let data = null;
+    // With nothing saved, show the summary as soon as it is read and fill in details as they arrive.
+    // A saved roadmap stays on screen until the new one is complete.
+    const firstLoad = !current;
+    const onStep = (summary, done, total) => {
+      if (g !== gen) return;
+      step = { done, total };
+      if (firstLoad) { partial = true; current = { data: summary, ts: Date.now() }; }
+      paint();
+    };
     try {
-      data = await loadAll(g);
+      data = await loadAll(g, firstLoad, onStep);
     } catch (e) {
       error = e;
     }
     if (g !== gen) return; // torn down meanwhile; teardown already reset the state
+    step = null;
+    partial = false;
     if (data) {
       current = { data, ts: Date.now() };
       try { await store.set(CACHE_KEY, { ts: current.ts, user: userKey(), data }); } catch (e) { /* cache is optional */ }
@@ -434,7 +452,6 @@
   function build() {
     gen++;
     ctl = new AbortController();
-    safe('settings', startSettings, stopSettings);
     let prev = null;
     safe('prefill', () => { prev = runPrefill(); }, () => {
       if (!prev) return;
@@ -450,6 +467,8 @@
     if (ctl) { try { ctl.abort(); } catch (e) { /* already aborted */ } ctl = null; }
     busy = false;
     current = null;
+    partial = false;
+    step = null;
     note = '';
     undos.splice(0).reverse().forEach((u) => { try { u(); } catch (e) { warn('teardown step failed', { error: String(e && e.message || e) }); } });
     restoreOriginal();
