@@ -55,19 +55,28 @@
     get: (k) => new Promise((r) => { try { chrome.storage.local.get(k, (o) => r(o ? o[k] : undefined)); } catch (e) { r(undefined); } }),
     set: (k, v) => new Promise((r) => { try { chrome.storage.local.set({ [k]: v }, () => r()); } catch (e) { r(); } }),
   };
+  // Returns the same data as always. cached.info[key] adds how the last call got it:
+  //   {}                   fresh from myGCC, or a saved copy still within its time limit
+  //   { stale: true, ts }  the refresh failed (or came back empty), so the saved copy from `ts` was returned
+  //   { failed: true }     the refresh failed and there was no saved copy to fall back to
   async function cached(key, loader, force) {
     const hit = await store.get(key);
     const user = currentUserKey();
+    cached.info[key] = {};
     if (!force && hit && hit.user === user && Date.now() - hit.ts < TTL[key]) return hit.data;
+    const saved = hit && hit.user === user && hit.data != null ? hit : null;
     try {
       const data = await loader();
       if (data != null) await store.set(key, { ts: Date.now(), user, data });
+      else if (saved) cached.info[key] = { stale: true, ts: saved.ts };
       return data ?? (hit && hit.user === user ? hit.data : null);
     } catch (e) {
       if (window.GCCX && GCCX.alive()) GCCX.log('warn', 'content', `Couldn't refresh ${key}: ${e.message || e}`); // e.g. page left mid-request; cached copy is used
+      cached.info[key] = saved ? { stale: true, ts: saved.ts } : { failed: true };
       return hit && hit.user === user ? hit.data : null;
     }
   }
+  cached.info = {};
   // cache is keyed to the signed-in person so shared computers never mix data
   function currentUserKey() {
     const u = X.parseUser(document);
@@ -238,12 +247,14 @@
     const hit = await store.get('chapel');
     const user = currentUserKey();
     const fresh = hit && hit.user === user && Date.now() - hit.ts < TTL.chapel;
+    const saved = hit && hit.user === user && hit.data != null ? hit : null;
+    cached.info.chapel = {};
     if (!fresh || force) {
       try {
         const doc = await getDoc(CHAPEL_URL);
         const src = doc.querySelector('iframe[src*="chapel"]')?.getAttribute('src');
         if (src && !document.getElementById('gccx-chapel-frame')) {
-          await store.set('chapelPending', { user, ts: Date.now() });
+          await X.handoff.put('local', 'chapelPending', { user }, 60000); // chapel.js in the frame takes it
           const f = document.createElement('iframe');
           f.id = 'gccx-chapel-frame';
           f.src = src;
@@ -259,6 +270,7 @@
         // sign-in expired). Cached numbers stay; the next page load tries again.
         if (e instanceof TypeError) console.debug('[aBetterMyGCC] chapel fetch interrupted', e.message);
         else console.warn('[aBetterMyGCC] chapel', e);
+        cached.info.chapel = saved ? { stale: true, ts: saved.ts } : { failed: true };
       }
     }
     return hit && hit.user === user ? hit.data : null;
@@ -273,13 +285,33 @@
     const p = (L.pathname + L.search).toLowerCase();
     if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length && covers(d)) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
-    if (document.querySelector('iframe[src*="chapel.aspx"]')) store.set('chapelPending', { user, ts: Date.now() });
-    const b = X.parseBalances(document);
+    if (document.querySelector('iframe[src*="chapel.aspx"]')) X.handoff.put('local', 'chapelPending', { user }, 60000);
+    // only the balance page itself: elsewhere "$5.00 Due" could be anyone's text (a forum post)
+    const b = /\/ics\/financial\/student_accounts\.jnz/i.test(L.pathname) ? X.parseBalances(document) : null;
     if (b) store.set('balance', { ts: Date.now(), user, data: b });
   }
 
   // ---------------- dashboard ----------------
-  let state = { schedule: null, degree: null, standing: null, registration: null, chapel: null, balance: null, menu: null, loading: true };
+  // Data per source, plus one status machine per source: loading | ready | empty | stale | error
+  // (table GCCX.machines.card in machines.js; docs/STATE_MACHINES.md). Loading, "nothing to show"
+  // and "could not load" used to look the same (null); the cards now say which it is.
+  const state = { schedule: null, degree: null, standing: null, registration: null, chapel: null, balance: null, menu: null };
+  const M = X.machines;
+  const cards = Object.fromEntries(M.CARDS.map((k) => [k, X.machine('card ' + k, { initial: 'loading', states: M.card })]));
+  const savedAt = {}; // key -> ts of the saved copy a stale card is showing
+  const st = (...keys) => M.cardsStatus(keys.map((k) => cards[k].state));
+  const move = (key, event, data) => { if (cards[key].can(event)) cards[key].send(event, data); };
+  // a load finished: keep its data and move the card (STALE / FAILED come from cached.info)
+  function settle(key, data) {
+    state[key] = data;
+    const info = (key !== 'menu' && cached.info[key]) || {};
+    if (info.stale) savedAt[key] = info.ts; else delete savedAt[key];
+    move(key, M.cardEvent(key, data, info), info.stale ? { savedAt: info.ts } : undefined);
+  }
+  const staleNote = (...keys) => {
+    const ts = keys.filter((k) => cards[k].state === 'stale' && savedAt[k]).map((k) => savedAt[k]);
+    return ts.length ? `<p class="x-stale">Couldn't refresh · showing info from ${esc(M.ago(Math.min(...ts)))}</p>` : '';
+  };
 
   function isHome() {
     const L = X.loc();
@@ -292,18 +324,18 @@
 
   async function initDashboard(force) {
     if (!isHome() || !currentUserKey()) return;
+    const load = (key, p) => p.then((d) => settle(key, d), (e) => { cached.info[key] = { failed: true }; X.log('warn', 'content', `Couldn't load ${key}: ${e.message || e}`); settle(key, null); });
     const tasks = [
-      loadSchedule(force).then((d) => (state.schedule = d)),
-      loadDegree(force).then((d) => (state.degree = d)),
-      loadStanding(force).then((d) => (state.standing = d)),
-      loadRegistration(force).then((d) => (state.registration = d)),
-      loadChapel(force).then((d) => (state.chapel = d)),
-      loadBalance(force).then((d) => (state.balance = d)),
-      loadMenu().then((d) => (state.menu = d)),
+      load('schedule', loadSchedule(force)),
+      load('degree', loadDegree(force)),
+      load('standing', loadStanding(force)),
+      load('registration', loadRegistration(force)),
+      load('chapel', loadChapel(force)),
+      load('balance', loadBalance(force)),
+      load('menu', loadMenu()),
     ];
     renderDashboard();
     await Promise.allSettled(tasks.map((t) => t.then(renderDashboard)));
-    state.loading = false;
     renderDashboard();
   }
 
@@ -324,7 +356,11 @@
       return;
     }
     const chapelHit = await store.get('chapel');
-    if (chapelHit && chapelHit.user === currentUserKey()) state.chapel = chapelHit.data;
+    if (chapelHit && chapelHit.user === currentUserKey()) {
+      state.chapel = chapelHit.data;
+      // chapel numbers arrive from the frame (chapel.js) after the loader has finished
+      if (chapelHit.data != null && Date.now() - chapelHit.ts < TTL.chapel) { delete savedAt.chapel; move('chapel', 'ARRIVED'); }
+    }
 
     // Look up after the await: several renders can be in flight at once
     const old = document.getElementById('gccx-dash');
@@ -348,13 +384,14 @@
     }
     el.querySelector('[data-refresh]')?.addEventListener('click', () => {
       ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance'].forEach((k) => chrome.storage.local.remove(k));
-      state = { ...state, loading: true };
+      M.CARDS.forEach((k) => move(k, 'REFRESH'));
       initDashboard(true);
     });
     el.querySelectorAll('[data-hall]').forEach((b) => b.addEventListener('click', async () => {
       settings.hall = b.dataset.hall;
       await store.set('settings', settings);
-      state.menu = await loadMenu();
+      move('menu', 'REFRESH');
+      settle('menu', await loadMenu());
       renderDashboard();
     }));
   }
@@ -372,7 +409,7 @@
       stats.push({ href: SCHEDULE_URL, num: esc(credits), label: 'credits registered', title: 'This term' });
     }
     if (!stats.length) return '';
-    return `<div class="x-hero">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
+    return `<div class="x-hero" data-gccx-state="${st('standing', 'schedule')}">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
   }
 
   // GPA privacy: hidden until pressed and held; hides again when the pointer leaves.
@@ -415,10 +452,11 @@
 
   function registrationCard() {
     const r = state.registration;
+    if (!r && cards.registration.state === 'error') return `<div class="x-card" data-gccx-state="error"><h3>Registration</h3><p class="x-empty">Couldn't check whether registration is open. Try Refresh below.</p></div>`;
     if (!r) return '';
-    return `<div class="x-card x-reg"><h3>Registration is open for ${esc(r.term)}</h3>
+    return `<div class="x-card x-reg" data-gccx-state="${cards.registration.state}"><h3>Registration is open for ${esc(r.term)}</h3>
       <p>Plan your schedule, see conflicts on a calendar, and register for everything at once.</p>
-      <a class="x-reg-btn" href="${REG_URL}">Open the planner</a></div>`;
+      <a class="x-reg-btn" href="${REG_URL}">Open the planner</a>${staleNote('registration')}</div>`;
   }
 
   function dashboardHTML() {
@@ -440,7 +478,7 @@
         <div>${reg}${left}${dining}</div>
         <div>${glance}${cash}${buildingsCard()}</div>
       </div>
-      <div class="x-foot"><span>${state.loading ? 'Updating…' : 'Up to date'}</span><button type="button" data-refresh>Refresh</button></div>`;
+      <div class="x-foot" data-gccx-state="${st(...M.CARDS)}"><span>${{ loading: 'Updating…', problem: 'Some info couldn\'t be refreshed', ok: 'Up to date' }[M.cardsFooter(M.CARDS.map((k) => cards[k].state))]}</span><button type="button" data-refresh>Refresh</button></div>`;
   }
 
   function inTerm(c, d) {
@@ -467,7 +505,8 @@
 
   function todayCard(now) {
     const s = state.schedule;
-    if (!s && state.loading) return `<div class="x-card"><h3>Today</h3><p class="x-empty">Loading your schedule…</p></div>`;
+    if (!s && cards.schedule.state === 'loading') return `<div class="x-card" data-gccx-state="loading"><h3>Today</h3><p class="x-empty">Loading your schedule…</p></div>`;
+    if (!s && cards.schedule.state === 'error') return `<div class="x-card" data-gccx-state="error"><h3>Today</h3><p class="x-empty">Couldn't load your schedule from myGCC. Try Refresh below.</p></div>`;
     if (!s || !s.courses.length) return '';
     const mins = now.getHours() * 60 + now.getMinutes();
     let list = classesOn(now);
@@ -502,7 +541,7 @@
     const online = s.courses.filter((c) => c.online && inTerm(c, day));
     const onlineNote = online.length ? `<p class="x-muted" style="margin:12px 0 0;font-size:14.5px">Online, no set meeting time: ${online.map((c) => esc(c.title)).join(', ')}</p>` : '';
     const body = rows.length ? rows.join('') : `<p class="x-empty">No classes this week.</p>`;
-    return `<div class="x-card"><h3>${heading}<a class="x-aside" href="${SCHEDULE_URL}">Full schedule</a></h3>${body}${onlineNote}</div>`;
+    return `<div class="x-card" data-gccx-state="${cards.schedule.state}"><h3>${heading}<a class="x-aside" href="${SCHEDULE_URL}">Full schedule</a></h3>${body}${onlineNote}${staleNote('schedule')}</div>`;
   }
   function dur(m) {
     if (m < 60) return `${m} min`;
@@ -596,12 +635,14 @@
       const n = items.filter(x => x.rank === 0).length;
       return `<h4>${group} <span class="x-bld-count">${n} of ${items.length} open</span></h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
     }).join('');
-    return `<div class="x-card x-bld"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
+    return `<div class="x-card x-bld" data-gccx-state="ready"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
       <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length}) &middot; ${openCount} open now</summary><p class="x-bld-hint">Open places are listed first in each group.</p>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
   }
 
   function glanceCard() {
     const parts = [];
+    // a source that could not be loaded and has no saved copy: say so instead of leaving it out
+    const failed = (label, href) => `<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${href}">${label}</a></span></div><div class="x-note">Couldn't load. Try Refresh below.</div></div>`;
     const ch = state.chapel;
     if (ch && ch.required != null) {
       const done = (ch.attended || 0) + (ch.special || 0);
@@ -611,8 +652,8 @@
       parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${CHAPEL_URL}">Chapel</a></span>
         <span class="x-value">${done}<small> of ${need}</small></span></div>
         <div class="x-bar"><i style="width:${pct}%"></i></div>
-        <div class="x-note">${rem > 0 ? `${rem} more this semester` : '<span class="x-good">Complete for this semester</span>'}</div></div>`);
-    }
+        <div class="x-note">${rem > 0 ? `${rem} more this semester` : '<span class="x-good">Complete for this semester</span>'}</div>${staleNote('chapel')}</div>`);
+    } else if (cards.chapel.state === 'error') parts.push(failed('Chapel', CHAPEL_URL));
     const bal = state.balance;
     if (bal && bal.length) {
       const ar = bal.find((b) => /receivable/i.test(b.label)) || bal[0];
@@ -620,32 +661,33 @@
       const owed = ar.kind === 'Due' && ar.amount > 0;
       parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${BALANCE_URL}">Student account</a></span>
         <span class="x-value ${owed ? 'x-warn' : ''}">${fmt(ar.amount)}</span></div>
-        <div class="x-note">${ar.amount === 0 ? 'Nothing due' : owed ? 'Amount due' : 'Credit on your account'}</div></div>`);
-    }
+        <div class="x-note">${ar.amount === 0 ? 'Nothing due' : owed ? 'Amount due' : 'Credit on your account'}</div>${staleNote('balance')}</div>`);
+    } else if (cards.balance.state === 'error') parts.push(failed('Student account', BALANCE_URL));
     const dg = state.degree;
     if (dg && dg.reqs.length) {
       const met = dg.reqs.filter((r) => r.met).length;
       const open = dg.reqs.filter((r) => !r.met);
       parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${DEGREE_URL}">Degree requirements</a></span>
         <span class="x-value">${met}<small> of ${dg.reqs.length} met</small></span></div>
-        ${open.length ? `<ul class="x-reqs">${open.map((r) => `<li>${esc(r.name.replace(/\s*=\s*/, ' '))}</li>`).join('')}</ul>` : ''}</div>`);
-    }
-    if (!parts.length) return state.loading ? `<div class="x-card"><h3>At a glance</h3><p class="x-empty">Loading…</p></div>` : '';
-    return `<div class="x-card"><h3>At a glance</h3>${parts.join('')}</div>`;
+        ${open.length ? `<ul class="x-reqs">${open.map((r) => `<li>${esc(r.name.replace(/\s*=\s*/, ' '))}</li>`).join('')}</ul>` : ''}${staleNote('degree')}</div>`);
+    } else if (cards.degree.state === 'error') parts.push(failed('Degree requirements', DEGREE_URL));
+    const status = st('chapel', 'balance', 'degree');
+    if (!parts.length) return status === 'loading' ? `<div class="x-card" data-gccx-state="loading"><h3>At a glance</h3><p class="x-empty">Loading…</p></div>` : '';
+    return `<div class="x-card" data-gccx-state="${status}"><h3>At a glance</h3>${parts.join('')}</div>`;
   }
 
   function diningCard(now) {
     const m = state.menu;
     const halls = [['hicks-cafe', 'Hicks'], ['map-cafe', 'MAP']];
     const seg = `<span class="x-seg" role="group" aria-label="Dining hall">${halls.map(([slug, label]) => `<button type="button" data-hall="${slug}" aria-pressed="${settings.hall === slug}">${label}</button>`).join('')}</span>`;
-    if (!m) return state.loading ? '' : '';
+    if (!m) return cards.menu.state === 'error' ? `<div class="x-card" data-gccx-state="error"><h3>Dining${seg}</h3><p class="x-empty">Couldn't load the menu. Try Refresh below.</p></div>` : '';
     let body;
     if (m.closed) body = `<p class="x-empty">${esc(m.message || 'Closed right now.')}</p>`;
     else if (!m.stations || !m.stations.length) body = `<p class="x-empty">No menu posted.</p>`;
     else body = `<div class="x-stations">${m.stations.slice(0, 6).map((s) => `<div class="x-station"><h4>${esc(s.name)}</h4><p>${s.items.slice(0, 5).map(esc).join(', ')}</p></div>`).join('')}</div>`;
     const sub = m.meal ? `<p class="x-meal">${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ', later today' : ''}</p>` : '';
     const phone = `<p class="x-dining-phone"><a href="https://plate.mccants.link" target="_blank" rel="noopener noreferrer">Want to check the menu on your phone?</a></p>`;
-    return `<div class="x-card"><h3>Dining${seg}</h3>${sub}${body}${phone}</div>`;
+    return `<div class="x-card" data-gccx-state="${cards.menu.state}"><h3>Dining${seg}</h3>${sub}${body}${phone}</div>`;
   }
 
   // ---------------- search palette (Ctrl/Cmd+K or /) ----------------
@@ -660,9 +702,10 @@
         try {
           const d = await getDoc(t.href);
           d.querySelectorAll('#this-context-pages a, #contextPages a').forEach((a) => {
-            const href = a.getAttribute('href');
+            const raw = a.getAttribute('href');
             const label = X.clean(a.textContent);
-            if (href && label && !href.startsWith('#') && !href.startsWith('javascript')) all.push({ label, href: new URL(href, location.origin).href, group: t.label });
+            const href = raw && label && !raw.startsWith('#') ? X.safeUrl(raw, 'nav', location.origin) : null; // http(s) only
+            if (href) all.push({ label, href, group: t.label });
           });
         } catch (e) { /* skip tab */ }
       }));
@@ -695,12 +738,9 @@
     const seen = new Set();
     const list = [];
     for (const l of nav) {
-      let u;
-      try { u = new URL(l.href, location.origin); } catch (e) { continue; }
-      if (u.origin !== location.origin || !/^\/ICS/i.test(u.pathname)) continue;
-      if (/\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif)$/i.test(u.pathname) || /log(out|off)|signout/i.test(u.pathname + u.search)) continue;
-      const k = pageKey(u.href);
-      if (seen.has(k)) continue;
+      // fetched in the background as the student: same-origin /ICS/ pages only, nothing that acts (GCCX.safeUrl)
+      const k = X.safeUrl(l.href, 'crawl');
+      if (!k || seen.has(k)) continue;
       seen.add(k);
       list.push({ title: l.label, href: k, group: l.group || '' });
       if (list.length >= PAGE_MAX) break;
@@ -862,16 +902,20 @@ Known resources (official; you may link these without searching, but read_page c
   async function searchPagesTool(query) {
     await ensurePageIndex();
     const toks = tokenize(query);
-    return searchEntries(String(query || '').toLowerCase().trim(), 8).map(({ it }) => ({
-      title: it.label, url: pageKey(it.href), snippet: snippetAround(it.text, toks, 400).s,
-    }));
+    // Page text goes to the AI service only for pages read_page may open: never financial or GPA pages
+    // (README, Privacy). Other matches keep their title and url so the answer can still link them.
+    const sendable = (href) => !!X.safeUrl(href, 'ai', { has: () => true });
+    return searchEntries(String(query || '').toLowerCase().trim(), 8).map(({ it }) => (sendable(it.href)
+      ? { title: it.label, url: pageKey(it.href), snippet: snippetAround(it.text, toks, 400).s }
+      : { title: it.label, url: pageKey(it.href), snippet: '', note: 'read_page cannot open this page; link it for the student instead' }));
   }
-  async function readPageTool(url) {
-    let u;
-    try { u = new URL(String(url), location.origin); } catch (e) { throw new Error('That is not a valid URL.'); }
-    if (u.origin !== location.origin) throw new Error('Only my.gcc.edu pages can be read.');
-    if (!/^\/ICS/i.test(u.pathname)) throw new Error('Only pages under /ICS/ can be read.');
-    if (/\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|gif)$/i.test(u.pathname)) throw new Error('That is a file, not a web page; link it instead of reading it.');
+  // The model picks this URL, and it reads page text other people wrote (prompt injection), so the
+  // URL must pass GCCX.safeUrl in 'ai' mode: a page this run has already seen, never one that acts
+  // (sign out, delete, register...) or holds money or GPA. The refusal does not say which rule hit.
+  async function readPageTool(url, seenUrls) {
+    const href = X.safeUrl(url, 'ai', seenUrls);
+    if (!href) throw new Error('That page is not allowed. Use a url from search_pages or from the links of a page you already read, or link it for the student instead.');
+    const u = new URL(href);
     const doc = await getDoc(u.href);
     if (!doc.querySelector('#portlets')) throw new Error('That page has no readable content (it may need a form submitted or a new sign-in). Try another page.');
     const links = [], seen = new Set();
@@ -894,13 +938,17 @@ Known resources (official; you may link these without searching, but read_page c
       try {
         const u = new URL(m[2], location.origin);
         const known = ASK_KNOWN.has(pageKey(u.href).toLowerCase().replace(/\/+$/, ''));
-        if (((u.origin === location.origin && seen.has(pageKey(u.href))) || known) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
+        // same-site links must also pass the deny-list (no sign-out / delete / drop... links offered to click)
+        if (((u.origin === location.origin && seen.has(pageKey(u.href)) && X.safeUrl(u.href, 'crawl')) || known) && !links.some((l) => pageKey(l.href) === pageKey(u.href)) && links.length < 3) links.push({ title: m[1].replace(/\*\*/g, ''), href: u.href });
       } catch (e) { /* drop bad link */ }
     }
     return { text: lines.join('\n').replace(/\n{2,}/g, '\n').trim(), links };
   }
   async function runAsk(run) {
     const alive = () => askSeq === run.id;
+    // Stop pressed (state stopping) or the question was replaced or closed: end at the next check
+    const halted = () => !alive() || run.m.state === 'stopping';
+    const end = (event, data) => { if (run.m.can(event)) run.m.send(event, data); if (alive()) document.getElementById('gccx-palette')?._draw(); };
     const update = () => { if (alive()) document.getElementById('gccx-palette')?._draw(); };
     const step = (t) => { run.steps.push(t); X.log('info', 'ask', t); update(); };
     const seenUrls = new Set((navIndex || []).map((l) => pageKey(l.href)));
@@ -913,7 +961,7 @@ Known resources (official; you may link these without searching, but read_page c
           src: 'ask', system: last ? ASK_SYSTEM + FINAL_NOTE : ASK_SYSTEM,
           tools: ASK_TOOLS, messages, noTools: last,
         });
-        if (!alive()) return;
+        if (halted()) return end('STOPPED');
         if (!r || r.error) { run.error = X.aiErrorText(r); X.log('error', 'ask', run.error, r); break; }
         const out = r.ok;
         if (out.stop === 'refusal') { run.error = 'The AI service declined to answer this question. Try rephrasing it.'; break; }
@@ -929,6 +977,7 @@ Known resources (official; you may link these without searching, but read_page c
         messages.push({ role: 'assistant', native: out.native });
         const results = [];
         for (const call of out.toolCalls) {
+          if (halted()) return end('STOPPED'); // do not read another page after Stop
           let content, isError = false;
           try {
             const a = call.input || {};
@@ -943,7 +992,7 @@ Known resources (official; you may link these without searching, but read_page c
               if (typeof a.url !== 'string' || !a.url.trim()) throw new Error('url is required');
               const hit = (navIndex || []).find((l) => pageKey(l.href) === pageKey(a.url));
               step(`Reading ${hit ? hit.label : 'page'}…`);
-              const page = await readPageTool(a.url);
+              const page = await readPageTool(a.url, seenUrls);
               seenUrls.add(pageKey(page.url));
               page.links.forEach((l) => seenUrls.add(pageKey(l.href)));
               content = JSON.stringify(page);
@@ -953,15 +1002,14 @@ Known resources (official; you may link these without searching, but read_page c
           results.push({ id: call.id, name: call.name, content, isError });
         }
         messages.push({ role: 'tool', results });
-        if (!alive()) return;
+        if (halted()) return end('STOPPED');
       }
       if (!run.text && !run.error) run.error = 'The AI could not finish looking that up. Try rephrasing the question.';
     } catch (e) {
       run.error = 'Something went wrong while asking AI: ' + (e.message || e);
       X.log('error', 'ask', run.error, { stack: e.stack });
     }
-    run.done = true;
-    update();
+    end(run.error ? 'FAIL' : 'FINISH', run.error ? { error: run.error } : undefined);
   }
 
   function openPalette() {
@@ -976,15 +1024,28 @@ Known resources (official; you may link these without searching, but read_page c
       const hint = p.querySelector('.x-hint');
       const ansBox = p.querySelector('.x-answer');
       const list = p.querySelector('ul[role=listbox]');
-      let active = 0, results = [], aiReady = false, drawSeq = 0, askTimer = 0;
+      let active = 0, results = [], aiReady = false, aiSetup = 'none', drawSeq = 0, askTimer = 0;
       const startAsk = (raw) => {
         if (!aiReady || !raw) return;
         clearTimeout(askTimer);
-        const run = askRun = { id: ++askSeq, q: raw, steps: [], text: '', links: [], error: '', done: false };
+        // one state per run: idle | running | stopping | done | error (GCCX.machines.aiRun)
+        const run = askRun = { id: ++askSeq, q: raw, steps: [], text: '', links: [], error: '' };
+        run.m = X.machine('ask-ai', { initial: 'idle', states: X.machines.aiRun, el: () => (askRun === run ? ansBox : null) });
+        run.m.send('START');
         draw();
         runAsk(run);
       };
-      const cancelAsk = () => { clearTimeout(askTimer); askSeq++; askRun = null; };
+      // typing a new question or closing the palette: the old run is told to stop and is no longer shown
+      const cancelAsk = () => { clearTimeout(askTimer); if (askRun && askRun.m.can('STOP')) askRun.m.send('STOP'); askSeq++; askRun = null; ansBox.dataset.gccxState = 'idle'; };
+      ansBox.dataset.gccxState = 'idle';
+      // Stop button in the answer box: feedback at once, the run ends at its next check
+      ansBox.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-ask-stop]') || !askRun || !askRun.m.can('STOP')) return;
+        askRun.m.send('STOP');
+        askRun.text = 'Stopped.';
+        draw();
+        input.focus();
+      });
       p._hint = () => {
         hint.textContent = (idxState.running ? `Indexing myGCC… (${idxState.done} of ${idxState.total}). ` : '') + '↑ ↓ to move, Enter to open, Esc to close' + (aiReady ? ', Tab to ask AI' : '');
         input.placeholder = aiReady ? 'Search myGCC or ask a question' : 'Search myGCC';
@@ -997,8 +1058,9 @@ Known resources (official; you may link these without searching, but read_page c
         const toks = tokenize(q);
         const run = askRun && askRun.q === raw ? askRun : null;
         const rows = [];
-        if (run && run.done && run.links.length) run.links.forEach((l) => rows.push({ label: l.title, href: l.href, group: '' }));
-        else if (aiReady && wordCount(raw) >= 3 && (!run || run.error)) rows.push({ ask: true, label: `Ask AI: “${raw}”`, href: '#', group: 'Tab' });
+        const rs = run ? run.m.state : 'idle';
+        if (run && rs === 'done' && run.links.length) run.links.forEach((l) => rows.push({ label: l.title, href: l.href, group: '' }));
+        else if (aiReady && wordCount(raw) >= 3 && (!run || rs === 'error')) rows.push({ ask: true, label: `Ask AI: “${raw}”`, href: '#', group: 'Tab' });
         if (q) searchEntries(q, 20).forEach(({ it }) => rows.push({ ...it, snip: snippetHTML(it.text, toks) }));
         else entries().slice(0, 40).forEach((it) => rows.push(it));
         if (q) rows.push({ label: `Search all of myGCC for “${raw}”`, href: '#', group: '', siteSearch: raw });
@@ -1006,12 +1068,14 @@ Known resources (official; you may link these without searching, but read_page c
         active = Math.min(active, Math.max(0, results.length - 1));
         if (run) {
           const latest = run.steps[run.steps.length - 1] || 'Thinking…';
-          ansBox.innerHTML = run.error ? `<p class="x-err">${esc(run.error)}</p>`
-            : run.done ? run.text.split('\n').map((l) => `<p>${esc(l)}</p>`).join('')
-            : X.pulseHTML(latest, esc);
+          ansBox.innerHTML = rs === 'error' ? `<p class="x-err">${esc(run.error)}</p>`
+            : rs === 'done' ? (run.text || 'Stopped.').split('\n').map((l) => `<p>${esc(l)}</p>`).join('')
+            : rs === 'stopping' ? X.pulseHTML('Stopping after this step…', esc)
+            : X.pulseHTML(latest, esc) + '<button type="button" class="x-ask-stop" data-ask-stop>Stop</button>';
+          ansBox.dataset.gccxState = rs;
         } else ansBox.innerHTML = '';
         ansBox.hidden = !run;
-        const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">Add an AI key from the toolbar icon to ask questions</li>` : '';
+        const note = !aiReady && looksLikeQuestion(raw) ? `<li class="x-note">${esc(X.aiSetupText(aiSetup) || 'Add an AI key from the toolbar icon to ask questions')}</li>` : '';
         list.innerHTML = results.map((r, i) => `<li class="${i === active ? 'is-active' : ''}${r.ask ? ' x-ask' : ''}" role="option" data-i="${i}"><a href="${esc(r.href)}"><b class="x-t">${esc(r.label)}</b><span class="x-g">${esc(r.group || '')}</span>${r.snip ? `<em class="x-s">${r.snip}</em>` : ''}</a></li>`).join('') + note || `<li><a>Nothing matches</a></li>`;
         list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest' });
       };
@@ -1059,7 +1123,7 @@ Known resources (official; you may link these without searching, but read_page c
       };
       p._draw = draw;
       p._cancel = cancelAsk;
-      p._setReady = (v) => { aiReady = v; p._hint(); };
+      p._setReady = (v, state) => { aiReady = v; aiSetup = state || (v ? 'ready' : 'none'); p._hint(); };
     }
     p.classList.add('is-open');
     const input = p.querySelector('input');
@@ -1067,7 +1131,7 @@ Known resources (official; you may link these without searching, but read_page c
     p._cancel();
     p._hint();
     p._draw();
-    askStatus().then((r) => { p._setReady(!!(r && r.ready)); p._draw(); });
+    askStatus().then((r) => { p._setReady(!!(r && r.ready), r && r.state); p._draw(); });
     ensurePageIndex();
     setTimeout(() => input.focus(), 0);
   }

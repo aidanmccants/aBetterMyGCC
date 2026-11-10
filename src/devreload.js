@@ -5,7 +5,7 @@
 (function () {
   const FILES = [
     'manifest.json', 'themes/index.json', 'themes/gcc/theme.json', 'themes/autumn-pixels/theme.json', 'src/theme-engine/default-theme.js', 'src/theme-engine/runtime.js', 'src/theme-engine/settings.js', 'src/theme-engine/loader.js', 'src/theme-engine/tokens.css', 'src/theme-engine/fonts.css', 'src/facilities.js', 'src/theme-engine/shell.css',
-    'src/lib.js', 'src/terms.js', 'src/content.js', 'src/builder.js', 'src/contrast.js',
+    'src/lib.js', 'src/machines.js', 'src/terms.js', 'src/content.js', 'src/builder.js', 'src/contrast.js',
     'src/onboarding.js', 'src/degree.js', 'src/signedout.js', 'src/theme.css', 'src/chapel.js',
     'src/signedout.css', 'src/onboarding.css', 'src/builder-split.css', 'src/degree.css', 'src/search.css',
     'src/background.js', 'src/ai.js', 'src/devreload.js',
@@ -38,7 +38,7 @@
     if (last === null) { last = now; return; }
     if (now !== last) {
       clearInterval(timer);
-      await chrome.storage.local.set({ devReloadTabs: Date.now() });
+      await GCCX.handoff.put('local', 'devReloadTabs', true, 30000); // read after the reload, below
       chrome.runtime.reload();
     }
   }
@@ -53,9 +53,8 @@
     isDev = me && me.installType === 'development';
     if (!isDev) return;
     // After a dev reload, refresh any open myGCC tabs so new content scripts load.
-    chrome.storage.local.get('devReloadTabs', ({ devReloadTabs }) => {
-      if (!devReloadTabs || Date.now() - devReloadTabs > 30000) return;
-      chrome.storage.local.remove('devReloadTabs');
+    GCCX.handoff.take('local', 'devReloadTabs').then((pending) => {
+      if (!pending) return;
       chrome.tabs.query({ url: ['https://my.gcc.edu/*'] }, (tabs) => tabs.forEach((t) => chrome.tabs.reload(t.id)));
     });
     start();

@@ -50,6 +50,7 @@
       <section id="ai" class="panel" aria-labelledby="ai-title" hidden>
         <h2 id="ai-title">Plan with AI</h2>
         <p class="intro">Bring your own key from Anthropic, OpenAI, xAI or Google. The key is stored only in Chrome on this computer, sent only to the service you choose, and billed to your account with that service.</p>
+        <p class="note">Ask AI sends your question and text from the myGCC pages it reads to the service you chose, with your key. Financial and GPA pages are never sent.</p>
 
         <label class="field"><span>API key</span>
           <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="sk-ant-…, sk-…, xai-…, AIza…">
@@ -69,6 +70,7 @@
 
         <div class="actions">
           <button type="button" class="primary" id="save">Save key</button>
+          <button type="button" class="primary" id="allow" hidden>Allow access</button>
           <button type="button" class="link" id="clear">Remove key</button>
         </div>
         <p class="msg" id="msg" role="status"></p>
@@ -96,6 +98,8 @@
       </section>
     </main>
   </div>
+  <script src="../src/lib.js"></script>
+  <script src="../src/machines.js"></script>
   <script src="options.js"></script>
   <script src="../src/theme-engine/settings.js"></script>
 </body>

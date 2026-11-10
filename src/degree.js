@@ -383,7 +383,7 @@
   }
 
   function startPrefill(code) {
-    try { sessionStorage.setItem(PREFILL_KEY, code); } catch (e) { /* open the page without a prefill */ }
+    window.GCCX.handoff.put('session', PREFILL_KEY, code, 60000); // picked up by runPrefill on Add/Drop within a minute
     if (window.GCCX && window.GCCX.go) window.GCCX.go(ADD_DROP); else location.href = ADD_DROP;
   }
 
@@ -417,10 +417,10 @@
   // Add/Drop: if the roadmap sent us here with a course to look up, fill the search and run it.
   // Filling the fields is undone on teardown; the search click itself is a server postback and cannot be.
   function runPrefill() {
-    const code = sessionStorage.getItem(PREFILL_KEY);
-    const box = code && document.querySelector('[id$="tabSearch_txtCourseRestrictor"]');
-    if (!box) return null;
-    sessionStorage.removeItem(PREFILL_KEY);
+    const box = document.querySelector('[id$="tabSearch_txtCourseRestrictor"]');
+    if (!box) return null; // not the search screen: leave the handoff for the page that has the box (it expires by itself)
+    const code = window.GCCX.handoff.take('session', PREFILL_KEY);
+    if (!code) return null;
     const sel = document.querySelector('[id$="tabSearch_ddlCourseRestrictor"]');
     const prev = { box, boxVal: box.value, sel, selVal: sel ? sel.value : '' };
     box.value = code;

@@ -12,7 +12,7 @@
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const time = (ts) => new Date(ts).toLocaleTimeString([], { hour12: false }) + '.' + String(new Date(ts).getMilliseconds()).padStart(3, '0');
-  const SRC = { ask: 'Ask AI', plan: 'Plan', content: 'Page', background: 'Background' };
+  const SRC = { ask: 'Ask AI', plan: 'Plan', content: 'Page', background: 'Background', state: 'State' };
   const LEVELS = ['info', 'warn', 'error', 'ai'];
 
   function render(e) {

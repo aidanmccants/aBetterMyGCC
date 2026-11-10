@@ -194,10 +194,11 @@
   function parseNav(doc, baseHref) {
     const links = [];
     const add = (a, group) => {
-      const href = a.getAttribute('href');
+      const raw = a.getAttribute('href');
       const label = clean(a.textContent);
-      if (!href || !label || href.startsWith('#') || href.startsWith('javascript')) return;
-      links.push({ label, href: new URL(href, baseHref).href, group });
+      if (!raw || !label || raw.startsWith('#')) return;
+      const href = safeUrl(raw, 'nav', baseHref); // http(s) only: drops javascript:, data:, mailto: in any letter case
+      if (href) links.push({ label, href, group });
     };
     doc.querySelectorAll('#main-nav > li > a').forEach((a) => add(a, 'Tab'));
     doc.querySelectorAll('#this-context-pages a, #contextPages a, #pagePortlets a').forEach((a) => add(a, 'Page'));
@@ -228,7 +229,7 @@
       return JSON.parse(JSON.stringify(d, (k, v) => (typeof v === 'string' && v.length > 20000 ? v.slice(0, 20000) + `… [${v.length - 20000} more chars]` : v)));
     } catch (e) { return String(d); }
   }
-  // level: info | warn | error | ai ; source: ask | plan | content | background
+  // level: info | warn | error | ai ; source: ask | plan | content | background | state | prerender
   function log(level, source, message, data) {
     if (!alive()) return;
     try {
@@ -238,6 +239,8 @@
   // Friendly, specific text for a failed AI call (kind comes from ai.js)
   function aiErrorText(r, what) {
     const raw = (r && r.error) || 'no response';
+    // setup is not finished (no key, permission missing, no model): the background's own sentence says which
+    if (r && r.state && r.state !== 'ready') return raw;
     switch (r && r.kind) {
       case 'auth': return 'Your AI key was rejected (invalid, expired or out of credit). Check it in the aBetterMyGCC popup.';
       case 'rate': return 'The AI service is rate-limiting this key. Wait a minute and try again.';
@@ -245,6 +248,13 @@
       case 'server': return `The AI service had a problem (${raw}). Try again in a moment.`;
       default: return /reload|context invalidated/i.test(raw) ? 'The extension was updated or reloaded. Refresh this page.' : `The AI service rejected the request: ${raw}`;
     }
+  }
+  // What a page says when AI can't run, from the background's ai-status state (see aiState in background.js)
+  function aiSetupText(state) {
+    return {
+      'needs-permission': 'Chrome\'s permission to reach your AI service is missing. Open aBetterMyGCC Settings, AI, and choose Allow access.',
+      'needs-model': 'Your AI key is saved, but no model is chosen yet. Open aBetterMyGCC Settings, AI, and choose Continue setup.',
+    }[state] || '';
   }
   // One-line "what the AI is doing now" with a pulsing dot (styles injected once; no css file needed)
   function pulseHTML(text, esc) {
@@ -313,7 +323,10 @@
     };
     window.addEventListener('message', onMsg);
     // The frame's script may start before or after ours; ask a few times while both settle.
-    const ask = () => { try { frame.contentWindow.postMessage({ gccxFrameAsk: 1 }, 'https://custom.gcc.edu'); } catch (e) { /* not loaded yet */ } };
+    // '*': until the frame has loaded custom.gcc.edu it is still about:blank (my.gcc.edu's origin), and naming
+    // custom.gcc.edu then makes Chrome log a postMessage error. The message carries nothing private, and
+    // framefit.js answers only to https://my.gcc.edu; replies are still checked against custom.gcc.edu above.
+    const ask = () => { try { frame.contentWindow.postMessage({ gccxFrameAsk: 1 }, '*'); } catch (e) { /* not loaded yet */ } };
     // Frames on these pages load late (after the dashboard), so keep asking for a while.
     const timers = [0, 400, 1200, 3000, 6000, 10000].map((ms) => setTimeout(ask, ms));
     frame.addEventListener('load', ask);
@@ -331,9 +344,111 @@
     };
   }
 
+  // ---------- URL safety ----------
+  // One gate for every URL the extension fetches or prerenders by itself (as the signed-in
+  // student), so a link that changes something is never followed without a click:
+  //   'nav'       search-palette links, opened only when the student picks one: any http(s) or
+  //               same-origin link; javascript:, data:, mailto: and the like are dropped.
+  //   'prerender' hover prerender (links.js)        } same-origin /ICS/ pages only, no files,
+  //   'crawl'     background page index (content.js)} no sign-out/delete/drop/register... words
+  //   'ai'        Ask AI's read_page: as above, plus no financial or GPA pages, and only URLs the
+  //               run has already seen (search results or links on a page it read), so page text
+  //               written by someone else cannot steer the model to an arbitrary address.
+  // Returns the normalized href (no #fragment except in 'nav'), or null when it is not allowed.
+  const URL_FILE = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|png|jpe?g|gif|mp4)$/i;
+  const URL_ACTION = /(logout|logoff|signout|sign-out|delete|drop|remove|cancel|register|withdraw|action=)/i;
+  // content.js loaders: BALANCE_URL / CASHNET_URL (money) and DEGREE_URL (GPA, standing), plus grade pages
+  const URL_PRIVATE = [/^\/ics\/financial(\/|$)/i, /cashnet/i, /portlet=[^&#]*(degree_progress|gpa|grade|transcript)/i];
+  function safeUrl(raw, mode, extra) {
+    let u;
+    const here = typeof location !== 'undefined' ? location : null;
+    try { u = new URL(String(raw), mode === 'nav' && extra ? extra : here ? here.origin : undefined); } catch (e) { return null; }
+    const sameOrigin = !!here && u.origin === here.origin;
+    if (mode === 'nav') return sameOrigin || /^https?:$/.test(u.protocol) ? u.href : null;
+    if (!sameOrigin || !/^\/ics\//i.test(u.pathname)) return null;
+    let rest = u.pathname + u.search;
+    try { rest = decodeURIComponent(rest); } catch (e) { /* keep the raw text */ }
+    if (URL_FILE.test(u.pathname) || URL_ACTION.test(rest)) return null;
+    u.hash = '';
+    if (mode === 'ai') {
+      if (URL_PRIVATE.some((re) => re.test(rest))) return null;
+      if (!extra || !extra.has(u.href)) return null;
+    }
+    return u.href;
+  }
+
+  // ---------- expiring handoffs ----------
+  // A value one page (or frame, or worker run) leaves for the next one to pick up: stored as
+  // { v, exp }, read once with take(), which deletes it whether or not it was still good.
+  //   area 'session'  sessionStorage (this tab only), synchronous
+  //   area 'local'    chrome.storage.local (any tab or frame), returns a Promise
+  // A value saved without `exp` by an older version counts as expired, except chapelPending,
+  // whose old { user, ts } shape is still read with its 60-second window.
+  // Keys and expiry times are listed in docs/STATE_MACHINES.md.
+  function handoffOpen(key, rec, now) {
+    if (!rec || typeof rec !== 'object') return null;
+    if (typeof rec.exp === 'number') return now < rec.exp ? rec.v : null;
+    if (key === 'chapelPending' && rec.user && typeof rec.ts === 'number' && now - rec.ts < 60000) return { user: rec.user };
+    return null;
+  }
+  const handoff = {
+    put(area, key, value, ttlMs) {
+      const rec = { v: value, exp: Date.now() + ttlMs };
+      if (area === 'local') {
+        return new Promise((done) => {
+          try { chrome.storage.local.set({ [key]: rec }, () => { void chrome.runtime.lastError; done(); }); } catch (e) { done(); }
+        });
+      }
+      try { sessionStorage.setItem(key, JSON.stringify(rec)); } catch (e) { /* storage blocked: the next page just starts clean */ }
+      return undefined;
+    },
+    take(area, key) {
+      if (area === 'local') {
+        return new Promise((done) => {
+          try {
+            chrome.storage.local.get(key, (o) => {
+              if (chrome.runtime.lastError || !o) return done(null);
+              if (o[key] !== undefined) chrome.storage.local.remove(key, () => { void chrome.runtime.lastError; });
+              done(handoffOpen(key, o[key], Date.now()));
+            });
+          } catch (e) { done(null); }
+        });
+      }
+      let rec = null;
+      try { rec = JSON.parse(sessionStorage.getItem(key)); } catch (e) { rec = null; } // an old plain-text value does not parse: expired
+      try { sessionStorage.removeItem(key); } catch (e) { /* ignore */ }
+      return handoffOpen(key, rec, Date.now());
+    },
+  };
+
+  // ---------- state machines ----------
+  // A named table of states and the events each one accepts: states = { idle: { START: 'running' }, ... }.
+  // send() moves only along the table; anything else is refused with a warning on the Logs page.
+  // `el` (an element, or a function returning one) gets data-gccx-state on every move.
+  // No DOM or chrome is needed, so Node can test it. Tables live in machines.js; docs/STATE_MACHINES.md.
+  function machine(name, { initial, states, el }) {
+    let state = initial;
+    const mark = () => { const n = typeof el === 'function' ? el() : el; if (n && n.dataset) n.dataset.gccxState = state; };
+    const next = (event) => (states[state] || {})[event];
+    mark();
+    return {
+      get state() { return state; },
+      can: (event) => !!next(event),
+      send(event, data) {
+        const to = next(event);
+        if (!to) { log('warn', 'state', `${name}: ${event} is not allowed in ${state}`, data); return false; }
+        const from = state;
+        state = to;
+        mark();
+        log('info', 'state', `${name}: ${from} → ${to}`, data);
+        return true;
+      },
+    };
+  }
+
   root.GCCX = {
     demo: !!demo, loc, go, alive, fitFrame, onLook,
-    log, aiErrorText, pulseHTML,
+    log, aiErrorText, aiSetupText, pulseHTML, machine, safeUrl, handoff,
     clean, parseRange, parseDays, fmtTime, parseSchedule, parseDegree, parseChapel,
     parseBalances, parseNav, parseUser, parseCourseLinks, titleCase, prettyRoom,
   };

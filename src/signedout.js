@@ -8,7 +8,7 @@
   const TITLE_ID = 'gccx-signedout-title';
   const LEDE_ID = 'gccx-signedout-lede';
   const LOCK_CLASS = 'gccx-signedout-open';
-  const GUEST_KEY = 'gccx-guest';
+  const GUEST_KEY = 'gccx-guest'; // sessionStorage flag, kept for the whole tab session on purpose (no expiry; not a GCCX.handoff)
   const ONBOARDING_ID = 'gccx-onboarding';
   const ONBOARDING_DONE = 'gccx:onboarding-done';
   const LOGIN_TOGGLE_ID = 'siteNavBar_welcomeBackBarLoggedOut_loginToggle';
@@ -160,7 +160,32 @@
     document.removeEventListener('focusin', keepFocusInside, true);
   }
 
+  // Signing out must not leave one person's myGCC data on the computer for the next person.
+  // These chrome.storage.local keys hold what was read from the signed-in person's pages
+  // (schedule, degree progress and GPA, balance, chapel, the search index, a registration job).
+  // Kept on purpose: settings, ai, onboarding, whatsnewSeen, menu:* (not personal), and plans,
+  // planTerm and termOptions (a course plan is built over several sessions; they are filed
+  // under the person's name and hold course sections only). See docs/STATE_MACHINES.md.
+  const USER_KEYS = ['schedule', 'degree', 'standing', 'balance', 'chapel', 'registration', 'nav', 'pageIndex', 'job', 'degreeMap', 'registered'];
+  function clearUserData() {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
+      chrome.storage.local.get(USER_KEYS, (found) => {
+        if (chrome.runtime.lastError || !found) return;
+        const cleared = USER_KEYS.filter((k) => found[k] != null);
+        if (!cleared.length) return;
+        const job = found.job ? { state: found.job.state || found.job.phase, queue: found.job.queue } : undefined;
+        chrome.storage.local.remove(cleared, () => {
+          void chrome.runtime.lastError;
+          if (window.GCCX && window.GCCX.log) window.GCCX.log('info', 'content', 'Signed out: cleared saved myGCC data', { cleared, kept: ['plans', 'planTerm', 'termOptions', 'settings', 'ai'], job });
+        });
+      });
+    } catch (e) { /* extension reloading: the next signed-out page clears it */ }
+  }
+
   function init() {
+    // Runs whether or not the look is on, and for guests too: the data is there either way.
+    if (isSignedOut()) clearUserData();
     // Wait one tick after DOMContentLoaded so the welcome screen's listeners
     // get to add #gccx-onboarding before this checks for it.
     setTimeout(maybeShow, 0);

@@ -36,8 +36,6 @@
 
   // ---------- 2. hover prerender ----------
   const MAX_ACTIVE = 2, INTENT_MS = 150, DISCARD_MS = 3000;
-  const BAD_QUERY = /(logout|logoff|signout|sign-out|delete|drop|remove|cancel|register|withdraw|action=)/i;
-  const BAD_PATH = /(logout|logoff|signout|\.(pdf|docx?|xlsx?|pptx?|zip|csv|png|jpe?g|gif|mp4)$)/i;
   const useSpec = !!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules'));
   const entries = new Map(); // url -> { el, timer }
   let intentTimer = null, intentUrl = null;
@@ -46,11 +44,11 @@
     if (!active() || a.target === '_blank' || a.hasAttribute('download')) return null;
     if (window.GCCX && window.GCCX.demo) return null; // demo pages have no real /ICS/ URLs to prerender
     const u = resolve(a);
-    if (!u || u.origin !== location.origin || !/^\/ics\//i.test(u.pathname)) return null;
-    if (BAD_QUERY.test(u.search) || BAD_PATH.test(u.pathname)) return null;
-    if (u.href.split('#')[0] === location.href.split('#')[0]) return null;
-    u.hash = '';
-    return u.href;
+    if (!u || !window.GCCX || !window.GCCX.safeUrl) return null;
+    // same-origin /ICS/ pages only; no files and nothing that signs out, deletes, drops or registers
+    const href = window.GCCX.safeUrl(u.href, 'prerender');
+    if (!href || href === location.href.split('#')[0]) return null;
+    return href;
   }
 
   const log = (msg, data) => { try { window.GCCX && window.GCCX.log('info', 'prerender', msg, data); } catch (_) {} };

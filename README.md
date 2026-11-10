@@ -50,13 +50,24 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 
 ## Privacy
 
-- Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, so on a shared computer one person's data never shows for another.
+- Data read from myGCC (schedule, chapel, balance, degree progress, your plan) is stored in `chrome.storage.local` on your computer. It's saved per signed-in person, and the copies read from your pages (schedule, degree progress and GPA, balance, chapel, search index) are removed when myGCC shows its signed-out page. Your saved course plan is kept so it is still there next time.
+  - Known limit: a person is recognized by the name myGCC shows in its welcome bar, because no unique ID has been confirmed in myGCC's pages yet. Two people with exactly the same name on one computer would be treated as one person (their saved course plans would be shared). Signing out still clears the cached data.
 - The only request to a site other than myGCC is for public dining menus from Nutrislice (`gcc.api.nutrislice.com`), the service the dining halls use for their menus. Nothing about you is sent.
 - The Source Serif 4 font loads from Google Fonts.
-- Plan with AI is off until you add a key. When you use it, your request, your registered/planned course codes and times, and course search results go to the AI service you chose, using your key. The key is stored locally and only the extension's background worker reads it.
+- Plan with AI and Ask AI are off until you add a key. Both send data only to the AI service you chose, using your key:
+  - **Plan with AI** sends your request, your registered/planned course codes and times, and course search results.
+  - **Ask AI** (the question box in Ctrl K search) sends your question and text from the myGCC pages it reads to answer it: up to about 6,000 characters per page, plus short excerpts of pages that match its searches. That text can include whatever those pages say about you.
+  - Ask AI never opens or sends financial pages (anything under Financial, the account balance, CashNet) or the GPA pages it knows by address (the Degree Progress, grade and transcript portlets). It also never opens files, or links that sign out, delete, drop or register. A page it does not recognize as private is treated like any other page.
+- The key is stored in Chrome's extension storage on your computer and is sent only to the AI service it belongs to. Within the extension, only the Settings page (which saves it) and the background worker (which uses it) read it; the scripts that run on myGCC pages never do, though Chrome itself does not block them from that storage.
 
 ## Notes
 
 - Chapel attendance is read from the chapel frame on `custom.gcc.edu`, which myGCC itself embeds.
 - The account balance sits behind a "Please wait" step in myGCC. If the background fetch doesn't get it, the dashboard picks it up the next time you open My Account Balances.
 - Batch add uses only myGCC's own forms. It never touches the Drop checkboxes. Clicking **Add N courses** asks you to confirm before anything is submitted.
+
+## For developers
+
+- [AGENTS.md](AGENTS.md): how to run the tests, the rules that are easy to break, and how to test in the demo.
+- [docs/STATE_MACHINES.md](docs/STATE_MACHINES.md): every state machine (registration job, dashboard data, AI setup, AI runs), the handoff keys and their expiry times, and known limitations.
+- Tests: `npm test`.

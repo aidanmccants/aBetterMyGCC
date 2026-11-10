@@ -3,6 +3,7 @@
 // frame on the homepage. Reads the attendance table and caches it.
 (function () {
   'use strict';
+  if (!window.GCCX || !window.GCCX.handoff) return; // lib.js is loaded first in this frame (manifest)
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
   // The page wraps everything in layout tables; take the innermost match.
   const table = [...document.querySelectorAll('table')]
@@ -25,10 +26,10 @@
     remaining: num('remaining'),
   };
   if (data.required == null) return;
-  chrome.storage.local.get('chapelPending', ({ chapelPending }) => {
-    // The homepage records whose session started the load; the frame itself
-    // has no name on it. Fall back to "unknown" if opened directly.
-    const user = chapelPending && Date.now() - chapelPending.ts < 60000 ? chapelPending.user : null;
+  // The myGCC page records whose session started the load (GCCX.handoff, 60 seconds); the frame
+  // itself has no name on it. Opened directly, or too late, there is no one to file it under.
+  window.GCCX.handoff.take('local', 'chapelPending').then((pending) => {
+    const user = pending && pending.user;
     if (!user) return;
     chrome.storage.local.set({ chapel: { ts: Date.now(), user, data } });
   });
