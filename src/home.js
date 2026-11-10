@@ -137,6 +137,7 @@
       if (myGen !== gen) return;
       const weekOf = sel;
       const days = wc.weekDays(weekOf);
+      load(weekOf); // mark the week loading before drawing, so an unloaded week never reads as empty
       const got = weeks.get(wc.ymd(days[0]));
       const events = Array.isArray(got) ? got : listed;
       range.textContent = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days[6], { month: 'short', day: 'numeric' })}`;

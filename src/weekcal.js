@@ -98,11 +98,19 @@
     const cols = shown.map((di, ci) => {
       const d = all[di], key = keys[di], data = byDay[di];
       const isToday = key === todayKey;
-      const timed = pack(data.timed).map((it) => {
+      // At most MAXC side by side: a fourth overlapping event would be too narrow to read. The rest are
+      // counted on the last visible one ("+2 more"); every event is still in the portal's List view.
+      const MAXC = o.maxCols > 0 ? o.maxCols : 3;
+      const packed = pack(data.timed);
+      const extra = new Map();
+      packed.forEach((it) => { if (it.c >= MAXC) { const host = packed.find((x) => x.c === MAXC - 1 && x.s < it.e && it.s < x.e); if (host) extra.set(host, (extra.get(host) || 0) + 1); } });
+      const timed = packed.filter((it) => it.c < MAXC).map((it) => {
         const top = (it.s - h0 * 60) / span * 100;
         const hgt = (it.e - it.s) / span * 100;
-        const w = 100 / (it.n || 1);
-        return itemHtml(it, `--t:${top.toFixed(3)}%;--h:${hgt.toFixed(3)}%;--l:${(it.c * w).toFixed(3)}%;--w:${w.toFixed(3)}%`);
+        const w = 100 / Math.min(it.n || 1, MAXC);
+        const more = extra.get(it);
+        const shown = more ? { ...it, sub: `+${more} more${it.sub ? ', ' + it.sub : ''}` } : it;
+        return itemHtml(shown, `--t:${top.toFixed(3)}%;--h:${hgt.toFixed(3)}%;--l:${(it.c * w).toFixed(3)}%;--w:${w.toFixed(3)}%`);
       }).join('');
       const nowLine = isToday && nowMin >= h0 * 60 && nowMin < h1 * 60
         ? `<div class="gccx-wk-now" aria-hidden="true" style="--t:${((nowMin - h0 * 60) / span * 100).toFixed(3)}%"></div>` : '';
