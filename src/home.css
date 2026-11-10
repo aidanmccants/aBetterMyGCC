@@ -123,3 +123,6 @@ html.gccx-homepage #gccx-home-ann .pSection > .row + .row { margin-top: 14px !im
 /* While the week is loading from myGCC, don't claim the days are empty */
 html.gccx-homepage #gccx-home-week[aria-busy="true"] :is(.gccx-wk-none, .gccx-wk-empty) { visibility: hidden; }
 html.gccx-homepage #gccx-home-week[aria-busy="true"] .gccx-hm-range::after { content: "Loading…"; margin-left: 10px; color: var(--x-faint); }
+
+/* The page's gear/print buttons float right just above the banner: give them room so they never touch it */
+html.gccx-homepage #PageBar_pageTitleButtons { margin-bottom: 16px !important; }

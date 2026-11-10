@@ -205,3 +205,18 @@ html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-title { order: 0; font
 html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-sub { order: 1; font-size: 11.5px; }
 html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-time { order: 2; font-size: 11.5px; }
 html.gccx-homepage .gccx-wk-allday .gccx-wk-item { flex-direction: row; gap: 6px; padding: 3px 6px; border-radius: 6px; }
+
+/* Home board in the Apple Calendar language: weekday over a big date, today circled; cards with the title first */
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-head { flex-direction: column; align-items: center; gap: 4px; padding: 0 0 6px; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-dow { font-size: 13px; font-weight: 600; color: var(--x-muted); }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-dn { order: 0; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-size: 19px; font-weight: 500; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-day.is-today .gccx-wk-dn { background: var(--x-accent); color: var(--x-accent-ink); font-weight: 650; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-day.is-today .gccx-wk-dow { color: var(--x-accent); }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-day { border-top: 0; padding: 6px 4px 10px; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-day.is-today { background: color-mix(in oklab, var(--x-accent) 5%, transparent); border-radius: 10px; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-day.is-past { opacity: .7; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-item { padding: 7px 9px 7px 10px; border-radius: 8px; border-left-width: 4px; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-title { order: 0; font-size: 13.5px; -webkit-line-clamp: 3; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-sub { order: 1; font-size: 12px; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-time { order: 2; font-size: 12px; font-weight: 500; }
+html.gccx-homepage .gccx-wk.is-board .gccx-wk-none { text-align: center; }
