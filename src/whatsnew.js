@@ -25,13 +25,14 @@
       ],
     },
     '1.2.0': {
-      sub: 'Academics and My Info feel tidier, and the home page is easier to read.',
+      sub: 'Your dashboard now lives on My Info, Home is all campus news, and Academics feels tidier.',
       features: [
+        { title: 'Your dashboard moved to My Info', desc: 'Classes, chapel, dining, degree progress, buildings, announcements, campus events and forum posts now sit together on My Info.' },
+        { title: 'Home is for campus news', desc: 'Home puts announcements and a week calendar of campus events up front, with resources below.' },
         { title: 'A clearer Academics page', desc: 'Your term, add/drop status, degree progress, advisor and major sit at the top, and your courses show up as a weekly calendar you can click through.' },
         { title: 'Grades, Dean’s List and transcript together', desc: 'Your grade report, Dean’s List letter and unofficial transcript now sit in one card.' },
         { title: 'A full degree audit link that works', desc: 'Full degree audit opens your audit straight from Academics.' },
         { title: 'My Info, tidied up', desc: 'Chapel attendance fits its card, and residence, vehicle and directory links sit together in one card.' },
-        { title: 'Easier home page reading', desc: 'Announcements and events are easier to scan, and event titles no longer hang indented.' },
         { title: 'Readable when you zoom', desc: 'Academics and My Info stay easy to read from 75% to 150% zoom, and embedded college pages resize to fit their content.' },
       ],
       fixes: [

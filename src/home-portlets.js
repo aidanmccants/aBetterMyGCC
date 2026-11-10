@@ -1,7 +1,8 @@
 // Enhance the original home portlets without replacing links, forms, or postbacks.
 (() => {
   'use strict';
-  const selector = '#portlet-grid .portlet';
+  // #gccx-home-main: home.js moves the announcement and event portlets there (sibling of #portlet-grid)
+  const selector = ':is(#portlet-grid, #gccx-home-main) .portlet';
   const root = document.documentElement;
   // Decode a single extra encoding layer as text. Escaping angle brackets before
   // parsing prevents encoded or literal markup from becoming live elements.
@@ -40,8 +41,9 @@
       pending = true;
       requestAnimationFrame(() => { pending = false; enhance(); });
     };
-    // New portlet content can arrive through an ASP.NET partial postback.
-    new MutationObserver(schedule).observe(host, { childList: true, subtree: true });
+    // New portlet content can arrive through an ASP.NET partial postback. Watch the grid's parent
+    // so portlets home.js moved next to the grid are covered too.
+    new MutationObserver(schedule).observe(host.parentNode || host, { childList: true, subtree: true });
     new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ['class'] });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

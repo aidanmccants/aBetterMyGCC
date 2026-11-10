@@ -178,7 +178,8 @@
     };
     const ready = () => {
       if (root.classList.contains('gccx-forums') && document.querySelector('.pt_ForumPortlet .forums-portlet')) return !!document.querySelector('.forums-portlet.gccx-fx-ready');
-      if (kind === 'home' && root.classList.contains('gccx') && document.querySelector('#portlet-grid')) return !!document.getElementById('gccx-dash');
+      // Home's redesign (home.js) draws its banner first; the dashboard now lives on My Info
+      if (kind === 'home' && root.classList.contains('gccx') && document.querySelector('#portlet-grid')) return !!document.getElementById('gccx-home-banner');
       return true;
     };
     const onDom = () => {

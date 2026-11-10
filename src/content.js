@@ -39,13 +39,23 @@
     if (ch.chapel) renderDashboard();
   });
 
+  // Home (the school page). Runs before X.loc() is guaranteed, so it only needs location.
+  function onHomePath() {
+    try {
+      const L = (X && X.loc) ? X.loc() : location;
+      const p = L.pathname.replace(/\/+$/, '').toLowerCase();
+      return ['/ics', '/ics/portal_homepage.jnz', '/ics/default.aspx'].includes(p) && !/portlet=|[?&]tool=/i.test(L.search);
+    } catch (e) { return false; }
+  }
+
   function applyLook() {
     const on = settings.enabled; // stock pages keep colours, fonts, banner hiding; only layout rules step aside
     root.classList.toggle('gccx', on);
     root.classList.toggle('gccx-stock-page', settings.enabled && stockPage);
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     root.classList.toggle('gccx-dark', on && dark);
-    root.classList.toggle('gccx-nobanner', on && settings.hidePromos);
+    // promos always show (redesigned) on Home; "Hide promos" applies everywhere else
+    root.classList.toggle('gccx-nobanner', on && settings.hidePromos && !onHomePath());
     window.GCCXThemes?.apply(settings);
   }
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);
@@ -295,7 +305,7 @@
   // Data per source, plus one status machine per source: loading | ready | empty | stale | error
   // (table GCCX.machines.card in machines.js; docs/STATE_MACHINES.md). Loading, "nothing to show"
   // and "could not load" used to look the same (null); the cards now say which it is.
-  const state = { schedule: null, degree: null, standing: null, registration: null, chapel: null, balance: null, menu: null };
+  const state = { schedule: null, degree: null, standing: null, registration: null, chapel: null, balance: null, menu: null, forums: null };
   const M = X.machines;
   const cards = Object.fromEntries(M.CARDS.map((k) => [k, X.machine('card ' + k, { initial: 'loading', states: M.card })]));
   const savedAt = {}; // key -> ts of the saved copy a stale card is showing
@@ -316,9 +326,8 @@
   function isHome() {
     const L = X.loc();
     const p = L.pathname.replace(/\/+$/, '').toLowerCase();
-    // Home, plus the My Info tab (myGCC sometimes lands there after sign-in)
-    const homes = ['/ics', '/ics/portal_homepage.jnz', '/ics/default.aspx',
-      '/ics/my_info', '/ics/my_info/default_page.jnz', '/ics/my_info/student.jnz', '/ics/my_info/default.aspx'];
+    // The dashboard lives on My Info only; Home is for school content (home.js)
+    const homes = ['/ics/my_info', '/ics/my_info/default_page.jnz', '/ics/my_info/student.jnz', '/ics/my_info/default.aspx'];
     return homes.includes(p) && !/portlet=|[?&]tool=/i.test(L.search);
   }
 
@@ -334,6 +343,12 @@
       load('balance', loadBalance(force)),
       load('menu', loadMenu()),
     ];
+    // forum posts come from the shared module (campusfeed.js); without it the card just stays empty
+    const viaFeed = (key, k) => {
+      if (!X.feed || !X.feed.load) { cached.info[key] = {}; return Promise.resolve(null); }
+      return X.feed.load(k, force).then((r) => { cached.info[key] = (r && r.info) || {}; return r ? r.data : null; });
+    };
+    tasks.push(load('forums', viaFeed('forums', 'forums')));
     renderDashboard();
     await Promise.allSettled(tasks.map((t) => t.then(renderDashboard)));
     renderDashboard();
@@ -383,7 +398,7 @@
       const pt = document.querySelector('#PageBar_pageTitle'); if (pt) { pt.hidden = true; pt.setAttribute('data-gccx-hidden', ''); }
     }
     el.querySelector('[data-refresh]')?.addEventListener('click', () => {
-      ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance'].forEach((k) => chrome.storage.local.remove(k));
+      ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'forums'].forEach((k) => chrome.storage.local.remove(k));
       M.CARDS.forEach((k) => move(k, 'REFRESH'));
       initDashboard(true);
     });
@@ -398,18 +413,24 @@
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // Command-center bar under the greeting. A stat is left out when its data is missing.
-  function heroHTML() {
-    const stats = [];
+  // "See academic progress" disclosure inside At a glance: GPA, credits. A figure is left out when its data is missing.
+  let progressOpen = false;
+  document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('x-progress')) progressOpen = e.target.open; }, true);
+  function progressHTML() {
+    const rows = [];
     const sg = state.standing;
-    if (sg && sg.gpa != null) stats.push({ href: DEGREE_URL, num: esc(sg.gpa.toFixed(2)), label: 'GPA', gpa: settings.hideGpa && !gpaShown });
-    if (sg && sg.earned != null) stats.push({ href: DEGREE_URL, num: `${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}`, label: 'Credits earned' });
-    if (state.schedule && state.schedule.courses.length) {
-      const credits = state.schedule.courses.reduce((s, c) => s + (c.credits || 0), 0);
-      stats.push({ href: SCHEDULE_URL, num: esc(credits), label: 'credits registered', title: 'This term' });
+    if (sg && sg.gpa != null) {
+      const locked = settings.hideGpa && !gpaShown;
+      rows.push(`<div class="x-prog-row"><dt>GPA</dt><dd><span class="x-gpa-stat${locked ? ' x-gpa-locked' : ''}"${locked ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : ''}><span class="x-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(sg.gpa.toFixed(2))}</span><span class="x-gpa-ring" aria-hidden="true"></span></span>${locked ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</span></dd></div>`);
     }
-    if (!stats.length) return '';
-    return `<div class="x-hero" data-gccx-state="${st('standing', 'schedule')}">${stats.map((s) => `<a class="x-hero-stat${s.gpa ? ' x-gpa-locked' : ''}" href="${esc(s.href)}"${s.gpa ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : s.title ? ` title="${s.title}"` : ''}><span class="x-hero-num">${s.gpa ? '<span class="x-gpa-mask">•.••</span><span class="x-gpa-real">' + s.num + '</span><span class="x-gpa-ring" aria-hidden="true"></span>' : s.num}</span><span class="x-hero-label">${esc(s.label)}</span>${s.gpa ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</a>`).join('')}</div>`;
+    if (sg && sg.earned != null) rows.push(`<div class="x-prog-row"><dt>Credits earned</dt><dd>${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}</dd></div>`);
+    if (sg && sg.inProgress != null) rows.push(`<div class="x-prog-row"><dt>Credits in progress</dt><dd>${esc(sg.inProgress)}</dd></div>`);
+    if (state.schedule && state.schedule.courses.length) {
+      const credits = state.schedule.courses.reduce((n, c) => n + (c.credits || 0), 0);
+      rows.push(`<div class="x-prog-row"><dt>Credits registered this term</dt><dd>${esc(credits)}</dd></div>`);
+    }
+    if (!rows.length) return `<a class="x-progress-link" href="${DEGREE_URL}">See academic progress</a>`;
+    return `<details class="x-progress"${progressOpen ? ' open' : ''}><summary>See academic progress</summary><dl class="x-prog">${rows.join('')}</dl><a class="x-prog-link" href="${DEGREE_URL}">Open degree progress</a>${staleNote('standing', 'schedule')}</details>`;
   }
 
   // GPA privacy: hidden until pressed and held; hides again when the pointer leaves.
@@ -434,7 +455,7 @@
     }, true);
     ['pointerup', 'pointercancel'].forEach((t) => document.addEventListener(t, () => cancel(document.querySelector('.x-gpa-holding')), true));
     document.addEventListener('pointerout', (e) => {
-      const el = e.target.closest?.('.x-hero-stat, .gx-gpa');
+      const el = e.target.closest?.('.x-gpa-stat, .gx-gpa');
       if (!el || el.contains(e.relatedTarget)) return;
       if (el.classList.contains('x-gpa-holding')) cancel(el);
       if (el.classList.contains('x-gpa-revealed') && settings.hideGpa) {
@@ -444,7 +465,7 @@
       }
     }, true);
     document.addEventListener('click', (e) => {
-      const el = e.target.closest?.('.x-hero-stat');
+      const el = e.target.closest?.('.x-gpa-stat');
       if (!el) return;
       if (el.classList.contains('x-gpa-locked') || el.dataset.justRevealed) { e.preventDefault(); delete el.dataset.justRevealed; }
     }, true);
@@ -465,7 +486,6 @@
     const hour = now.getHours();
     const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    const hero = heroHTML();
     const reg = registrationCard();
     const left = todayCard(now);
     const glance = glanceCard();
@@ -473,12 +493,29 @@
     const cash = `<div class="x-quick"><a class="x-quick-btn" href="${CASHNET_URL}" target="_blank" rel="noopener">CashNet <span>Student financials and CrimsonCash</span></a></div>`;
     return `
       <div class="x-hello"><h2>${greet}${user && user.first ? ', ' + esc(user.first) : ''}</h2><span class="x-date">${dateStr}</span></div>
-      ${hero}
       <div class="x-grid">
-        <div>${reg}${left}${dining}</div>
-        <div>${glance}${cash}${buildingsCard()}</div>
+        <div class="x-col">${reg}${left}${dining}${forumsCard()}</div>
+        <div class="x-col">${glance}${cash}${buildingsCard()}</div>
       </div>
       <div class="x-foot" data-gccx-state="${st(...M.CARDS)}"><span>${{ loading: 'Updating…', problem: 'Some info couldn\'t be refreshed', ok: 'Up to date' }[M.cardsFooter(M.CARDS.map((k) => cards[k].state))]}</span><button type="button" data-refresh>Refresh</button></div>`;
+  }
+
+  // ---- forum posts (data from GCCX.feed). Announcements and the campus calendar stay on Home
+  // (user's choice, 2026-11-09); My Info keeps the personal cards plus forum posts. ----
+  const feedMsg = (title, aside, text, key) => `<div class="x-card" data-gccx-state="${cards[key].state}"><h3>${title}${aside}</h3><p class="x-empty">${text}</p></div>`;
+
+  function forumsHref() {
+    try { return X.feed && X.feed.forumsUrl ? X.feed.forumsUrl(document) : '/ICS/Campus_Life/Forums.jnz?portlet=Forums'; } catch (e) { return '/ICS/Campus_Life/Forums.jnz?portlet=Forums'; }
+  }
+  function forumsCard() {
+    const f = state.forums, c = cards.forums.state, title = 'Forum posts';
+    const aside = `<a class="x-aside" href="${esc(forumsHref())}">All forums</a>`;
+    if (!f && c === 'loading') return feedMsg(title, aside, 'Loading forum posts…', 'forums');
+    if (!f && c === 'error') return feedMsg(title, aside, "Couldn't load forum posts. Try Refresh below.", 'forums');
+    const list = (Array.isArray(f) ? f : []).slice(0, 5);
+    if (!list.length) return '';
+    const li = list.map((p) => `<li><span class="x-forum">${p.forumHref ? `<a href="${esc(p.forumHref)}">${esc(p.forum)}</a>` : esc(p.forum)}</span>${p.href ? `<a class="x-post" href="${esc(p.href)}">${esc(p.title)}</a>` : `<span class="x-post">${esc(p.title)}</span>`}<span class="x-quiet">${[p.by ? 'by ' + esc(p.by) : '', esc(p.when)].filter(Boolean).join(' · ')}</span></li>`).join('');
+    return `<div class="x-card" data-gccx-state="${c}"><h3>${title}${aside}</h3><ul class="x-list x-forums">${li}</ul>${staleNote('forums')}</div>`;
   }
 
   function inTerm(c, d) {
@@ -672,8 +709,8 @@
         ${open.length ? `<ul class="x-reqs">${open.map((r) => `<li>${esc(r.name.replace(/\s*=\s*/, ' '))}</li>`).join('')}</ul>` : ''}${staleNote('degree')}</div>`);
     } else if (cards.degree.state === 'error') parts.push(failed('Degree requirements', DEGREE_URL));
     const status = st('chapel', 'balance', 'degree');
-    if (!parts.length) return status === 'loading' ? `<div class="x-card" data-gccx-state="loading"><h3>At a glance</h3><p class="x-empty">Loading…</p></div>` : '';
-    return `<div class="x-card" data-gccx-state="${status}"><h3>At a glance</h3>${parts.join('')}</div>`;
+    if (!parts.length && !state.standing) return status === 'loading' ? `<div class="x-card" data-gccx-state="loading"><h3>At a glance</h3><p class="x-empty">Loading…</p></div>` : '';
+    return `<div class="x-card x-glance" data-gccx-state="${status}"><h3>At a glance</h3>${parts.join('')}<div class="x-progress-wrap" data-gccx-state="${st('standing', 'schedule')}">${progressHTML()}</div></div>`;
   }
 
   function diningCard(now) {

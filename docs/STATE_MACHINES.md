@@ -62,7 +62,7 @@ Abandoned jobs are kept, not deleted. The drawer lists each course as added, not
 
 ## 2. Dashboard data
 
-Owner: `src/content.js`. Table: `GCCX.machines.card`. One machine per source: `schedule`, `degree`, `standing`, `registration`, `chapel`, `balance`, `menu`. Storage: the cache keys of the same names (`menu:*` for dining). Element: each `.x-card`, plus `.x-hero` and `.x-foot`, show the combined status.
+Owner: `src/content.js`. Table: `GCCX.machines.card`. One machine per source: `schedule`, `degree`, `standing`, `registration`, `chapel`, `balance`, `menu`, `forums`. Storage: the cache keys of the same names (`menu:*` for dining; `forums` is written by `campusfeed.js`). The dashboard is on My Info only. Element: each `.x-card`, plus `.x-progress-wrap` and `.x-foot`, show the combined status.
 
 ```
 loading --LOADED--> ready
@@ -147,7 +147,7 @@ Not handoffs, left as they are:
 
 ## Data cleared at sign-out
 
-When `signedout.js` sees myGCC's signed-out page it removes `schedule`, `degree`, `standing`, `balance`, `chapel`, `registration`, `nav`, `pageIndex`, `job`, `degreeMap` and `registered`, and logs the list. It keeps `settings`, `ai`, `onboarding`, `whatsnewSeen`, `menu:*`, and `plans`, `planTerm`, `termOptions`.
+When `signedout.js` sees myGCC's signed-out page it removes `schedule`, `degree`, `standing`, `balance`, `chapel`, `registration`, `nav`, `pageIndex`, `job`, `degreeMap`, `registered`, `homeFeed` and `forums`, and logs the list. It keeps `settings`, `ai`, `onboarding`, `whatsnewSeen`, `menu:*`, and `plans`, `planTerm`, `termOptions`.
 
 ## Known limitations
 

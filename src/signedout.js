@@ -162,11 +162,11 @@
 
   // Signing out must not leave one person's myGCC data on the computer for the next person.
   // These chrome.storage.local keys hold what was read from the signed-in person's pages
-  // (schedule, degree progress and GPA, balance, chapel, the search index, a registration job).
+  // (schedule, degree progress and GPA, balance, chapel, the search index, a registration job, the campus feed and forum posts).
   // Kept on purpose: settings, ai, onboarding, whatsnewSeen, menu:* (not personal), and plans,
   // planTerm and termOptions (a course plan is built over several sessions; they are filed
   // under the person's name and hold course sections only). See docs/STATE_MACHINES.md.
-  const USER_KEYS = ['schedule', 'degree', 'standing', 'balance', 'chapel', 'registration', 'nav', 'pageIndex', 'job', 'degreeMap', 'registered'];
+  const USER_KEYS = ['schedule', 'degree', 'standing', 'balance', 'chapel', 'registration', 'nav', 'pageIndex', 'job', 'degreeMap', 'registered', 'homeFeed', 'forums'];
   function clearUserData() {
     try {
       if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;

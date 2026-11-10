@@ -14,9 +14,9 @@ const EXPECT = {
   error: { REFRESH: 'loading', ARRIVED: 'ready' },
 };
 
-test('card table is exactly the expected one, for the seven dashboard sources', () => {
+test('card table is exactly the expected one, for the eight dashboard sources', () => {
   assert.deepEqual(M.card, EXPECT);
-  assert.deepEqual(M.CARDS, ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'menu']);
+  assert.deepEqual(M.CARDS, ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'menu', 'forums']);
 });
 
 test('every card state takes its allowed moves and refuses every other event', () => {

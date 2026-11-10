@@ -77,3 +77,8 @@ html.gccx a.gccx-d2l-link:focus-visible { outline: 2px solid var(--x-accent); ou
 html.gccx.gccx-plan-open #main-nav > li > a,
 html.gccx.gccx-plan-open .gccx-community-btn,
 html.gccx.gccx-plan-open a.gccx-d2l-link { padding-left: 7px !important; padding-right: 7px !important; }
+
+/* Fourteen tabs at 15px do not fit narrow windows (the page scrolled sideways at 1214px): tighten, then wrap. */
+@media (max-width: 1440px) { html.gccx #main-nav > li > :is(a, button) { padding-inline: 9px !important; } }
+@media (max-width: 1280px) { html.gccx #main-nav > li > :is(a, button) { padding-inline: 7px !important; font-size: 14px !important; } }
+@media (max-width: 1100px) { html.gccx #main-nav { flex-wrap: wrap !important; } }

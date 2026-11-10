@@ -26,3 +26,11 @@ html.gccx-info .gccx-info-merged .gccx-info-head {
 }
 html.gccx-info .gccx-info-merged .gccx-info-part > .portlet-padding { padding: 0 !important; margin: 0 !important; }
 html.gccx-info .gccx-info-merged .gccx-info-part a[href] { display: inline-block; margin: 2px 16px 2px 0; font-weight: 600; text-underline-offset: 3px; }
+
+/* Portal cards under the dashboard share its columns (3fr / 2fr, 20px gap), so every card edge lines up */
+html.gccx-info #portlet-grid, html.gccx-info #portlet-grid > .row { margin-inline: 0 !important; padding-inline: 0 !important; }
+html.gccx-info #portlet-grid > .row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0 20px; }
+html.gccx-info #portlet-grid > .row::before, html.gccx-info #portlet-grid > .row::after { content: none; }
+html.gccx-info #portlets #portlet-grid .portlet-column { width: auto !important; float: none !important; padding-inline: 0 !important; min-width: 0; }
+html.gccx-info #portlets { container: gccxinfo / inline-size; }
+@container gccxinfo (max-width: 760px) { html.gccx-info #portlet-grid > .row { grid-template-columns: minmax(0, 1fr); } } /* the dashboard stacks at the same width */

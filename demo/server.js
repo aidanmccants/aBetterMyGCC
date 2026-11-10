@@ -197,18 +197,41 @@
   }
   const termSelect = (id, name, selected, autopost) => `<select id="${id}" name="${name}"${autopost ? ' data-autopostback' : ''}>${TERMS.map((t) => `<option value="${h(t.value)}"${t.value === selected ? ' selected' : ''}>${h(t.label)}</option>`).join('')}</select>`;
 
+  // ---------- home: announcements and this week's events (relative to today, so the demo never goes stale) ----------
+  const ANNOUNCEMENTS = [
+    ['/ICS/Campus_Life/Events.jnz', 'Registration and planning are open', 'Posted ' + mdy(now) + ' by Registrar', 'Plan next term from Academics, Add/Drop Courses. Advisors have extra hours this week.'],
+    ['/ICS/Campus_Life/Events.jnz', 'Library hours extended during finals', 'Posted ' + mdy(new Date(now.getTime() - DAY)) + ' by Library', 'The library stays open until 2 AM through finals week. Quiet floors are on levels 2 and 3.'],
+    ['/ICS/Campus_Life/Events.jnz', 'Flu clinic on Thursday', 'Posted ' + mdy(new Date(now.getTime() - 2 * DAY)) + ' by Health Services', 'Free flu shots in the student union, no appointment needed.'],
+    ['/ICS/Campus_Life/Events.jnz', 'Shuttle schedule changes', 'Posted ' + mdy(new Date(now.getTime() - 4 * DAY)) + ' by Campus Safety', 'Evening shuttles now run every 20 minutes until midnight.'],
+  ];
+  function eventsList() {
+    const back = (now.getDay() + 6) % 7; // Monday of this week
+    const day = (n) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - back + n);
+    const EV = [ // [day offset from Monday, time text, title, location]
+      [0, 'All Day', 'Fall food drive', 'Sample Student Union'],
+      [0, '10:00 AM - 11:00 AM', 'Career center drop-in hours', 'Sample Career Center'],
+      [1, '12:00 PM - 1:00 PM', 'Faculty lunch and learn', 'Sample Dining Hall'],
+      [2, '7:00 PM - 9:00 PM', 'Student music and arts evening', 'Sample Arts Building'],
+      [3, 'All Day', 'Flu clinic', 'Sample Student Union'],
+      [3, '1:30 PM - 3:00 PM', 'Research and internship workshop', 'Sample Student Union'],
+      [3, '2:00 PM - 4:00 PM', 'Open lab: robotics club', 'Sample Science Center'],
+      [4, '6:00 PM', 'Movie night on the lawn', 'Sample Quad'],
+      [5, '11:00 AM - 1:00 PM', 'Community service Saturday', 'Sample Chapel'],
+    ];
+    let out = '', last = -1;
+    EV.forEach((e) => {
+      if (e[0] !== last) { last = e[0]; out += `<div class="date">${h(day(e[0]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))}</div>`; }
+      out += `<div><span>${h(e[1])}</span><span><a href="/ICS/Campus_Life/Events.jnz">${h(e[2])}</a></span><div class="location">${h(e[3])}</div></div>`;
+    });
+    return `<div class="calendar-list-view">${out}</div>`;
+  }
+
   // ---------- pages ----------
   function homePage(url) {
     const body = `<div id="portlet-grid">
       ${portlet('pi_Welcome', 'Welcome', '<p>Welcome to the sample student portal used by the aBetterMyGCC demo.</p>')}
-      ${portlet('pi_Announcements', 'Campus Announcements', `<ul>
-        <li><b>Registration &amp;amp; planning are open.</b> Plan next term from Academics, Add/Drop Courses.</li>
-        <li><b>Library hours extended</b> during finals week, until 2 AM.</li>
-        <li><b>Flu clinic</b> Thursday in the student union, no appointment needed.</li></ul>`)}
-      ${portlet('pt_CalendarPortlet', 'Upcoming events', `<table class="calendar-list-view"><tbody>
-        <tr><td class="event-date">Today</td><td><a href="/ICS/Campus_Life/Events.jnz">Student music &amp;amp; arts evening</a><div class="event-time">7:00 PM</div><div class="event-location">Sample Arts Building</div></td></tr>
-        <tr><td class="event-date">Tomorrow</td><td><a href="/ICS/Campus_Life/Events.jnz">Research &amp;amp; internship workshop</a><div class="event-time">4:00 PM</div><div class="event-location">Sample Student Union</div></td></tr>
-      </tbody></table>`)}
+      ${portlet('pi_Announcements', 'Campus Announcements', ANNOUNCEMENTS.map((a) => `<div class="post-item"><h4><a href="${h(a[0])}">${h(a[1])}</a></h4><div class="post-info">${h(a[2])}</div><div class="post-content"><p>${h(a[3])}</p></div></div>`).join(''))}
+      ${portlet('pt_CalendarPortlet', 'Upcoming events', eventsList())}
       ${portlet('pi_Links', 'Need help?', '<p>Questions about this portal go to the IT Help Desk under Resources.</p><p><a href="/ICS/Campus_Life/Forums.jnz?portlet=Forums&amp;screen=Main">Try the sample forums</a></p>')}
     </div>`;
     return shell({ url, tab: 'Home', title: 'Home', body, home: true, side: [P('Home', '/ICS/')] });
@@ -390,6 +413,23 @@
   function textPage(url, tab, p) {
     return shell({ url, tab: tab.label, title: p.title, body: portlet('pi_Free_form_Content', p.title, `<div class="wysiwygtext"><p>${h(p.text)}</p></div>`) });
   }
+  // My Info landing page: two portlet columns like the live tab (the dashboard draws above #portlet-grid;
+  // myinfo.js merges the residence/vehicle/directory cards by these ids).
+  function myInfoPage(url) {
+    const card = (id, cls, title, inner) => `<div id="${id}" class="portlet ${cls}"><div class="portlet-header-bar"><h3>${h(title)}</h3></div><div class="portlet-padding"><div class="pSection">${inner}</div></div></div>`;
+    const body = `<div id="portlet-grid" class="portlet-grid two_column_even"><div class="row">
+      <div class="portlet-column col-md-6">
+        ${card('pg0_Universal_Portlet', 'pi_Universal_Portlet', 'Chapel Attendance', `<p>Your chapel credits for this term. <a href="${h(CHAPEL_URL)}">Open chapel attendance</a></p>`)}
+        ${card('pg1_Profile', 'pi_Free_form_Content', 'My Profile', '<p><a href="/ICS/My_Info/Profile.jnz">Update your preferred name and cell phone</a></p>')}
+      </div>
+      <div class="portlet-column col-md-6">
+        ${card('pg6_ResidenceInfo', 'pi_ResidenceInfo', 'My Residence Information', '<a href="/ICS/My_Info/Housing.jnz">Housing assignment</a>')}
+        ${card('pg7_VehicleInfo', 'pi_VehicleInfo', 'My Vehicle Information', '<a href="/ICS/My_Info/Profile.jnz">Register a vehicle</a>')}
+        ${card('pg8_PDFReports', 'pi_PDFReports', 'Directories', '<a href="/ICS/My_Info/Profile.jnz">Student directory</a> <a href="/ICS/My_Info/Profile.jnz">Faculty and staff directory</a>')}
+      </div>
+    </div></div>`;
+    return shell({ url, tab: 'My Info', title: 'My Info', body });
+  }
   function tabPage(url, tab) {
     const list = tab.pages.map((p) => `<li><a href="${h(p.href)}">${h(p.title)}</a></li>`).join('');
     return shell({ url, tab: tab.label, title: tab.label, body: portlet('pi_Free_form_Content', `${tab.label} pages`, `<ul>${list}</ul>`) });
@@ -433,6 +473,16 @@
     const form = { get: (k) => { if (raw.has(k)) return raw.get(k); for (const [n, v] of raw) if (n.endsWith(k)) return v; return null; }, keys: () => raw.keys() };
     const full = u.pathname + u.search;
     const p = path.toLowerCase();
+    // the portal's iCal export (/ICS/api/ical/<id>): two sample events this week, one repeating, in calendar format
+    if (/^\/ics\/api\/ical\//.test(p)) {
+      const d = new Date(); const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+      const stamp = (x, hh, mm) => `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, '0')}${String(x.getDate()).padStart(2, '0')}T${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}00`;
+      const tue = new Date(mon); tue.setDate(mon.getDate() + 1);
+      return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Jenzabar//JICS Calendar//EN',
+        'BEGIN:VEVENT', `DTSTART:${stamp(tue, 17, 0)}`, `DTEND:${stamp(tue, 18, 30)}`, 'SUMMARY:Sample feed event: Career fair prep', 'LOCATION:Sample Student Union', 'END:VEVENT',
+        'BEGIN:VEVENT', `DTSTART:${stamp(mon, 8, 0)}`, `DTEND:${stamp(mon, 8, 50)}`, 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=30', 'SUMMARY:Class Session (DATA STRUCTURES (COMP 205 A))', 'LOCATION:STEM 120', 'END:VEVENT',
+        'END:VCALENDAR'].join(String.fromCharCode(13, 10));
+    }
     if (p === '/ics/campus_life/forums.jnz') return forumPage(full, (u.searchParams.get('screen') || 'Main').toLowerCase());
     if (p === '/ics' || p === '/ics/portal_homepage.jnz' || p === '/ics/default.aspx') return homePage(full);
     if (p === '/ics/academics/home.jnz') {
@@ -442,6 +492,7 @@
       return tabPage(full, TABS[1]);
     }
     if (p === '/ics/my_info/student.jnz') return chapelPage(full);
+    if (p === '/ics/my_info' || p === '/ics/my_info/default_page.jnz') return myInfoPage(full);
     if (p === '/ics/financial/student_accounts.jnz') return balancePage(full);
     for (const tab of TABS) {
       if (tab.href.replace(/\/+$/, '').toLowerCase() === p) return tabPage(full, tab);

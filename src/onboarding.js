@@ -55,7 +55,7 @@
   function sync() { controls.forEach((c) => c._sync()); }
 
   const FEATURES = () => [
-    ['Your day on the Home page', 'Classes with rooms and professors, chapel credits, account balance, degree progress, and what’s for dinner at Hicks and MAP.'],
+    ['Your day on My Info', 'Classes with rooms and professors, chapel credits, account balance, degree progress, and what’s for dinner at Hicks and MAP. Home keeps campus news and events.'],
     ['Course planner on Add/Drop', 'Save sections, see conflicts on a week calendar, then register for everything at once. Export as text or CSV.'],
     ['Search', `Press ${isMac ? '⌘ K' : 'Ctrl K'} on any page to jump anywhere.`],
     ['Term dropdowns', 'They start at the current term and are color-coded by season.'],
@@ -74,7 +74,7 @@
 
     const theme = segmented('Appearance', 'theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]);
     const hall = segmented('Default dining hall', 'hall', [['hicks-cafe', 'Hicks'], ['map-cafe', 'MAP']]);
-    const dash = toggle('gccx-ob-dashboard', 'dashboard', 'Show my day on the Home page');
+    const dash = toggle('gccx-ob-dashboard', 'dashboard', 'Show my day on My Info');
     const promo = toggle('gccx-ob-promos', 'hidePromos', 'Hide promo banners');
     const gpa = toggle('gccx-ob-gpa', 'hideGpa', 'Hide my GPA (press and hold to show)');
     controls = [theme, hall, dash, promo, gpa];

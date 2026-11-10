@@ -58,6 +58,8 @@
         "src/forums.css",
         "src/quicklinks.css",
         "src/home-portlets.css",
+        "src/weekcal.css",
+        "src/home.css",
         "src/feedback.css",
         "src/academics.css",
         "src/myinfo.css",
@@ -70,6 +72,8 @@
         "src/loading.js",
         "src/lib.js",
         "src/machines.js",
+        "src/weekcal.js",
+        "src/campusfeed.js",
         "src/searchnote.js",
         "src/terms.js",
         "src/facilities.js",
@@ -86,6 +90,7 @@
         "src/community.js",
         "src/forums.js",
         "src/home-portlets.js",
+        "src/home.js",
         "src/feedback.js"
       ],
       "run_at": "document_start"

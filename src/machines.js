@@ -102,7 +102,7 @@
   //   stale    the refresh failed, so a saved copy is shown, with a note saying how old it is
   //   error    the refresh failed and there is no saved copy
   // ARRIVED: data that turns up outside the loader (chapel numbers come from a frame, via storage).
-  const CARDS = ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'menu'];
+  const CARDS = ['schedule', 'degree', 'standing', 'registration', 'chapel', 'balance', 'menu', 'forums'];
   const card = {
     loading: { LOADED: 'ready', EMPTY: 'empty', STALE: 'stale', FAILED: 'error', ARRIVED: 'ready' },
     ready: { REFRESH: 'loading' },

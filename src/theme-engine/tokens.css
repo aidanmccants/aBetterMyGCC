@@ -49,8 +49,8 @@ html.gccx.gccx-dark {
   --x-ground-muted: #26262a;
   --x-ink: #ececee;
   --x-muted: #b4b3b8;
-  --x-faint: #96959a;         /* 5.5:1 on surface */
-  --x-rule: #333337;
+  --x-faint: #a5a4aa;         /* 6.9:1 on surface (was #96959a, read as too dim) */
+  --x-rule: #3c3c41;
   --x-rule-strong: #47474c;
   --x-accent: #ef6b62;        /* 5.4:1 on surface */
   --x-accent-hover: #ff8a80;
