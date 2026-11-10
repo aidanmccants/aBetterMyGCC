@@ -190,3 +190,18 @@ html.gccx .gccx-wk.is-day .gccx-wk-item.is-mid .gccx-wk-sub { grid-column: 2; gr
 html.gccx .gccx-wkd-strip .gccx-wkd-pick, html.gccx .gccx-wkd-strip .gccx-wkd-pick[aria-pressed] { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--x-ink) !important; min-height: 0; }
 html.gccx .gccx-wkd-strip .gccx-wkd-pick:hover { background: var(--x-ground-muted) !important; }
 html.gccx .gccx-wkd-strip .gccx-wkd-pick:active { background: var(--x-rule) !important; }
+
+/* Week grid in the Apple Calendar language (Home): day numbers with today circled, roomy hours,
+   tinted blocks with a left bar, the title first */
+html.gccx-homepage .gccx-wk:not(.is-board):not(.is-day) { --wk-hour: 56px; }
+html.gccx-homepage .gccx-wk-grid { column-gap: 4px; }
+html.gccx-homepage .gccx-wk-head { gap: 4px; padding: 0 0 8px; font-size: 13px; }
+html.gccx-homepage .gccx-wk-dn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; font-weight: 500; }
+html.gccx-homepage .gccx-wk-day.is-today .gccx-wk-dn { background: var(--x-accent); color: var(--x-accent-ink); font-weight: 650; }
+html.gccx-homepage .gccx-wk-body { background: repeating-linear-gradient(to bottom, var(--x-rule) 0 1px, transparent 1px var(--wk-hour)); border-radius: 0; }
+html.gccx-homepage .gccx-wk-day.is-today .gccx-wk-body { box-shadow: none; background-color: color-mix(in oklab, var(--x-accent) 5%, transparent); }
+html.gccx-homepage .gccx-wk-body > .gccx-wk-item { padding: 4px 6px 4px 8px; border-radius: 6px; border-left-width: 3px; gap: 1px; }
+html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-title { order: 0; font-size: 12.5px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-sub { order: 1; font-size: 11.5px; }
+html.gccx-homepage .gccx-wk-body > .gccx-wk-item .gccx-wk-time { order: 2; font-size: 11.5px; }
+html.gccx-homepage .gccx-wk-allday .gccx-wk-item { flex-direction: row; gap: 6px; padding: 3px 6px; border-radius: 6px; }

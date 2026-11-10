@@ -1074,3 +1074,7 @@ html.gccx .wysiwygtext p { max-width: 75ch; }
 @media (prefers-reduced-motion: reduce) {
   #gccx-dash .x-progress > summary, #gccx-dash a.x-progress-link, #gccx-dash .x-progress > summary::after { transition: none; }
 }
+
+/* Sidebar link icons: room for the icon so long labels never run under it */
+html.gccx #sideBar a.anchor-contains-icon { padding-right: 30px !important; }
+html.gccx #sideBar a.anchor-contains-icon > .sidebar-icon-link { right: 8px !important; left: auto !important; top: 50% !important; transform: translateY(-50%); margin: 0 !important; }

@@ -141,7 +141,7 @@
       const events = Array.isArray(got) ? got : listed;
       range.textContent = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days[6], { month: 'short', day: 'numeric' })}`;
       card.setAttribute('aria-busy', String(got === 'loading'));
-      weekBox.innerHTML = wc.render(hide.includes('class') ? events.filter((e) => e.kind !== 'class') : events, { weekOf, selected: sel, today: now, days: 7, layout: 'day', label: 'Calendar' });
+      weekBox.innerHTML = wc.render(hide.includes('class') ? events.filter((e) => e.kind !== 'class') : events, { weekOf, today: now, days: 7, label: 'Calendar for the week' });
       const root = weekBox.querySelector('.gccx-wk');
       if (root) root.dataset.hide = hide;
       const has = (k) => events.some((e) => (e.kind === 'class' ? 'class' : 'event') === k);
