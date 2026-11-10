@@ -139,6 +139,35 @@
     };
   }
 
+  // "15.00 Credits; 5 Requirement(s); GPA (3.39)" -> { credits: 15, requirements: 5, courses: null, gpa: '3.39' }
+  function amounts(s) {
+    const t = String(s || '');
+    const grab = (re) => { const m = re.exec(t); return m ? num(m[1]) : null; };
+    const g = /GPA\s*\(?\s*([\d.]+)/i.exec(t);
+    return {
+      credits: grab(/([\d.]+)\s*(?:credits?|hours?)\b/i),
+      requirements: grab(/([\d.]+)\s*requirement/i),
+      courses: grab(/([\d.]+)\s*courses?\b/i),
+      gpa: g ? g[1] : '',
+      plain: /^\s*[\d.]+\s*$/.test(t) ? num(t) : null, // an older layout: a bare number
+    };
+  }
+  function amountText(need, got) {
+    const units = [['credits', 'credits'], ['requirements', 'requirements'], ['courses', 'courses']];
+    for (const [k, label] of units) {
+      const one = (n) => (n === 1 ? label.replace(/s$/, '') : label);
+      if (need[k] > 0 && got[k] > need[k]) return `${fmt(got[k])} ${one(got[k])} (${fmt(need[k])} needed)`; // more than needed
+      if (need[k] > 0) return `${fmt(got[k] || 0)} of ${fmt(need[k])} ${one(need[k])}`;
+    }
+    if (need.plain > 0) return `${fmt(got.plain ?? got.credits ?? 0)} of ${fmt(need.plain)}`;
+    const bits = [];
+    if (got.credits > 0) bits.push(`${fmt(got.credits)} credits earned`);
+    else if (got.requirements > 0) bits.push(`${fmt(got.requirements)} done`);
+    else if (got.plain > 0) bits.push(`${fmt(got.plain)} earned`);
+    if (got.gpa) bits.push(`GPA ${got.gpa}`);
+    return bits.join(', ');
+  }
+
   function parseDetail(doc) {
     const catTable = tableOf(doc.querySelector('[id$="dgCategoryRequirements"]'));
     const detailTable = [...doc.querySelectorAll('table')].find((t) => t !== catTable && readGrid(t, /^req$/i));
@@ -173,20 +202,15 @@
     const categories = [];
     const cg = readGrid(catTable, /^requirement$/i);
     if (cg) {
-      const cc = { name: col(cg.head, /^requirement/), status: col(cg.head, /^status/) };
-      // A category can have both course and hour columns ("Courses Needed", "Hours Needed", ...). Taking
-      // the first "needed" and the first "earned" mixed units and printed "11 of 0". Per row, use the
-      // needed column that has a number and the earned column of the same unit.
-      const idx = (re) => cg.head.map((h, i) => (re.test(h) ? i : -1)).filter((i) => i >= 0);
-      const neededCols = idx(/needed/), earnedCols = idx(/earned/);
-      const unit = (h) => (/hour|credit/.test(h) ? 'hours' : /course/.test(h) ? 'courses' : '');
+      const cc = { name: col(cg.head, /^requirement/), status: col(cg.head, /^status/), needed: col(cg.head, /needed/), earned: col(cg.head, /earned/) };
+      // Live cells are text with units, not numbers (2026-11-09): Needed is often blank or "1 Requirement(s)";
+      // Earned is "15.00 Credits; 5 Requirement(s); 50.97 Quality Points; GPA (3.39)". Reading them as plain
+      // numbers printed "15 of 0". Read each amount by its unit and compare like with like.
       for (const { cells } of cg.body) {
         const name = at(cells, cc.name);
         if (!name) continue;
-        const ni = neededCols.find((i) => num(at(cells, i)) > 0) ?? neededCols[0] ?? -1;
-        const u = ni >= 0 ? unit(cg.head[ni]) : '';
-        const ei = earnedCols.find((i) => u && unit(cg.head[i]) === u) ?? earnedCols[0] ?? -1;
-        categories.push({ name, met: isMet(at(cells, cc.status)), needed: num(at(cells, ni)), earned: num(at(cells, ei)), unit: u });
+        const need = amounts(at(cells, cc.needed)), got = amounts(at(cells, cc.earned));
+        categories.push({ name, met: isMet(at(cells, cc.status)), amount: amountText(need, got) });
       }
     }
     return { rows, categories };
@@ -259,7 +283,7 @@
   }
 
   function detailHTML(d) {
-    const cats = (d.categories || []).map((c) => `<li class="gx-cat${c.met ? ' is-done' : ''}"><span>${esc(c.name)}</span><span>${c.met ? `<span class="gx-tick" aria-hidden="true">${CHECK}</span> ` : ''}${c.needed > 0 ? `${fmt(c.earned)} of ${fmt(c.needed)}${c.unit ? ' ' + c.unit : ''}` : c.earned > 0 ? `${fmt(c.earned)}${c.unit ? ' ' + c.unit : ''} earned` : ''}</span></li>`).join('');
+    const cats = (d.categories || []).map((c) => `<li class="gx-cat${c.met ? ' is-done' : ''}"><span>${esc(c.name)}</span><span>${c.met ? `<span class="gx-tick" aria-hidden="true">${CHECK}</span> ` : ''}${esc(c.amount != null ? c.amount : c.needed > 0 ? `${fmt(c.earned)} of ${fmt(c.needed)}` : '')}</span></li>`).join('');
     const rows = (d.rows || []).map(rowHTML).join('');
     return (cats ? `<ul class="gx-cats">${cats}</ul>` : '') + (rows ? `<ul class="gx-rows">${rows}</ul>` : '');
   }
