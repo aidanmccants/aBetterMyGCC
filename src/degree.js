@@ -173,15 +173,20 @@
     const categories = [];
     const cg = readGrid(catTable, /^requirement$/i);
     if (cg) {
-      const cc = {
-        name: col(cg.head, /^requirement/),
-        status: col(cg.head, /^status/),
-        needed: col(cg.head, /needed/),
-        earned: col(cg.head, /earned/),
-      };
+      const cc = { name: col(cg.head, /^requirement/), status: col(cg.head, /^status/) };
+      // A category can have both course and hour columns ("Courses Needed", "Hours Needed", ...). Taking
+      // the first "needed" and the first "earned" mixed units and printed "11 of 0". Per row, use the
+      // needed column that has a number and the earned column of the same unit.
+      const idx = (re) => cg.head.map((h, i) => (re.test(h) ? i : -1)).filter((i) => i >= 0);
+      const neededCols = idx(/needed/), earnedCols = idx(/earned/);
+      const unit = (h) => (/hour|credit/.test(h) ? 'hours' : /course/.test(h) ? 'courses' : '');
       for (const { cells } of cg.body) {
         const name = at(cells, cc.name);
-        if (name) categories.push({ name, met: isMet(at(cells, cc.status)), needed: num(at(cells, cc.needed)), earned: num(at(cells, cc.earned)) });
+        if (!name) continue;
+        const ni = neededCols.find((i) => num(at(cells, i)) > 0) ?? neededCols[0] ?? -1;
+        const u = ni >= 0 ? unit(cg.head[ni]) : '';
+        const ei = earnedCols.find((i) => u && unit(cg.head[i]) === u) ?? earnedCols[0] ?? -1;
+        categories.push({ name, met: isMet(at(cells, cc.status)), needed: num(at(cells, ni)), earned: num(at(cells, ei)), unit: u });
       }
     }
     return { rows, categories };
@@ -254,7 +259,7 @@
   }
 
   function detailHTML(d) {
-    const cats = (d.categories || []).map((c) => `<li class="gx-cat${c.met ? ' is-done' : ''}"><span>${esc(c.name)}</span><span>${c.met ? `<span class="gx-tick" aria-hidden="true">${CHECK}</span> ` : ''}${fmt(c.earned)} of ${fmt(c.needed)}</span></li>`).join('');
+    const cats = (d.categories || []).map((c) => `<li class="gx-cat${c.met ? ' is-done' : ''}"><span>${esc(c.name)}</span><span>${c.met ? `<span class="gx-tick" aria-hidden="true">${CHECK}</span> ` : ''}${c.needed > 0 ? `${fmt(c.earned)} of ${fmt(c.needed)}${c.unit ? ' ' + c.unit : ''}` : c.earned > 0 ? `${fmt(c.earned)}${c.unit ? ' ' + c.unit : ''} earned` : ''}</span></li>`).join('');
     const rows = (d.rows || []).map(rowHTML).join('');
     return (cats ? `<ul class="gx-cats">${cats}</ul>` : '') + (rows ? `<ul class="gx-rows">${rows}</ul>` : '');
   }
