@@ -73,20 +73,23 @@
     return m;
   }
 
-  /* ---------- campus events week ---------- */
+  /* ---------- calendar week ---------- */
   const KEY = 'gccx-home-week';
+  const HIDE_KEY = 'gccx-home-hide';
   const fmt = (d, o) => d.toLocaleDateString(undefined, o);
   function weekCard(grid, eventsPortlet) {
     const wc = X.weekcal, feed = X.feed;
     if (!wc || !feed) { warn('GCCX.weekcal / GCCX.feed missing; skipping the events calendar'); throw new Error('weekcal missing'); }
     const myGen = gen;
     const now = new Date();
-    let events = [];
-    try { events = feed.parseEvents(document, now) || []; } catch (e) { warn('could not read events', { error: String(e) }); }
-    let mode = 'week';
-    try { mode = localStorage.getItem(KEY) === 'list' ? 'list' : 'week'; } catch (e) { /* storage unavailable */ }
+    // What the portal's own list shows (today, usually) until the full week arrives from its events API
+    let listed = [];
+    try { listed = feed.parseEvents(document, now) || []; } catch (e) { warn('could not read events', { error: String(e) }); }
+    const weeks = new Map(); // monday ymd -> events from the API, or 'loading' / null (failed)
+    let mode = 'week', hide = '';
+    try { mode = localStorage.getItem(KEY) === 'list' ? 'list' : 'week'; const h = localStorage.getItem(HIDE_KEY); hide = h == null ? 'class' : h; } catch (e) { hide = 'class'; } // Home is for the school: classes start hidden
     if (mode === 'list' && !eventsPortlet) mode = 'week';
-    let offset = 0;
+    let sel = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // the picked day
 
     const card = el('section', 'gccx-hm-card');
     card.id = 'gccx-home-week';
@@ -94,17 +97,21 @@
     const title = el('h3', null, 'Calendar');
     const range = el('span', 'gccx-hm-range');
     const tools = el('div', 'gccx-hm-tools');
+    const chips = el('div', 'gccx-hm-chips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Show');
+    const chip = (kind, label) => { const b = el('button', 'gccx-hm-chip is-' + kind, label); b.type = 'button'; b.dataset.kind = kind; return b; };
+    const cEvent = chip('event', 'Campus events'), cClass = chip('class', 'Classes');
+    chips.append(cEvent, cClass);
     const nav = el('div', 'gccx-hm-nav');
     const prev = el('button', 'gccx-hm-btn2', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', 'Previous week');
     const next = el('button', 'gccx-hm-btn2', '›'); next.type = 'button'; next.setAttribute('aria-label', 'Next week');
-    const todayB = el('button', 'gccx-hm-btn2 gccx-hm-today', 'This week'); todayB.type = 'button';
+    const todayB = el('button', 'gccx-hm-btn2 gccx-hm-today', 'Today'); todayB.type = 'button';
     nav.append(prev, todayB, next);
     const seg = el('div', 'gccx-hm-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Events view');
     const bw = el('button', null, 'Week'), bl = el('button', null, 'List');
     [bw, bl].forEach((b) => { b.type = 'button'; });
     seg.append(bw);
     if (eventsPortlet) seg.append(bl);
-    tools.append(nav, seg);
+    tools.append(chips, nav, seg);
     head.append(title, range, tools);
     const weekBox = el('div', 'gccx-hm-weekbox');
     const listBox = el('div', 'gccx-hm-listbox');
@@ -112,12 +119,34 @@
     mainWrap(grid).appendChild(card);
     if (eventsPortlet) move(eventsPortlet, listBox);
 
+    const monday = (d) => wc.weekDays(d)[0];
+    function load(weekOf) {
+      const m = monday(weekOf), key = wc.ymd(m);
+      if (weeks.has(key) || !feed.calendarEvents) return;
+      weeks.set(key, 'loading');
+      const to = new Date(m.getFullYear(), m.getMonth(), m.getDate() + 7);
+      feed.calendarEvents(document, m, to).then((list) => {
+        if (myGen !== gen) return;
+        weeks.set(key, list); // null: no ids on the page or the call failed; the listed events stay
+        if (list == null && !warned) { warned = true; warn('calendar events API unavailable; showing the portal list only'); }
+        paint();
+      });
+    }
+    let warned = false;
     function paint() {
       if (myGen !== gen) return;
-      const weekOf = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7);
+      const weekOf = sel;
       const days = wc.weekDays(weekOf);
+      const got = weeks.get(wc.ymd(days[0]));
+      const events = Array.isArray(got) ? got : listed;
       range.textContent = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days[6], { month: 'short', day: 'numeric' })}`;
-      weekBox.innerHTML = wc.render(events, { weekOf, today: now, days: 7, layout: 'board', label: 'Calendar for the week' });
+      card.setAttribute('aria-busy', String(got === 'loading'));
+      weekBox.innerHTML = wc.render(hide.includes('class') ? events.filter((e) => e.kind !== 'class') : events, { weekOf, selected: sel, today: now, days: 7, layout: 'day', label: 'Calendar' });
+      const root = weekBox.querySelector('.gccx-wk');
+      if (root) root.dataset.hide = hide;
+      const has = (k) => events.some((e) => (e.kind === 'class' ? 'class' : 'event') === k);
+      [cEvent, cClass].forEach((b) => { b.setAttribute('aria-pressed', String(!hide.split(' ').includes(b.dataset.kind))); b.hidden = !has(b.dataset.kind); });
+      chips.hidden = mode !== 'week' || !(has('class') && has('event'));
       card.dataset.mode = mode;
       weekBox.hidden = mode !== 'week';
       listBox.hidden = mode !== 'list';
@@ -125,38 +154,44 @@
       range.hidden = mode !== 'week';
       bw.setAttribute('aria-pressed', String(mode === 'week'));
       bl.setAttribute('aria-pressed', String(mode === 'list'));
-      todayB.disabled = offset === 0;
+      todayB.disabled = wc.ymd(sel) === wc.ymd(now);
+      load(weekOf);
     }
-    prev.addEventListener('click', () => { offset--; paint(); });
-    next.addEventListener('click', () => { offset++; paint(); });
-    todayB.addEventListener('click', () => { offset = 0; paint(); });
+    const go = (d) => { sel = d; paint(); };
+    const shift = (n) => go(new Date(sel.getFullYear(), sel.getMonth(), sel.getDate() + n));
+    prev.addEventListener('click', () => shift(-7));
+    next.addEventListener('click', () => shift(7));
+    todayB.addEventListener('click', () => go(new Date(now.getFullYear(), now.getMonth(), now.getDate())));
     const setMode = (m) => { mode = m; try { localStorage.setItem(KEY, m); } catch (e) { /* storage unavailable */ } paint(); };
     bw.addEventListener('click', () => setMode('week'));
     bl.addEventListener('click', () => setMode('list'));
+    weekBox.addEventListener('click', (e) => {
+      const pick = e.target.closest('[data-pick]');
+      if (pick) {
+        const [y, m, d] = pick.dataset.pick.split('-').map(Number);
+        go(new Date(y, m - 1, d));
+        weekBox.querySelector(`[data-pick="${pick.dataset.pick}"]`)?.focus(); // keep keyboard focus on the strip after the redraw
+        return;
+      }
+      const b = e.target.closest('[data-more]');
+      if (!b) return;
+      const day = b.closest('.gccx-wk-day');
+      const open = !day.classList.contains('is-expanded');
+      day.classList.toggle('is-expanded', open);
+      b.setAttribute('aria-expanded', String(open));
+      if (!b.dataset.label) b.dataset.label = b.textContent; // "6 more"
+      b.textContent = open ? 'Show fewer' : b.dataset.label;
+    });
+    chips.addEventListener('click', (e) => {
+      const b = e.target.closest('.gccx-hm-chip');
+      if (!b) return;
+      const set = new Set(hide.split(' ').filter(Boolean));
+      if (set.has(b.dataset.kind)) set.delete(b.dataset.kind); else set.add(b.dataset.kind);
+      hide = [...set].join(' ');
+      try { localStorage.setItem(HIDE_KEY, hide); } catch (err) { /* storage unavailable */ }
+      paint();
+    });
     paint();
-
-    // The portal's own events list can fill in after the page loads: read it again once it settles.
-    let feedEvents = [];
-    const reread = () => {
-      if (myGen !== gen) return;
-      let fresh = [];
-      try { fresh = feed.parseEvents(document, now) || []; } catch (e) { return; }
-      if (fresh.length) { events = fresh.concat(feedEvents.filter((f) => !fresh.some((x) => x.date === f.date && x.start === f.start && x.title.toLowerCase() === f.title.toLowerCase()))); paint(); }
-    };
-    if (document.readyState !== 'complete') window.addEventListener('load', () => setTimeout(reread, 300), { once: true });
-    setTimeout(reread, 2000);
-
-    // Plus the portal's iCal calendar feeds (read with the student's sign-in), last week through five weeks out.
-    if (feed.calendars) {
-      const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) - 7);
-      const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7 * 7);
-      feed.calendars(document, from, to, events).then((extra) => {
-        if (myGen !== gen || !extra.length) return;
-        feedEvents = extra;
-        events = events.concat(extra);
-        paint();
-      });
-    }
   }
 
   /* ---------- build ---------- */

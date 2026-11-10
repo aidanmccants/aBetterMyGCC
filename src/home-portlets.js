@@ -29,6 +29,14 @@
         if (value !== node.nodeValue) edits.push([node, value]);
       }
       edits.forEach(([node, value]) => { node.nodeValue = value; });
+      // Authors space posts with empty <p>&nbsp;</p> lines; mark them so Home's tiles can fold them away.
+      // Only paragraphs with no text and no image, frame, video or link.
+      if (kind === 'announcements') {
+        body.querySelectorAll('.post-content p').forEach((p) => {
+          const blank = !p.textContent.replace(/[\s ​]+/g, '') && !p.querySelector('img, iframe, video, object, embed, a, input');
+          p.classList.toggle('gccx-blank', blank);
+        });
+      }
     });
   }
   function init() {

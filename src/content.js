@@ -514,7 +514,7 @@
     if (!f && c === 'error') return feedMsg(title, aside, "Couldn't load forum posts. Try Refresh below.", 'forums');
     const list = (Array.isArray(f) ? f : []).slice(0, 5);
     if (!list.length) return '';
-    const li = list.map((p) => `<li><span class="x-forum">${p.forumHref ? `<a href="${esc(p.forumHref)}">${esc(p.forum)}</a>` : esc(p.forum)}</span>${p.href ? `<a class="x-post" href="${esc(p.href)}">${esc(p.title)}</a>` : `<span class="x-post">${esc(p.title)}</span>`}<span class="x-quiet">${[p.by ? 'by ' + esc(p.by) : '', esc(p.when)].filter(Boolean).join(' · ')}</span></li>`).join('');
+    const li = list.map((p) => `<li><span class="x-forum">${p.forumHref ? `<a href="${esc(p.forumHref)}">${esc(p.forum)}</a>` : esc(p.forum)}</span>${p.href ? `<a class="x-post" href="${esc(p.href)}">${esc(p.title)}</a>` : `<span class="x-post">${esc(p.title)}</span>`}<span class="x-quiet">${[p.by ? 'by ' + esc(p.by) : '', esc(p.when)].filter(Boolean).join(', ')}</span></li>`).join('');
     return `<div class="x-card" data-gccx-state="${c}"><h3>${title}${aside}</h3><ul class="x-list x-forums">${li}</ul>${staleNote('forums')}</div>`;
   }
 

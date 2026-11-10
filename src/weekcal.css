@@ -69,12 +69,12 @@ html.gccx .gccx-wk-empty { margin: 10px 0 0; font-size: 13.5px; color: var(--x-m
 
 /* ---------- Board layout (render(..., { layout: 'board' })): a column per day, events stacked as cards ---------- */
 html.gccx .gccx-wk.is-board { container: gccx-wkb / inline-size; }
-html.gccx .gccx-wkb { display: grid; grid-template-columns: repeat(var(--wk-days), minmax(0, 1fr)); gap: 8px; }
+html.gccx .gccx-wkb { display: grid; grid-template-columns: repeat(var(--wk-days), minmax(0, 1fr)); gap: 0 6px; }
 html.gccx .gccx-wk.is-board .gccx-wk-day {
-  display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px 10px 12px;
-  border-radius: var(--x-radius-control, 10px); background: var(--x-ground-muted); border: 1px solid transparent;
+  display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 10px 8px 12px;
+  border-top: 2px solid var(--x-rule); border-radius: 0; background: none;
 }
-html.gccx .gccx-wk.is-board .gccx-wk-day.is-today { border-color: color-mix(in oklab, var(--x-accent) 55%, transparent); background: color-mix(in oklab, var(--x-accent) 7%, var(--x-ground-muted)); }
+html.gccx .gccx-wk.is-board .gccx-wk-day.is-today { border-top-color: var(--x-accent); background: color-mix(in oklab, var(--x-accent) 6%, transparent); }
 html.gccx .gccx-wk.is-board .gccx-wk-day.is-past { opacity: .62; }
 html.gccx .gccx-wk.is-board .gccx-wk-head { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 6px; padding: 0 2px; font-size: 13px; }
 html.gccx .gccx-wk.is-board .gccx-wk-dn { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; order: -1; }
@@ -104,8 +104,89 @@ html.gccx .gccx-wk.is-board .gccx-wk-item { transition: background-color var(--x
 /* Board, narrow: a list per day; empty days fold away */
 @container gccx-wkb (max-width: 559px) {
   html.gccx .gccx-wkb { display: flex; flex-direction: column; gap: 6px; }
-  html.gccx .gccx-wk.is-board .gccx-wk-day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  html.gccx .gccx-wk.is-board .gccx-wk-day { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-top-width: 1px; }
   html.gccx .gccx-wk.is-board .gccx-wk-day.is-empty { display: none; }
   html.gccx .gccx-wk.is-board .gccx-wk-head { flex-direction: column; align-items: flex-start; gap: 0; }
   html.gccx .gccx-wk.is-board .gccx-wk-dn { order: 0; }
 }
+
+/* Busy days: the first few items, the rest behind a "N more" button */
+html.gccx .gccx-wk-extra { display: none; flex-direction: column; gap: 6px; }
+html.gccx .gccx-wk-day.is-expanded .gccx-wk-extra { display: flex; }
+html.gccx .gccx-wk-more {
+  align-self: flex-start; padding: 4px 8px; margin-left: -8px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  font: 600 13px/1.2 var(--x-sans); color: var(--x-accent);
+}
+html.gccx .gccx-wk-more:hover { background: var(--x-ground-muted); }
+html.gccx .gccx-wk-more:active { background: var(--x-rule); }
+html.gccx .gccx-wk-more:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 1px; }
+
+/* Cancelled events stay listed (people look for them) but read as off */
+html.gccx .gccx-wk-item.is-cancelled { opacity: .6; }
+html.gccx .gccx-wk-item.is-cancelled .gccx-wk-title { text-decoration: line-through; text-decoration-thickness: 1px; }
+html.gccx .gccx-wk-item.is-cancelled .gccx-wk-time { color: var(--x-bad); }
+
+/* ---------- Day layout (render(..., { layout: 'day', selected })): week strip, then the picked day ---------- */
+html.gccx .gccx-wk.is-day { --wkd-hour: 64px; }
+html.gccx .gccx-wkd-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--x-rule); }
+html.gccx .gccx-wkd-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0 8px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--x-ink); cursor: pointer; font-family: var(--x-sans);
+  transition: background-color var(--x-speed) var(--x-ease);
+}
+html.gccx .gccx-wkd-dow { font-size: 13px; font-weight: 600; color: var(--x-muted); }
+html.gccx .gccx-wkd-dn {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1;
+}
+html.gccx .gccx-wkd-pick.is-empty .gccx-wkd-dn { color: var(--x-faint); }
+html.gccx .gccx-wkd-pick.is-today .gccx-wkd-dow, html.gccx .gccx-wkd-pick.is-today .gccx-wkd-dn { color: var(--x-accent); }
+html.gccx .gccx-wkd-pick.is-selected .gccx-wkd-dn { background: var(--x-ink); color: var(--x-surface); font-weight: 650; }
+html.gccx .gccx-wkd-pick.is-selected.is-today .gccx-wkd-dn { background: var(--x-accent); color: var(--x-accent-ink); }
+html.gccx .gccx-wkd-pick:hover { background: var(--x-ground-muted); }
+html.gccx .gccx-wkd-pick:active { background: var(--x-rule); }
+html.gccx .gccx-wkd-pick:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+
+html.gccx .gccx-wkd-title { margin: 16px 0 12px; font: 600 17px/1.3 var(--x-display); color: var(--x-ink); text-align: center; }
+html.gccx .gccx-wkd-today { margin-left: 6px; font: 600 13px var(--x-sans); color: var(--x-accent); }
+html.gccx .gccx-wkd-none { margin: 8px 0 4px; text-align: center; font-size: 14px; color: var(--x-muted); }
+
+html.gccx .gccx-wkd-allday { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 6px; margin: 0 0 12px 60px; }
+html.gccx .gccx-wk.is-day .gccx-wkd-allday .gccx-wk-item { flex-direction: row; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 8px; }
+html.gccx .gccx-wk.is-day .gccx-wkd-allday .gccx-wk-time { order: 2; font-size: 12px; }
+
+html.gccx .gccx-wkd-time { display: grid; grid-template-columns: 52px minmax(0, 1fr); column-gap: 8px; }
+html.gccx .gccx-wkd-hours { display: grid; grid-auto-rows: var(--wkd-hour); }
+html.gccx .gccx-wkd-hours span { font-size: 12px; line-height: 1; color: var(--x-faint); text-align: right; transform: translateY(-6px); font-variant-numeric: tabular-nums; }
+html.gccx .gccx-wkd-body {
+  position: relative; height: calc(var(--wk-n) * var(--wkd-hour));
+  background: repeating-linear-gradient(to bottom, var(--x-rule) 0 1px, transparent 1px var(--wkd-hour));
+}
+html.gccx .gccx-wkd-body > .gccx-wk-item {
+  position: absolute; top: var(--t); height: var(--h); left: calc(var(--l) + 2px); width: calc(var(--w) - 4px); min-height: 26px;
+  gap: 2px; padding: 6px 10px 6px 12px; border-radius: 8px; border-left-width: 4px;
+}
+html.gccx .gccx-wk.is-day .gccx-wk-item .gccx-wk-title { order: 0; font-size: 14.5px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.gccx .gccx-wk.is-day .gccx-wk-item .gccx-wk-sub { order: 1; font-size: 12.5px; line-height: 1.3; color: var(--x-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.gccx .gccx-wk.is-day .gccx-wk-item .gccx-wk-time { order: 2; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--x-muted); white-space: nowrap; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-short { flex-direction: row; align-items: baseline; gap: 8px; padding-block: 3px; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-short .gccx-wk-title { -webkit-line-clamp: 1; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-short .gccx-wk-sub { display: none; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-past { opacity: .72; }
+html.gccx .gccx-wkd-body .gccx-wk-now { left: -6px; }
+@media (prefers-reduced-motion: reduce) { html.gccx .gccx-wkd-pick { transition: none; } }
+@container gccx-wk (max-width: 480px) {
+  html.gccx .gccx-wkd-dn { width: 34px; height: 34px; font-size: 17px; }
+  html.gccx .gccx-wkd-allday { margin-left: 0; }
+}
+
+/* About an hour long: the title on one line, then the time and place side by side */
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-mid { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-content: start; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-mid .gccx-wk-title { grid-column: 1 / -1; grid-row: 1; -webkit-line-clamp: 1; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-mid .gccx-wk-time { grid-column: 1; grid-row: 2; }
+html.gccx .gccx-wk.is-day .gccx-wk-item.is-mid .gccx-wk-sub { grid-column: 2; grid-row: 2; }
+
+/* The portal's and the theme's button styles (filled pressed state, borders, shadows) must not reach the day strip */
+html.gccx .gccx-wkd-strip .gccx-wkd-pick, html.gccx .gccx-wkd-strip .gccx-wkd-pick[aria-pressed] { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--x-ink) !important; min-height: 0; }
+html.gccx .gccx-wkd-strip .gccx-wkd-pick:hover { background: var(--x-ground-muted) !important; }
+html.gccx .gccx-wkd-strip .gccx-wkd-pick:active { background: var(--x-rule) !important; }

@@ -79,24 +79,21 @@ parsers('events: double-encoded titles are decoded once; class sessions are tidi
     <div><span>9:00 AM - 9:50 AM</span><span><a href="/ICS/y">Class Session (INTERMEDIATE SPANISH I (SPAN 201 A))</a></span><div class="location">HAL 210</div></div></div>`));
   const e = F.parseEvents(d, NOW);
   assert.equal(e[0].title, "Men's Basketball & Band");
-  assert.deepEqual([e[1].title, e[1].location, e[1].kind], ['Intermediate Spanish I', 'SPAN 201 A · HAL 210', 'class']);
+  assert.deepEqual([e[1].title, e[1].location, e[1].kind], ['Intermediate Spanish I', 'SPAN 201 A, HAL 210', 'class']);
 });
 
-parsers('iCal: UTC, wall-clock and all-day times; weekly repeats with an exception; cancelled skipped', () => {
-  const ics = ['BEGIN:VCALENDAR',
-    'BEGIN:VEVENT', 'DTSTART:20261110T140000Z', 'DTEND:20261110T150000Z', 'SUMMARY:Talk \, part 1', 'LOCATION:STEM 2', 'END:VEVENT',
-    'BEGIN:VEVENT', 'DTSTART;TZID=America/New_York:20261102T093000', 'DTEND;TZID=America/New_York:20261102T102000',
-    'RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20261212T000000Z', 'EXDATE;TZID=America/New_York:20261111T093000', 'SUMMARY:Spanish', 'END:VEVENT',
-    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20261112', 'DTEND;VALUE=DATE:20261113', 'SUMMARY:Flu clinic', 'END:VEVENT',
-    'BEGIN:VEVENT', 'DTSTART:20261113T180000Z', 'SUMMARY:Gone', 'STATUS:CANCELLED', 'END:VEVENT',
-    'END:VCALENDAR'].join('\r\n');
-  const e = F.parseICS(ics, new Date(2026, 10, 9), new Date(2026, 10, 16));
-  const t = e.find((x) => x.title === 'Talk , part 1');
-  const local = new Date(Date.UTC(2026, 10, 10, 14));
-  assert.deepEqual([t.date, t.start, t.location], ['2026-11-10', local.getHours() * 60, 'STEM 2']);
-  assert.deepEqual(e.filter((x) => x.title === 'Spanish').map((x) => x.date), ['2026-11-09', '2026-11-13']);
-  assert.deepEqual(e.filter((x) => x.title === 'Flu clinic').map((x) => [x.date, x.allDay]), [['2026-11-12', true]]);
-  assert.ok(!e.some((x) => x.title === 'Gone'));
+parsers('calendar API: ids from the inline script; events mapped, decoded and tidied', () => {
+  const d = dom(portlet('pt_CalendarPortlet', 'Public Events Calendar', `<script>var viewData = {};
+    viewData.portletId = 'ab12cd34-0000-4000-8000-0000000000aa'; viewData.settingsPortletId = 'ab12cd34-0000-4000-8000-0000000000bb';</script>`));
+  assert.deepEqual(F.calendarIds(d), { portletId: 'ab12cd34-0000-4000-8000-0000000000aa', settingsPortletId: 'ab12cd34-0000-4000-8000-0000000000bb' });
+  assert.equal(F.calendarIds(dom(portlet('x', 'Events', '<p>none</p>'))), null);
+  const cls = F.mapApiEvent({ title: 'Class Session (INTERMEDIATE SPANISH I (SPAN 201-A)', start: '2026-11-09T09:00:00', end: '2026-11-09T09:50:00', allDay: false, location: 'MAIN HAL 103', eventSource: 'lms', eventType: 'sched', calendarName: '' });
+  assert.deepEqual([cls.date, cls.start, cls.end, cls.title, cls.location, cls.kind, cls.calendar], ['2026-11-09', 540, 590, 'Intermediate Spanish I', 'SPAN 201-A, MAIN HAL 103', 'class', 'Classes']);
+  const ath = F.mapApiEvent({ title: 'Grove City College Men&#39;s Basketball at Pitt-Greensburg', start: '2026-11-09T19:00:00', end: '2026-11-09T21:00:00', allDay: false, location: 'Greensburg, Pa.', eventSource: 'jics', eventType: 'default', calendarName: 'Athletics' });
+  assert.deepEqual([ath.title, ath.location, ath.kind, ath.start, ath.end], ["Men's Basketball at Pitt-Greensburg", 'Athletics, Greensburg, Pa.', 'event', 1140, 1260]);
+  const allDay = F.mapApiEvent({ title: 'Reading day', start: '2026-11-12T00:00:00', end: '2026-11-13T00:00:00', allDay: true, calendarName: 'Christian Formation calendar' });
+  assert.deepEqual([allDay.date, allDay.start, allDay.allDay], ['2026-11-12', null, true]);
+  assert.equal(F.mapApiEvent({ start: '2026-11-12T00:00:00' }), null);
 });
 
 parsers('events: relative Today and a title with no link', () => {

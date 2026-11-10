@@ -123,10 +123,10 @@
     const cs = /^class session\s*\((.*?)\)?\s*$/i.exec(title);
     if (cs) {
       kind = 'class';
-      const m = /^(.*?)\s*\(\s*([A-Za-z]{2,5}\s*\d{2,4}[A-Za-z]?(?:\s+[A-Za-z0-9]{1,3})?)\b[^)]*\)?\s*$/.exec(cs[1]);
+      const m = /^(.*?)\s*\(\s*([A-Za-z]{2,5}\s*\d{2,4}[A-Za-z]?(?:[\s-]+[A-Za-z0-9]{1,3})?)\b[^)]*\)?\s*$/.exec(cs[1]);
       const name = (m ? m[1] : cs[1]).replace(/\)+$/, '').trim();
       title = X.titleCase ? X.titleCase(name) : name;
-      if (m) location = [m[2].toUpperCase(), location].filter(Boolean).join(' · ');
+      if (m) location = [m[2].toUpperCase(), location].filter(Boolean).join(', ');
     }
     return { title, location, kind };
   }
@@ -209,103 +209,65 @@
     return FORUMS_FALLBACK;
   }
 
-  // ---------- iCal (the portal's /ICS/api/ical/<id> calendar feeds) ----------
-  // The feed the user gave on 2026-11-09. It answers empty without a sign-in, so it is read with the
-  // student's own session; feed links found on the Home page are read too, in case the id differs per person.
-  const ICAL_FEEDS = ['/ICS/api/ical/e9a6aa79-6cae-43c3-9caa-83d099cac393'];
-  function icalUrls(doc) {
-    const out = new Set(ICAL_FEEDS);
+  // ---------- the portal calendar's own events API ----------
+  // The Public Events Calendar portlet loads its events from /ICS/api/calendarevents/ with its portlet id
+  // and a date range (live, 2026-11-09). The ids sit in an inline script: viewData.portletId = '<guid>'.
+  // One call returns every calendar the student sees: class sessions, Athletics, Christian Formation...
+  const GUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
+  function calendarIds(doc) {
     try {
-      doc.querySelectorAll('a[href*="/api/ical/" i]').forEach((a) => {
-        try { const u = new URL(a.getAttribute('href'), baseOf(doc)); if (typeof location === 'undefined' || u.origin === location.origin) out.add(u.pathname); } catch (e) { /* skip */ }
-      });
+      const p = findPortlet(doc, /event|calendar/i);
+      const scripts = [...((p && p.querySelectorAll('script')) || []), ...doc.querySelectorAll('script')];
+      for (const s of scripts) {
+        const t = s.textContent || '';
+        const a = new RegExp("viewData\\.portletId\\s*=\\s*['\"]" + GUID, 'i').exec(t);
+        if (!a) continue;
+        const b = new RegExp("viewData\\.settingsPortletId\\s*=\\s*['\"]" + GUID, 'i').exec(t);
+        return { portletId: a[1], settingsPortletId: b ? b[1] : a[1] };
+      }
     } catch (e) { /* none */ }
-    return [...out].slice(0, 4);
+    return null;
   }
-  const unesc = (v) => String(v || '').replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1');
-  // "20261109T090000Z" (UTC), "20261109T090000" (wall time, read as local), "20261109" (all day)
-  function icsDate(v) {
-    const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(String(v || '').trim());
-    if (!m) return null;
-    const [y, mo, d] = [+m[1], +m[2] - 1, +m[3]];
-    if (m[4] == null) return { d: new Date(y, mo, d), allDay: true };
-    const dt = m[7] ? new Date(Date.UTC(y, mo, d, +m[4], +m[5], +(m[6] || 0))) : new Date(y, mo, d, +m[4], +m[5], +(m[6] || 0));
-    return { d: dt, allDay: false };
+  const mdy = (d) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  // "2026-11-09T19:00:00" is myGCC's local (campus) time
+  function apiTime(v) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(String(v || ''));
+    return m ? { d: new Date(+m[1], +m[2] - 1, +m[3]), min: m[4] == null ? null : +m[4] * 60 + +m[5] } : null;
   }
-  const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-  // Events between `from` and `to` (Dates). Weekly RRULEs (BYDAY, INTERVAL, UNTIL, COUNT) and EXDATEs are expanded.
-  function parseICS(text, from, to) {
-    const out = [];
-    try {
-      const lines = String(text || '').replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
-      let ev = null;
-      for (const line of lines) {
-        if (line === 'BEGIN:VEVENT') { ev = { ex: [] }; continue; }
-        if (line === 'END:VEVENT') { if (ev) expand(ev, from, to, out); ev = null; continue; }
-        if (!ev) continue;
-        const i = line.indexOf(':');
-        if (i < 0) continue;
-        const name = line.slice(0, i).split(';')[0].toUpperCase(), val = line.slice(i + 1);
-        if (name === 'DTSTART') ev.start = icsDate(val);
-        else if (name === 'DTEND') ev.end = icsDate(val);
-        else if (name === 'SUMMARY') ev.title = clean(decode(unesc(val)));
-        else if (name === 'LOCATION') ev.location = clean(decode(unesc(val)));
-        else if (name === 'URL') ev.url = val.trim();
-        else if (name === 'RRULE') ev.rrule = val;
-        else if (name === 'EXDATE') val.split(',').forEach((x) => { const e = icsDate(x); if (e) ev.ex.push(ymd(e.d)); });
-        else if (name === 'STATUS') ev.status = val.trim().toUpperCase();
-      }
-    } catch (e) { X.log && X.log('warn', 'feed', 'parseICS failed: ' + (e.message || e)); }
-    return out.slice(0, 200);
-  }
-  function expand(ev, from, to, out) {
-    if (!ev.start || !ev.title || ev.status === 'CANCELLED') return;
-    const s = ev.start.d, len = ev.end ? ev.end.d - s : (ev.start.allDay ? 864e5 : 36e5);
-    const add = (d) => {
-      if (d < from || d >= to || ev.ex.includes(ymd(d))) return;
-      const mins = (x) => x.getHours() * 60 + x.getMinutes();
-      const e = new Date(+d + len);
-      const sameDay = ymd(e) === ymd(d) || (mins(e) === 0 && e - d <= 864e5);
-      out.push({ date: ymd(d), start: ev.start.allDay ? null : mins(d), end: ev.start.allDay || !sameDay ? null : (mins(e) || 1440), allDay: ev.start.allDay,
-        href: ev.url && X.safeUrl ? X.safeUrl(ev.url, 'nav') : null, ...tidyClass(ev.title, ev.location || '') });
+  function mapApiEvent(x) {
+    const s = apiTime(x.start), e = apiTime(x.end);
+    if (!s || !x.title) return null;
+    const allDay = !!x.allDay || s.min == null;
+    const cls = x.eventSource === 'lms' || x.eventType === 'sched';
+    let title = clean(decode(x.title));
+    const cancelled = /^cancell?ed\b[\s:-]*/i.test(title); // "CANCELLED Grove City College ..."
+    title = title.replace(/^cancell?ed\b[\s:-]*/i, '');
+    const cal = clean(decode(x.calendarName || ''));
+    if (/athletic/i.test(cal)) title = title.replace(/^Grove City College\s+/i, ''); // "Men's Basketball at Pitt-Greensburg"
+    const c = tidyClass(title, clean(decode(x.location || '')));
+    const sameDay = e && ymd(e.d) === ymd(s.d);
+    return {
+      date: ymd(s.d), start: allDay ? null : s.min, end: allDay || !sameDay ? null : e.min, allDay,
+      title: c.title, href: null, location: [cls ? '' : cal, c.location].filter(Boolean).join(', '),
+      kind: cls || c.kind === 'class' ? 'class' : 'event', calendar: cls ? 'Classes' : cal || 'Campus', cancelled,
     };
-    const r = ev.rrule ? Object.fromEntries(ev.rrule.split(';').map((kv) => kv.split('='))) : null;
-    if (!r || r.FREQ !== 'WEEKLY') { add(s); return; }
-    const until = r.UNTIL ? icsDate(r.UNTIL) : null;
-    const count = r.COUNT ? +r.COUNT : Infinity, step = Math.max(1, +r.INTERVAL || 1);
-    const byday = (r.BYDAY ? r.BYDAY.split(',') : [DAYS[s.getDay()]]).map((x) => DAYS.indexOf(x.slice(-2))).filter((x) => x >= 0);
-    const week0 = new Date(s.getFullYear(), s.getMonth(), s.getDate() - s.getDay());
-    let n = 0;
-    for (let w = 0; w < 400 && n < count; w += step) {
-      for (const dow of byday.slice().sort()) {
-        const d = new Date(week0.getFullYear(), week0.getMonth(), week0.getDate() + w * 7 + dow, s.getHours(), s.getMinutes(), s.getSeconds());
-        if (d < s) continue;
-        if ((until && d > until.d) || n >= count || d >= to) return;
-        n++;
-        add(d);
-      }
-    }
   }
-
-  // Events from the portal's iCal feeds between `from` and `to`, read with the student's own sign-in.
-  // Items already in `have` (same day, start and title) are left out. Never throws; a failing feed is skipped.
-  const evKey = (e) => `${e.date}|${e.start}|${String(e.title).toLowerCase()}`;
-  async function calendars(doc, from, to, have) {
-    const seen = new Set((have || []).map(evKey));
-    const out = [];
-    for (const url of icalUrls(doc || document)) {
-      try {
-        const safe = X.safeUrl(url, 'crawl');
-        if (!safe) continue;
-        // redirect 'error': a feed that redirects off myGCC (the athletics one goes to Google Calendar) can't be read here
-        const res = await fetch(safe, { credentials: 'include', redirect: 'error' });
-        if (!res.ok) { X.log && X.log('warn', 'feed', `calendar feed answered ${res.status}`, { url: safe }); continue; }
-        const list = parseICS(await res.text(), from, to);
-        X.log && X.log('info', 'feed', `calendar feed: ${list.length} events in range`, { url: safe });
-        for (const e of list) { const k = evKey(e); if (!seen.has(k)) { seen.add(k); out.push(e); } }
-      } catch (e) { X.log && X.log('warn', 'feed', `calendar feed failed: ${e.message || e}`, { url }); }
+  // Events from `from` (inclusive) to `to` (exclusive), or null when the page has no calendar ids or the call fails.
+  async function calendarEvents(doc, from, to) {
+    try {
+      const ids = calendarIds(doc || document);
+      if (!ids) return null;
+      const q = new URLSearchParams({ portletId: ids.portletId, settingsPortletId: ids.settingsPortletId, fullCalendar: 'true', start: mdy(from), end: mdy(to) });
+      const safe = X.safeUrl('/ICS/api/calendarevents/?' + q, 'crawl');
+      if (!safe) return null;
+      const res = await fetch(safe, { credentials: 'include', headers: { Accept: 'application/json' } });
+      if (!res.ok) { X.log && X.log('warn', 'feed', `calendar events answered ${res.status}`); return null; }
+      const arr = await res.json();
+      return (Array.isArray(arr) ? arr : []).map(mapApiEvent).filter(Boolean).slice(0, 300);
+    } catch (e) {
+      X.log && X.log('warn', 'feed', `calendar events failed: ${e.message || e}`);
+      return null;
     }
-    return out;
   }
 
   // ---------- loading ----------
@@ -366,5 +328,5 @@
     }
   }
 
-  X.feed = { parseAnnouncements, parseEvents, parseForums, parseICS, icalUrls, calendars, forumsUrl, load };
+  X.feed = { parseAnnouncements, parseEvents, parseForums, calendarIds, mapApiEvent, calendarEvents, forumsUrl, load };
 })(typeof window !== 'undefined' ? window : globalThis);
