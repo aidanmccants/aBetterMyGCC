@@ -283,7 +283,7 @@
     const facts = [
       c.needed ? `<strong>${fmt(c.earned)}</strong> of ${fmt(c.needed)} credits earned` : `<strong>${fmt(c.earned)}</strong> credits earned`,
       `${fmt(c.progress)} in progress`,
-      // Shown plainly here; the "Hide GPA" setting only covers the Home dashboard.
+      // Shown plainly here; the "Hide GPA" setting only covers the dashboard (My Info).
       gpa ? `Overall GPA ${esc(gpa)}` : '',
     ].filter(Boolean).map((l) => `<p>${l}</p>`).join('');
     return `<div class="gx-hero"><div class="gx-ring">${ring}<span class="gx-pct">${Math.round(f * 100)}%</span></div>`
