@@ -76,7 +76,7 @@
     const hall = segmented('Default dining hall', 'hall', [['hicks-cafe', 'Hicks'], ['map-cafe', 'MAP']]);
     const dash = toggle('gccx-ob-dashboard', 'dashboard', 'Show my day on the Home page');
     const promo = toggle('gccx-ob-promos', 'hidePromos', 'Hide promo banners');
-    const gpa = toggle('gccx-ob-gpa', 'hideGpa', 'Hide my GPA (press and hold to show)');
+    const gpa = toggle('gccx-ob-gpa', 'hideGpa', 'Hide my GPA on Home (press and hold to show)');
     controls = [theme, hall, dash, promo, gpa];
     const aiBtn = el('button', { type: 'button', class: 'gx-ai', text: 'Set up AI' });
     aiBtn.addEventListener('click', () => { try { chrome.runtime.sendMessage({ type: 'open-options' }); } catch (_) { /* reloaded */ } });

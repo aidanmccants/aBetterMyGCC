@@ -283,16 +283,13 @@
     const facts = [
       c.needed ? `<strong>${fmt(c.earned)}</strong> of ${fmt(c.needed)} credits earned` : `<strong>${fmt(c.earned)}</strong> credits earned`,
       `${fmt(c.progress)} in progress`,
-      gpa ? (hideGpa
-        // Same press-and-hold reveal as the dashboard (handlers live in content.js)
-        ? `<span class="gx-gpa x-gpa-locked" title="Press and hold to show your GPA">Overall GPA <span class="gx-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(gpa)}</span><span class="x-gpa-ring" aria-hidden="true"></span></span> <span class="x-gpa-hint">Click and hold to reveal</span></span>`
-        : `Overall GPA ${esc(gpa)}`) : '',
+      // Shown plainly here; the "Hide GPA" setting only covers the Home dashboard.
+      gpa ? `Overall GPA ${esc(gpa)}` : '',
     ].filter(Boolean).map((l) => `<p>${l}</p>`).join('');
     return `<div class="gx-hero"><div class="gx-ring">${ring}<span class="gx-pct">${Math.round(f * 100)}%</span></div>`
       + `<div class="gx-facts">${facts}</div></div>`;
   }
 
-  let hideGpa = true;   // settings.hideGpa (default on)
   let root = null;      // #gccx-degree, while the roadmap is showing
   let hiddenEls = [];   // portlet children we hid
   let current = null;   // { data, ts } currently rendered
@@ -314,19 +311,6 @@
       try { undo(); } catch (e2) { warn(`${name} undo failed`, { error: String(e2) }); }
       return false;
     }
-  }
-
-  let settingsListener = null;
-  function startSettings() {
-    const g = gen;
-    chrome.storage.local.get('settings', (o) => { if (g !== gen) return; hideGpa = !(o && o.settings && o.settings.hideGpa === false); paint(); });
-    settingsListener = (ch) => { if (ch.settings) { hideGpa = !(ch.settings.newValue && ch.settings.newValue.hideGpa === false); paint(); } };
-    chrome.storage.onChanged.addListener(settingsListener);
-  }
-  function stopSettings() {
-    if (!settingsListener) return;
-    try { chrome.storage.onChanged.removeListener(settingsListener); } catch (e) { /* extension reloaded */ }
-    settingsListener = null;
   }
 
   function footHTML() {
@@ -468,7 +452,6 @@
   function build() {
     gen++;
     ctl = new AbortController();
-    safe('settings', startSettings, stopSettings);
     let prev = null;
     safe('prefill', () => { prev = runPrefill(); }, () => {
       if (!prev) return;

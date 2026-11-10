@@ -123,12 +123,3 @@
   :where(html.gccx) #gccx-degree .gx-req > summary::after { transition: none; }
 }
 
-/* GPA privacy on the roadmap (reveal handlers + ring styles shared with the dashboard) */
-:where(html.gccx) .gx-gpa { cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; }
-:where(html.gccx) .gx-gpa-val { position: relative; display: inline-grid; vertical-align: baseline; }
-:where(html.gccx) .gx-gpa .x-gpa-mask, :where(html.gccx) .gx-gpa .x-gpa-real { grid-area: 1 / 1; transition: opacity .35s ease, filter .35s ease, transform .35s cubic-bezier(.2,.9,.3,1.3); }
-:where(html.gccx) .gx-gpa.x-gpa-locked .x-gpa-real { opacity: 0; filter: blur(8px); transform: scale(.85); }
-:where(html.gccx) .gx-gpa.x-gpa-locked .x-gpa-mask { opacity: .55; filter: blur(1.5px); }
-:where(html.gccx) .gx-gpa.x-gpa-revealed .x-gpa-mask { opacity: 0; }
-:where(html.gccx) .gx-gpa.x-gpa-revealed .x-gpa-hint { display: none; }
-:where(html.gccx) .gx-gpa .x-gpa-hint { display: inline; font-size: 12px; margin-left: 6px; }
