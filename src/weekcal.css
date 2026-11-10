@@ -220,3 +220,12 @@ html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-title { order: 0; fo
 html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-sub { order: 1; font-size: 12px; }
 html.gccx-homepage .gccx-wk.is-board .gccx-wk-item .gccx-wk-time { order: 2; font-size: 12px; font-weight: 500; }
 html.gccx-homepage .gccx-wk.is-board .gccx-wk-none { text-align: center; }
+
+/* Events as solid blocks of their colour: no side bar (user, 2026-11-09) */
+html.gccx .gccx-wk .gccx-wk-item, html.gccx .gccx-wk.is-board .gccx-wk-item, html.gccx .gccx-wk.is-day .gccx-wkd-body > .gccx-wk-item, html.gccx-homepage .gccx-wk.is-board .gccx-wk-item {
+  border-left: 0 !important; padding-left: 10px;
+  background: color-mix(in oklab, oklch(from var(--x-accent) l c var(--hue)) 34%, var(--x-surface));
+}
+html.gccx .gccx-wk a.gccx-wk-item:hover { background: color-mix(in oklab, oklch(from var(--x-accent) l c var(--hue)) 44%, var(--x-surface)); }
+html.gccx .gccx-wk a.gccx-wk-item:active { background: color-mix(in oklab, oklch(from var(--x-accent) l c var(--hue)) 52%, var(--x-surface)); }
+html.gccx .gccx-wk .gccx-wk-item :is(.gccx-wk-sub, .gccx-wk-time) { color: color-mix(in oklab, var(--x-ink) 78%, transparent); }
