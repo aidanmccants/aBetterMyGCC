@@ -26,7 +26,13 @@
 
   /* ---------- hero: what is on today ---------- */
   const clock = (m) => { const h = Math.floor(m / 60), mm = m % 60; return `${h % 12 || 12}:${String(mm).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
-  const where = (e) => { const l = String(e.location || '').replace(/^at\s+/i, ''); return /^various locations?$/i.test(l) ? '' : l; };
+  // the venue only: API events carry "Calendar name, venue" in location
+  const where = (e) => {
+    let l = String(e.location || '').replace(/^at\s+/i, '');
+    if (e.calendar && l.toLowerCase().startsWith(String(e.calendar).toLowerCase() + ', ')) l = l.slice(String(e.calendar).length + 2);
+    else if (e.calendar && l.toLowerCase() === String(e.calendar).toLowerCase()) l = '';
+    return /^various locations?$/i.test(l) ? '' : l;
+  };
   // One sentence about the campus calendar today, from events (portal list first, then the week from the API).
   function todayLead(events, now, loading) {
     const today = X.weekcal.ymd(now), nowMin = now.getHours() * 60 + now.getMinutes();
@@ -89,6 +95,7 @@
     let mode = 'week', hide = '';
     try { mode = localStorage.getItem(KEY) === 'list' ? 'list' : 'week'; const h = localStorage.getItem(HIDE_KEY); hide = h == null ? 'class' : h; } catch (e) { hide = 'class'; } // Home is for the school: classes start hidden
     if (mode === 'list' && !eventsPortlet) mode = 'week';
+    const openPast = new Set(); // past days of this week the student expanded
     let sel = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // the picked day
 
     const card = el('section', 'gccx-hm-card');
@@ -142,7 +149,7 @@
       const events = Array.isArray(got) ? got : listed;
       range.textContent = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days[6], { month: 'short', day: 'numeric' })}`;
       card.setAttribute('aria-busy', String(got === 'loading'));
-      weekBox.innerHTML = wc.render(hide.includes('class') ? events.filter((e) => e.kind !== 'class') : events, { weekOf, today: now, days: 7, layout: 'board', maxPerDay: 6, label: 'Calendar for the week' });
+      weekBox.innerHTML = wc.render(events.filter((e) => !hide.includes(e.kind === 'class' ? 'class' : 'event')), { weekOf, today: now, days: 7, layout: 'board', maxPerDay: 6, collapsePast: true, openPast: [...openPast], label: 'Calendar for the week' });
       const root = weekBox.querySelector('.gccx-wk');
       if (root) root.dataset.hide = hide;
       const has = (k) => events.some((e) => (e.kind === 'class' ? 'class' : 'event') === k);
@@ -176,6 +183,14 @@
         const [y, m, d] = pick.dataset.pick.split('-').map(Number);
         go(new Date(y, m - 1, d));
         weekBox.querySelector(`[data-pick="${pick.dataset.pick}"]`)?.focus(); // keep keyboard focus on the strip after the redraw
+        return;
+      }
+      const fold = e.target.closest('[data-fold]');
+      if (fold) {
+        const k = fold.dataset.fold;
+        if (openPast.has(k)) openPast.delete(k); else openPast.add(k);
+        paint();
+        weekBox.querySelector(`[data-fold="${k}"]`)?.focus(); // keep keyboard focus on the day after the redraw
         return;
       }
       const b = e.target.closest('[data-more]');

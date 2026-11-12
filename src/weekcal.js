@@ -45,13 +45,21 @@
     return sorted;
   }
 
+  // Display-only title tidy: drop leading bracket tags such as "[L] " / "[W] ".
+  function tidyTitle(t) {
+    const s = String(t == null ? '' : t), r = s.replace(/^(?:\s*\[[^\]]{1,8}\]\s*)+/, '').trim();
+    return r || s;
+  }
+
   function itemHtml(it, style, state) {
     const kind = (it.kind === 'class' ? 'is-class' : 'is-event') + (state ? ' ' + state : '') + (it.cancelled ? ' is-cancelled' : '');
     const t = it.cancelled ? 'Cancelled' : timeText(it.s, it.e) || (it.s == null ? 'All day' : '');
-    const inner = (t ? `<span class="gccx-wk-time">${esc(t)}${state === 'is-now' ? '<span class="gccx-wk-badge">Now</span>' : ''}</span>` : '') +
+    const badge = state && state.includes('is-now') ? 'Now' : state && state.includes('is-next') ? 'Next' : '';
+    const place = it.place != null ? it.place : it.sub; // the block shows the venue; the tooltip keeps "calendar, venue"
+    const inner = (t ? `<span class="gccx-wk-time">${esc(t)}${badge ? `<span class="gccx-wk-badge">${badge}</span>` : ''}</span>` : '') +
       `<strong class="gccx-wk-title">${esc(it.title)}</strong>` +
-      (it.sub ? `<span class="gccx-wk-sub">${esc(it.sub)}</span>` : '');
-    const tip = esc([t, it.title, it.sub].filter(Boolean).join(' · '));
+      (place ? `<span class="gccx-wk-sub">${esc(place)}</span>` : '');
+    const tip = esc([t, it.title, it.sub ? String(it.sub).replace(/, /, ' · ') : place].filter(Boolean).join(' · '));
     const href = it.href && X.safeUrl ? X.safeUrl(it.href, 'nav') : null;
     const st = style ? ` style="${style}"` : '';
     return href
@@ -71,7 +79,7 @@
       if (i < 0) return;
       const s = isMin(raw.start) ? Math.max(0, Math.min(1439, raw.start)) : null;
       let e = isMin(raw.end) ? Math.min(1440, raw.end) : null;
-      const it = { title: String(raw.title), sub: raw.sub || raw.location, href: raw.href, kind: raw.kind, cancelled: !!raw.cancelled, s, e };
+      const it = { title: tidyTitle(raw.title), sub: raw.sub || raw.location, place: raw.place || null, href: raw.href, kind: raw.kind, cancelled: !!raw.cancelled, s, e };
       if (s == null) byDay[i].allday.push(it);
       else { if (e == null || e <= s) e = Math.min(1440, s + 60); it.e = e; byDay[i].timed.push(it); }
     });
@@ -132,20 +140,33 @@
   // Board layout: one column per day with that day's items stacked as readable cards (all-day first,
   // then by start time). Suits sparse, mixed-length campus events better than an hour grid.
   function board(o, all, keys, byDay, shown, total, todayKey, nowMin) {
+    const weekHasToday = keys.includes(todayKey);
+    const fold = !!o.collapsePast && weekHasToday;
+    const open = new Set(Array.isArray(o.openPast) ? o.openPast : []);
+    const tpl = [];
     const cols = shown.map((di) => {
       const d = all[di], key = keys[di], data = byDay[di];
       const isToday = key === todayKey, past = key < todayKey;
+      const foldable = fold && past, collapsed = foldable && !open.has(key);
       const timed = data.timed.slice().sort((a, b) => a.s - b.s || a.e - b.e);
+      // The first timed block today that has not ended (and is not cancelled) is the one marked: "Now" if it has started, else "Next".
+      const nextIt = isToday ? timed.find((it) => it.e > nowMin && !it.cancelled) : null;
       let list = data.allday.map((it) => itemHtml(it, null))
-        .concat(timed.map((it) => itemHtml(it, null, isToday ? (it.e <= nowMin ? 'is-past' : it.s <= nowMin ? 'is-now' : '') : '')));
+        .concat(timed.map((it) => itemHtml(it, null, isToday ? (it === nextIt ? (it.s <= nowMin ? 'is-now' : 'is-next') : it.e <= nowMin ? 'is-past' : '') : '')));
+      const n = list.length;
       const cap = o.maxPerDay > 0 && list.length > o.maxPerDay + 1 ? o.maxPerDay : 0; // never hide just one
       if (cap) list = list.slice(0, cap).concat(`<div class="gccx-wk-extra">${list.slice(cap).join('')}</div><button type="button" class="gccx-wk-more" data-more aria-expanded="false">${list.length - cap} more</button>`);
       const full = `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`;
-      return `<section class="gccx-wk-day${isToday ? ' is-today' : ''}${past ? ' is-past' : ''}${list.length ? '' : ' is-empty'}" data-date="${key}" aria-label="${esc(full)}${isToday ? ' (today)' : ''}">` +
-        `<div class="gccx-wk-head" aria-hidden="true"><span class="gccx-wk-dow">${isToday ? 'Today' : DOW[d.getDay()]}</span><span class="gccx-wk-dn">${d.getDate()}</span><span class="gccx-wk-mon">${MON[d.getMonth()]}</span></div>` +
-        `<div class="gccx-wk-list">${list.join('') || '<p class="gccx-wk-none">No events</p>'}</div></section>`;
+      const headInner = `<span class="gccx-wk-dow">${isToday ? 'Today' : DOW[d.getDay()]}</span><span class="gccx-wk-dn">${d.getDate()}</span><span class="gccx-wk-mon">${MON[d.getMonth()]}</span>`;
+      const head = foldable
+        ? `<button type="button" class="gccx-wk-head gccx-wk-fold" data-fold="${key}" aria-expanded="${!collapsed}" aria-label="${esc(full)}, ${n ? n + (n === 1 ? ' event' : ' events') : 'no events'}">${headInner}<span class="gccx-wk-count" aria-hidden="true">${n || '–'}</span></button>`
+        : `<div class="gccx-wk-head" aria-hidden="true">${headInner}</div>`;
+      tpl.push(collapsed ? 'var(--wk-fold, 52px)' : 'minmax(0, 1fr)');
+      return `<section class="gccx-wk-day${isToday ? ' is-today' : ''}${past ? ' is-past' : ''}${collapsed ? ' is-collapsed' : ''}${foldable && !collapsed ? ' is-unfolded' : ''}${list.length ? '' : ' is-empty'}" data-date="${key}" aria-label="${esc(full)}${isToday ? ' (today)' : ''}">` +
+        head + `<div class="gccx-wk-list">${list.join('') || '<p class="gccx-wk-none">No events</p>'}</div></section>`;
     }).join('');
-    return `<div class="gccx-wk is-board${o.compact ? ' is-compact' : ''}" data-hide="" role="group" aria-label="${esc(o.label || 'Week calendar')}" style="--wk-days:${shown.length}">` +
+    const hasFold = fold && tpl.includes('var(--wk-fold, 52px)');
+    return `<div class="gccx-wk is-board${hasFold ? ' has-fold' : ''}${o.compact ? ' is-compact' : ''}" data-hide="" role="group" aria-label="${esc(o.label || 'Week calendar')}" style="--wk-days:${shown.length}${hasFold ? ';--wk-tpl:' + tpl.join(' ') : ''}">` +
       `<div class="gccx-wkb">${cols}</div>` +
       (total ? '' : '<p class="gccx-wk-empty">Nothing scheduled this week</p>') + '</div>';
   }
@@ -191,5 +212,5 @@
       `<h4 class="gccx-wkd-title">${esc(longDay(d))}${isToday ? ' <span class="gccx-wkd-today">Today</span>' : ''}</h4>${allday}${timeline}${none}</div>`;
   }
 
-  X.weekcal = { weekDays, ymd, render };
+  X.weekcal = { weekDays, ymd, render, tidyTitle };
 })(typeof window !== 'undefined' ? window : globalThis);

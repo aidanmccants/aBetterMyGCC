@@ -93,7 +93,7 @@ GCCX.onLook(build, () => { c.teardown(); /* remove #gccx-page */ });
 
 ## 7. Kept as is
 
-- **The Home calendar** (`weekcal.js`, `weekcal.css`, the calendar card in `home.js`): the week board, colour blocks, Campus events / Classes chips and Week / List switch stay as designed. Pages may move the card; they do not restyle it.
+- **The Home calendar** (`weekcal.js`, `weekcal.css`, the calendar card in `home.js`) keeps its own look: a week board, one column per day, each event a solid colour block (blue campus events, pink classes), with the Campus events / Classes chips and the Week / List switch. Blocks read time, title, venue. Today's first unfinished block is marked Next or Now. In the current week, days already over are narrow columns that open on click. Pages may move the card; changes to the board itself go in `weekcal.*`.
 - The plan drawer, Add/Drop builder, degree roadmap, search palette and forums pages are outside this system for now.
 
 ## 8. Checking a change

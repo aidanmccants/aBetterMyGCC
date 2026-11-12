@@ -14,8 +14,10 @@ html.gccx-homepage .gccx-hm-card {
   background: var(--x-surface); border: 1px solid var(--x-rule); border-radius: var(--x-radius);
   box-shadow: var(--x-shadow); padding: 18px 20px 20px; container-type: inline-size; min-width: 0;
 }
-html.gccx-homepage .gccx-hm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin-block-end: 12px; }
-html.gccx-homepage .gccx-hm-head h3 { margin: 0; font: 600 20px/1.25 var(--x-display); color: var(--x-ink); }
+html.gccx-homepage .gccx-hm-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-block-end: 12px; }
+/* The section title above ("This week") is the heading; the card's own h3 stays for screen readers only */
+html.gccx-homepage .gccx-hm-head h3 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+html.gccx-homepage .gccx-hm-card { position: relative; }
 html.gccx-homepage .gccx-hm-range { color: var(--x-muted); font: 14px var(--x-sans); }
 html.gccx-homepage .gccx-hm-tools { margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 html.gccx-homepage .gccx-hm-nav, html.gccx-homepage .gccx-hm-seg { display: inline-flex; gap: 4px; }
@@ -92,3 +94,6 @@ html.gccx-homepage #gccx-home-week[aria-busy="true"] .gccx-hm-range::after { con
 
 /* The page's gear/print buttons float right just above the page: give them room so they never touch it */
 html.gccx-homepage #PageBar_pageTitleButtons { margin-bottom: 16px !important; }
+
+/* The portal's "Welcome" page title repeats nothing useful above our hero; its gear/print buttons are a separate element and stay */
+html.gccx-homepage #PageBar_pageTitle { display: none !important; }

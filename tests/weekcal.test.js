@@ -109,3 +109,65 @@ test('bad input does not throw', () => {
   assert.doesNotThrow(() => W.render([null, {}, { date: '2026-11-09', title: 'x', start: NaN }], { weekOf: 'nope', today: 'nope' }));
   assert.equal(W.weekDays(undefined).length, 7);
 });
+
+// ---- board refinements ----
+const BOARD = { weekOf: WED, layout: 'board' };
+const THU_AM = new Date(2026, 10, 12, 9, 0); // Thursday 9:00 AM
+const ev = (date, start, end, title, extra) => ({ date, start, end, title, kind: 'event', ...extra });
+
+test('board block keeps time, title, place in that DOM order', () => {
+  const html = W.render([ev('2026-11-12', 600, 660, 'Talk', { sub: 'Athletics, Hall', place: 'Hall' })], { ...BOARD, today: THU_AM });
+  assert.match(html, /gccx-wk-time">10–11 AM<span class="gccx-wk-badge">Next<\/span><\/span><strong class="gccx-wk-title">Talk<\/strong><span class="gccx-wk-sub">Hall<\/span>/);
+  assert.match(html, /title="10–11 AM · Talk · Athletics · Hall"/);
+});
+
+test('place line falls back to sub, and is escaped', () => {
+  const html = W.render([ev('2026-11-12', 600, 660, 'A', { sub: '<i>Room</i>' })], { ...BOARD, today: THU_AM });
+  assert.match(html, /gccx-wk-sub">&lt;i&gt;Room&lt;\/i&gt;</);
+});
+
+test('titles lose leading bracket tags (display only)', () => {
+  assert.equal(W.tidyTitle('[L] [W] Women\'s Soccer'), "Women's Soccer");
+  assert.equal(W.tidyTitle('[L]'), '[L]');
+  assert.equal(W.tidyTitle('Plan [B] ahead'), 'Plan [B] ahead');
+  const html = W.render([ev('2026-11-12', 600, 660, '[L] Chess club')], { ...BOARD, today: THU_AM });
+  assert.match(html, /<strong class="gccx-wk-title">Chess club</);
+});
+
+test('only the first unfinished block today is marked: Next before it starts, Now once it has', () => {
+  const items = [ev('2026-11-12', 540, 600, 'Done'), ev('2026-11-12', 720, 780, 'Later'), ev('2026-11-12', 660, 700, 'Soon'), ev('2026-11-13', 600, 660, 'Tomorrow')];
+  let html = W.render(items, { ...BOARD, today: THU_AM }); // 9:00: "Done" has begun
+  assert.equal(count(html, /gccx-wk-badge/g), 1);
+  assert.match(html, /is-now[^>]*>(?:(?!<\/div>).)*Now<\/span>(?:(?!<\/div>).)*Done/);
+  html = W.render(items, { ...BOARD, today: new Date(2026, 10, 12, 10, 30) });
+  assert.equal(count(html, /gccx-wk-badge/g), 1);
+  assert.match(html, /is-past[^>]*>(?:(?!<\/div>).)*Done/);
+  assert.match(html, /is-next[^>]*>(?:(?!<\/div>).)*Next<\/span><\/span><strong class="gccx-wk-title">Soon/);
+  assert.equal(count(W.render(items, { ...BOARD, today: new Date(2026, 10, 12, 23, 0) }), /gccx-wk-badge/g), 0);
+  assert.equal(count(W.render(items, { ...BOARD, today: new Date(2026, 10, 20, 9, 0) }), /gccx-wk-badge/g), 0); // other week
+});
+
+test('a cancelled block is never the next one', () => {
+  const html = W.render([ev('2026-11-12', 660, 700, 'Off', { cancelled: true }), ev('2026-11-12', 720, 780, 'On')], { ...BOARD, today: THU_AM });
+  assert.match(html, /is-next[^>]*>(?:(?!<\/div>).)*On</);
+  assert.equal(count(html, /gccx-wk-badge/g), 1);
+});
+
+test('collapsePast folds days before today in the current week only', () => {
+  const items = [ev('2026-11-09', 600, 660, 'A'), ev('2026-11-09', 700, 760, 'B'), ev('2026-11-12', 600, 660, 'C')];
+  const html = W.render(items, { ...BOARD, today: THU_AM, collapsePast: true });
+  assert.equal(count(html, /is-collapsed/g), 3); // Mon, Tue, Wed
+  assert.match(html, /<button type="button" class="gccx-wk-head gccx-wk-fold" data-fold="2026-11-09" aria-expanded="false" aria-label="Mon, Nov 9, 2 events">/);
+  assert.match(html, /gccx-wk-count" aria-hidden="true">2</);
+  assert.match(html, /data-fold="2026-11-11"[^>]*aria-label="Wed, Nov 11, no events"/);
+  assert.equal(count(html, /data-fold/g), 3);
+  assert.match(html, /--wk-tpl:var\(--wk-fold, 52px\) var\(--wk-fold, 52px\) var\(--wk-fold, 52px\) minmax/);
+  // opened ones keep a button that reads expanded and are not narrow
+  const open = W.render(items, { ...BOARD, today: THU_AM, collapsePast: true, openPast: ['2026-11-09'] });
+  assert.equal(count(open, /is-collapsed/g), 2);
+  assert.match(open, /data-fold="2026-11-09" aria-expanded="true"/);
+  // off by default; other weeks and the week without today show all days
+  assert.doesNotMatch(W.render(items, { ...BOARD, today: THU_AM }), /data-fold|is-collapsed/);
+  assert.doesNotMatch(W.render(items, { ...BOARD, today: new Date(2026, 10, 23), collapsePast: true }), /data-fold|is-collapsed/);
+  assert.doesNotMatch(W.render(items, { ...BOARD, today: new Date(2026, 10, 2), collapsePast: true }), /data-fold|is-collapsed/);
+});

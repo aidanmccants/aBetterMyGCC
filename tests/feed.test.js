@@ -91,6 +91,10 @@ parsers('calendar API: ids from the inline script; events mapped, decoded and ti
   assert.deepEqual([cls.date, cls.start, cls.end, cls.title, cls.location, cls.kind, cls.calendar], ['2026-11-09', 540, 590, 'Intermediate Spanish I', 'SPAN 201-A, MAIN HAL 103', 'class', 'Classes']);
   const ath = F.mapApiEvent({ title: 'Grove City College Men&#39;s Basketball at Pitt-Greensburg', start: '2026-11-09T19:00:00', end: '2026-11-09T21:00:00', allDay: false, location: 'Greensburg, Pa.', eventSource: 'jics', eventType: 'default', calendarName: 'Athletics' });
   assert.deepEqual([ath.title, ath.location, ath.kind, ath.start, ath.end], ["Men's Basketball at Pitt-Greensburg", 'Athletics, Greensburg, Pa.', 'event', 1140, 1260]);
+  assert.equal(ath.place, 'Greensburg, Pa.');
+  const tagged = F.mapApiEvent({ title: "[L] Grove City College Men&#39;s Basketball at Pitt-Greensburg", start: '2026-11-09T19:00:00', end: '2026-11-09T21:00:00', allDay: false, location: 'Various Locations', calendarName: 'Athletics' });
+  assert.deepEqual([tagged.title, tagged.place, tagged.location], ["Men's Basketball at Pitt-Greensburg", 'Athletics', 'Athletics, Various Locations']);
+  assert.equal(cls.place, 'SPAN 201-A, MAIN HAL 103');
   const allDay = F.mapApiEvent({ title: 'Reading day', start: '2026-11-12T00:00:00', end: '2026-11-13T00:00:00', allDay: true, calendarName: 'Christian Formation calendar' });
   assert.deepEqual([allDay.date, allDay.start, allDay.allDay], ['2026-11-12', null, true]);
   assert.equal(F.mapApiEvent({ start: '2026-11-12T00:00:00' }), null);

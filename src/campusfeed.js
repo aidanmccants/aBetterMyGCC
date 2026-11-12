@@ -243,12 +243,14 @@
     const cancelled = /^cancell?ed\b[\s:-]*/i.test(title); // "CANCELLED Grove City College ..."
     title = title.replace(/^cancell?ed\b[\s:-]*/i, '');
     const cal = clean(decode(x.calendarName || ''));
+    title = title.replace(/^(?:\s*\[[^\]]{1,8}\]\s*)+/, '') || title; // "[L] Grove City College Men's Basketball ..."
     if (/athletic/i.test(cal)) title = title.replace(/^Grove City College\s+/i, ''); // "Men's Basketball at Pitt-Greensburg"
     const c = tidyClass(title, clean(decode(x.location || '')));
     const sameDay = e && ymd(e.d) === ymd(s.d);
     return {
       date: ymd(s.d), start: allDay ? null : s.min, end: allDay || !sameDay ? null : e.min, allDay,
       title: c.title, href: null, location: [cls ? '' : cal, c.location].filter(Boolean).join(', '),
+      place: (/^various locations?$/i.test(c.location) ? '' : c.location) || (cls ? '' : cal), // the block's short place line
       kind: cls || c.kind === 'class' ? 'class' : 'event', calendar: cls ? 'Classes' : cal || 'Campus', cancelled,
     };
   }
