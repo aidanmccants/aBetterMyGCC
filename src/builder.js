@@ -542,8 +542,16 @@
   let calState = null;     // what the calendar on screen shows, for ghost previews
   let hoverSection = null; // result row under the pointer / focus
   const closedKey = 'gccx-plan-closed';
-  const wasClosed = () => { try { return sessionStorage.getItem(closedKey) === '1'; } catch (e) { return false; } };
-  const setClosed = (v) => { try { v ? sessionStorage.setItem(closedKey, '1') : sessionStorage.removeItem(closedKey); } catch (e) { /* ignore */ } };
+  // Open or closed is remembered across visits (localStorage). It used to last one tab session
+  // (sessionStorage, same key); a value left there is still honoured.
+  const wasClosed = () => {
+    try { const v = localStorage.getItem(closedKey); if (v != null) return v === '1'; } catch (e) { /* storage blocked */ }
+    try { return sessionStorage.getItem(closedKey) === '1'; } catch (e) { return false; }
+  };
+  const setClosed = (v) => {
+    try { localStorage.setItem(closedKey, v ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    try { v ? sessionStorage.setItem(closedKey, '1') : sessionStorage.removeItem(closedKey); } catch (e) { /* ignore */ }
+  };
 
   async function renderDrawer(open) {
     const g = gen;
@@ -553,7 +561,7 @@
     const pt = await planTermOrDefault();
     if (!alive(g)) return;
     if (open === true) { drawerOpen = true; setClosed(false); }
-    // split screen by default: open beside the search unless closed this session
+    // split screen by default: open beside the search unless the student closed it (remembered)
     if (drawerOpen === null) drawerOpen = !wasClosed() || !!(job && job.user === userKey());
 
     let toggle = $('#gccx-plan-toggle');

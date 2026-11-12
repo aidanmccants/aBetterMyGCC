@@ -6,7 +6,7 @@
   const X = window.GCCX;
   const root = document.documentElement;
 
-  const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+  const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hoverLoad: true, hall: 'hicks-cafe' };
   const TTL = { schedule: 6 * 3600e3, degree: 24 * 3600e3, chapel: 3 * 3600e3, balance: 6 * 3600e3, nav: 24 * 3600e3, pageIndex: 24 * 3600e3, standing: 24 * 3600e3, registration: 6 * 3600e3 };
 
   // Pages the redesign does not handle well fall back to stock myGCC: no `gccx` class means

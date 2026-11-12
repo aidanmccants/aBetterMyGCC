@@ -40,8 +40,22 @@
   const entries = new Map(); // url -> { el, timer }
   let intentTimer = null, intentUrl = null;
 
+  // Settings > General > "Load a myGCC page when you hover over its link". On unless switched off.
+  let hoverLoad = true;
+  try {
+    chrome.storage.local.get('settings', (o) => { void chrome.runtime.lastError; hoverLoad = !(o && o.settings && o.settings.hoverLoad === false); });
+    chrome.storage.onChanged.addListener((ch, area) => {
+      if (area !== 'local' || !ch.settings) return;
+      hoverLoad = !(ch.settings.newValue && ch.settings.newValue.hoverLoad === false);
+      if (!hoverLoad) { // switched off: stop anything pending and let go of pages already loaded ahead
+        clearTimeout(intentTimer); intentTimer = null; intentUrl = null;
+        [...entries.keys()].forEach((u) => drop(u, 'hover loading switched off'));
+      }
+    });
+  } catch (_) { /* extension reloading: stays on until the next page load */ }
+
   function eligible(a) {
-    if (!active() || a.target === '_blank' || a.hasAttribute('download')) return null;
+    if (!hoverLoad || !active() || a.target === '_blank' || a.hasAttribute('download')) return null;
     if (window.GCCX && window.GCCX.demo) return null; // demo pages have no real /ICS/ URLs to prerender
     const u = resolve(a);
     if (!u || !window.GCCX || !window.GCCX.safeUrl) return null;

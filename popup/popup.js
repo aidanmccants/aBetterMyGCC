@@ -1,4 +1,4 @@
-const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hall: 'hicks-cafe' };
+const DEFAULTS = { enabled: true, theme: 'auto', designTheme: 'gcc', holidayThemes: true, dashboard: true, hidePromos: true, hideGpa: true, hoverLoad: true, hall: 'hicks-cafe' };
 const NAMES = { anthropic: 'Claude', openai: 'OpenAI', xai: 'Grok', google: 'Gemini' };
 const $ = (s) => document.querySelector(s);
 

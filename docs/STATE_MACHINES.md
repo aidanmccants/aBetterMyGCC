@@ -120,7 +120,7 @@ A Plan with AI run read back after a page load that still says `running` or `sto
 
 | Thing | Where | State |
 |---|---|---|
-| Plan drawer | `#gccx-plan-toggle[data-gccx-state]` | `open` / `closed` (`sessionStorage` `gccx-plan-closed`) |
+| Plan drawer | `#gccx-plan-toggle[data-gccx-state]` | `open` / `closed` (remembered in `localStorage` `gccx-plan-closed`: `1` closed, `0` open; an older `sessionStorage` value is still read) |
 | Feedback panel, loading bar | `src/feedback.js`, `src/loading.js` | not yet marked with `data-gccx-state` |
 | GPA reveal, first run | `src/content.js`, `src/onboarding.js`, `src/whatsnew.js` | unchanged; not yet converted |
 
