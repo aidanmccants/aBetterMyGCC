@@ -13,7 +13,7 @@ A page answers one question. Anything that does not help answer it moves down, f
 | Page | Question | Lead | Never here |
 |---|---|---|---|
 | **Home** | What is the college saying and doing? | Announcements, the campus calendar | Personal numbers (chapel, balance, degree) |
-| **My Info** | What do I need to know about my day and my standing? | Next class, chapel, account, degree, dining | Campus news |
+| **My Info** | What do I need to know about my day and my standing? | Next class, dining now, chapel, library hours; degree lower down | Campus news; money (that is CashNet) |
 | **Academics** | What am I taking, what can I register for, how far along am I? | Term and registration state, schedule, degree progress | Dining, buildings, forums |
 
 ## 2. Page anatomy
@@ -21,7 +21,7 @@ A page answers one question. Anything that does not help answer it moves down, f
 Every page is one `section.ux-page#gccx-page` placed above myGCC's `#portlet-grid`, read top to bottom:
 
 1. **Hero** (`ux-hero`): the page title or greeting, then **one sentence that says what matters right now**, then at most three actions (one primary).
-2. **Stats** (`ux-stats`, optional): up to four `ux-stat` tiles. A tile is a number the student would otherwise click to find. Each links to its source page.
+2. **Stats** (`ux-stats`, optional): up to four `ux-stat` tiles. A tile is a number the student would otherwise click to find. Each links to its source page. Tiles are for things that change within a day or a week (next class, what is being served, chapel count, is the library open). Term-long numbers (degree progress, credit totals) go in a section lower down, except on Academics, where they are the point of the page.
 3. **Sections** (`ux-section`): a titled group holding a `ux-grid` of `ux-card`s. Two to four sections.
 4. **myGCC's own cards**: the last section(s). The portal's `.portlet` nodes are *moved* into `ux-portlets` (never copied, so links, forms and postbacks keep working) and sorted by the rules in section 4.
 

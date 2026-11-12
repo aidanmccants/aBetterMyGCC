@@ -102,7 +102,6 @@
   const SCHEDULE_URL = '/ICS/Academics/Home.jnz?portlet=Student_Schedule';
   const DEGREE_URL = '/ICS/Academics/Home.jnz?portlet=My_Degree_Progress';
   const CHAPEL_URL = '/ICS/My_Info/Student.jnz?portlet=Universal_Portlet';
-  const BALANCE_URL = '/ICS/Financial/Student_Accounts.jnz?portlet=CASHNet_My_Account_Info';
   // myGCC's SSO hand-off into CashNet (student account payments and CrimsonCash deposits)
   const CASHNET_URL = '/ICS/Portlets/CRM/Student/Portlet.CASHNetAccountInfo/CashNetLink.aspx';
   const REG_URL = '/ICS/Academics/Home.jnz?portlet=AddDrop_Courses';
@@ -235,23 +234,6 @@
     return (hit && hit.open) || null;
   };
 
-  // Account balances sit behind a postback and a "Please Wait" screen.
-  const loadBalance = (f) => cached('balance', async () => {
-    let doc = await getDoc(BALANCE_URL);
-    let triedLink = false;
-    for (let i = 0; i < 8; i++) {
-      const found = X.parseBalances(doc);
-      if (found) return found;
-      if (/^wait$/i.test(doc.title.trim())) { await sleep(1200); doc = await postForm(doc, BALANCE_URL); continue; }
-      const link = [...doc.querySelectorAll('.portlet a[href*="__doPostBack"]')].find((a) => /account balances/i.test(a.textContent));
-      if (!link || triedLink) return null;
-      triedLink = true;
-      doc = await postForm(doc, BALANCE_URL, { __EVENTTARGET: /__doPostBack\('([^']+)'/.exec(link.getAttribute('href'))[1], __EVENTARGUMENT: '' });
-      if (!doc) return null;
-    }
-    return null;
-  }, f);
-
   // Chapel numbers live in a frame on custom.gcc.edu; chapel.js reads that frame.
   async function loadChapel(force) {
     const hit = await store.get('chapel');
@@ -296,9 +278,6 @@
     if (p.includes('student_schedule')) { const d = X.parseSchedule(document); if (d && d.courses.length && covers(d)) store.set('schedule', { ts: Date.now(), user, data: d }); }
     if (p.includes('my_degree_progress')) { const d = X.parseDegree(document); if (d) store.set('degree', { ts: Date.now(), user, data: d }); }
     if (document.querySelector('iframe[src*="chapel.aspx"]')) X.handoff.put('local', 'chapelPending', { user }, 60000);
-    // only the balance page itself: elsewhere "$5.00 Due" could be anyone's text (a forum post)
-    const b = /\/ics\/financial\/student_accounts\.jnz/i.test(L.pathname) ? X.parseBalances(document) : null;
-    if (b) store.set('balance', { ts: Date.now(), user, data: b });
   }
 
   // ---------------- dashboard ----------------
@@ -340,7 +319,6 @@
       load('standing', loadStanding(force)),
       load('registration', loadRegistration(force)),
       load('chapel', loadChapel(force)),
-      load('balance', loadBalance(force)),
       load('menu', loadMenu()),
     ];
     // forum posts come from the shared module (campusfeed.js); without it the card just stays empty
@@ -349,6 +327,8 @@
       return X.feed.load(k, force).then((r) => { cached.info[key] = (r && r.info) || {}; return r ? r.data : null; });
     };
     tasks.push(load('forums', viaFeed('forums', 'forums')));
+    // Money is in CashNet, not myGCC: the dashboard no longer reads the account balance page.
+    cached.info.balance = {}; settle('balance', null);
     renderDashboard();
     await Promise.allSettled(tasks.map((t) => t.then(renderDashboard)));
     renderDashboard();
@@ -496,7 +476,7 @@
     const campus = [buildingsCard(), forumsCard()].filter(Boolean);
     const campusSection = sectionHTML('Around campus', `<div class="ux-grid${campus.length > 1 ? ' is-even' : ''}">${campus.join('')}</div>`);
     const degree = degreeSection();
-    return `${hero}${statsHTML()}${daySection}${campusSection}${degree}
+    return `${hero}${statsHTML(now)}${daySection}${campusSection}${degree}
       <p class="ux-note me-foot" data-gccx-state="${st(...M.CARDS)}"><span>${{ loading: 'Updating…', problem: 'Some info couldn\'t be refreshed', ok: 'Up to date' }[M.cardsFooter(M.CARDS.map((k) => cards[k].state))]}</span><button type="button" class="ux-link" data-refresh>Refresh</button></p>`;
   }
 
@@ -713,17 +693,54 @@
         <p class="ux-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p>` });
   }
 
-  // ---- stats row: the numbers a student would otherwise click to find ----
-  const statHTML = (o) => `<a class="ux-stat${o.tone ? ' is-' + o.tone : ''}" href="${o.href}" data-gccx-state="${o.state}">
+  // ---- stats row: what changes during a day (next class, dining, chapel, library). Term-long numbers
+  // (degree, credits) live in the Degree section below; money lives in CashNet, not here. ----
+  const statHTML = (o) => {
+    const tag = o.href ? 'a' : 'div';
+    return `<${tag} class="ux-stat${o.tone ? ' is-' + o.tone : ''}"${o.href ? ` href="${esc(o.href)}"${o.external ? ' target="_blank" rel="noopener"' : ''}` : ''} data-gccx-state="${o.state}">
       <div class="ux-stat-label">${esc(o.label)}</div>
       <div class="ux-stat-value">${o.value}${o.small ? `<small> ${esc(o.small)}</small>` : ''}</div>
       ${o.meter != null ? `<div class="ux-meter"><i style="width:${Math.max(0, Math.min(100, o.meter))}%"></i></div>` : ''}
-      ${o.note ? `<div class="ux-stat-note">${esc(o.note)}</div>` : ''}</a>`;
+      ${o.note ? `<div class="ux-stat-note">${esc(o.note)}</div>` : ''}</${tag}>`;
+  };
 
-  function statsHTML() {
+  // The class in session, else the next one today, else the first one on the next day that has classes.
+  function nextClass(now) {
+    const s = state.schedule;
+    if (!s || !s.courses.length) return null;
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const today = classesOn(now);
+    const live = today.find((x) => x.m.start <= mins && x.m.end > mins);
+    if (live) return { ...live, kind: 'now', left: live.m.end - mins };
+    const next = today.find((x) => x.m.start > mins);
+    if (next) return { ...next, kind: 'today', wait: next.m.start - mins };
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(now); d.setDate(d.getDate() + i);
+      const l = classesOn(d);
+      if (l.length) return { ...l[0], kind: 'later', day: i === 1 ? 'tomorrow' : d.toLocaleDateString(undefined, { weekday: 'long' }) };
+    }
+    return null;
+  }
+
+  function statsHTML(now) {
     const tiles = [];
     // a source that could not be loaded and has no saved copy: say so instead of leaving it out
     const failed = (key, label, href) => tiles.push(statHTML({ label, href, state: cards[key].state, value: '&ndash;', note: "Couldn't load" }));
+
+    const nc = nextClass(now);
+    if (nc) {
+      const where = [nc.c.title, nc.m.room].filter(Boolean).join(' · ');
+      if (nc.kind === 'now') tiles.push(statHTML({ label: 'In class now', href: SCHEDULE_URL, state: cards.schedule.state, value: esc(X.fmtTime(nc.m.end)), small: `ends, ${dur(nc.left)} left`, note: where }));
+      else tiles.push(statHTML({ label: 'Next class', href: SCHEDULE_URL, state: cards.schedule.state, value: esc(X.fmtTime(nc.m.start)), small: nc.kind === 'today' ? `in ${dur(nc.wait)}` : nc.day, note: where }));
+    } else if (cards.schedule.state === 'error') failed('schedule', 'Next class', SCHEDULE_URL);
+
+    const m = state.menu;
+    if (m) {
+      const hall = settings.hall === 'map-cafe' ? 'MAP' : 'Hicks';
+      if (m.closed) tiles.push(statHTML({ label: `Dining · ${hall}`, state: cards.menu.state, value: 'Closed', note: m.message || 'Closed right now' }));
+      else if (m.meal) tiles.push(statHTML({ label: `Dining · ${hall}`, state: cards.menu.state, value: esc(m.meal), small: m.later ? 'later today' : m.until ? `until ${m.until}` : '', note: m.later ? 'Not serving right now' : 'Serving now' }));
+    }
+
     const ch = state.chapel;
     if (ch && ch.required != null) {
       const done = (ch.attended || 0) + (ch.special || 0);
@@ -733,28 +750,18 @@
         meter: need ? Math.min(100, Math.round((done / need) * 100)) : 100, tone: rem > 0 ? '' : 'ok',
         note: rem > 0 ? `${rem} more this semester` : 'Complete for this semester' }));
     } else if (cards.chapel.state === 'error') failed('chapel', 'Chapel', CHAPEL_URL);
-    const bal = state.balance;
-    if (bal && bal.length) {
-      const ar = bal.find((b) => /receivable/i.test(b.label)) || bal[0];
-      const owed = ar.kind === 'Due' && ar.amount > 0;
-      tiles.push(statHTML({ label: 'Student account', href: BALANCE_URL, state: cards.balance.state, tone: owed ? 'warn' : '',
-        value: esc(ar.amount.toLocaleString(undefined, { style: 'currency', currency: 'USD' })),
-        note: ar.amount === 0 ? 'Nothing due' : owed ? 'Amount due' : 'Credit on your account' }));
-    } else if (cards.balance.state === 'error') failed('balance', 'Student account', BALANCE_URL);
-    const dg = state.degree;
-    if (dg && dg.reqs.length) {
-      const met = dg.reqs.filter((r) => r.met).length;
-      tiles.push(statHTML({ label: 'Degree', href: DEGREE_URL, state: cards.degree.state, value: esc(met), small: `of ${dg.reqs.length} met`,
-        meter: Math.round((met / dg.reqs.length) * 100), tone: met === dg.reqs.length ? 'ok' : '' }));
-    } else if (cards.degree.state === 'error') failed('degree', 'Degree', DEGREE_URL);
-    const s = state.schedule, sg = state.standing;
-    if (s && s.courses.length) {
-      const credits = s.courses.reduce((n, c) => n + (c.credits || 0), 0);
-      tiles.push(statHTML({ label: 'Credits this term', href: SCHEDULE_URL, state: cards.schedule.state, value: esc(credits),
-        note: sg && sg.earned != null ? `${sg.earned}${sg.needed > 0 ? ' of ' + sg.needed : ''} earned toward your degree` : '' }));
+
+    const lib = BUILDINGS.find((b) => /library/i.test(b.name));
+    if (lib) {
+      let s = null, card = null;
+      try { s = buildingStatus(lib, now); card = lib.keycard ? buildingStatus({ hours: lib.keycard }, now) : null; } catch (e) { /* hours unreadable: no tile */ }
+      // open: "Open until 5 PM". Closed: the reopening time (and keycard access, if any) goes on the note line so it never wraps beside the figure.
+      if (s) tiles.push(statHTML({ label: 'Library', href: lib.url, external: true, state: 'ready', tone: s.open ? 'ok' : '', value: s.open ? 'Open' : 'Closed', small: s.open ? bldPhrase(s.text, false) : '',
+        note: s.open ? 'Buhl Library' : [bldPhrase(s.text), card && card.open ? `keycard access ${bldPhrase(card.text, false)}` : ''].filter(Boolean).join(' · ') }));
     }
-    if (!tiles.length) return st('chapel', 'balance', 'degree', 'schedule') === 'loading' ? '<p class="ux-state" data-kind="loading">Loading your numbers…</p>' : '';
-    return `<div class="ux-stats">${tiles.join('')}</div>${staleNote('chapel', 'balance', 'degree')}`;
+
+    if (!tiles.length) return st('schedule', 'menu', 'chapel') === 'loading' ? '<p class="ux-state" data-kind="loading">Loading your day…</p>' : '';
+    return `<div class="ux-stats">${tiles.join('')}</div>${staleNote('schedule', 'chapel')}`;
   }
 
   function diningCard(now) {

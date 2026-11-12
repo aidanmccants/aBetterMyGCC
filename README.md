@@ -8,7 +8,9 @@ It works for anyone signed in to myGCC. Everything it shows comes from that pers
 
 ## What it does
 
-- **Home dashboard:** today's classes with times, rooms and professors (or tomorrow's, once today is over), chapel credits, student account balance, unmet degree requirements, and what's being served at Hicks or MAP right now.
+- **Home:** what is still on the campus calendar today, announcements, and the week's campus events.
+- **My Info dashboard:** your next class, what Hicks or MAP is serving now, chapel credits and whether the library is open, then today's classes with times, rooms and professors (or tomorrow's, once today is over), building hours, forum posts and unmet degree requirements.
+- **Academics:** the term and whether add/drop is open, degree progress, advisor and major, then your courses, registration, and grades and records in groups.
 - **Course planner (Academics → Add/Drop Courses):**
   - Press **Save** on any search result to add that section to your plan.
   - Each result is tagged **Fits your schedule** or **Conflicts with …**, checked against what you're registered for plus your plan. A checkbox hides the sections that conflict.
@@ -63,7 +65,7 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 ## Notes
 
 - Chapel attendance is read from the chapel frame on `custom.gcc.edu`, which myGCC itself embeds.
-- The account balance sits behind a "Please wait" step in myGCC. If the background fetch doesn't get it, the dashboard picks it up the next time you open My Account Balances.
+- Account balances are not shown: money is handled in CashNet, which the dashboard links to.
 - Batch add uses only myGCC's own forms. It never touches the Drop checkboxes. Clicking **Add N courses** asks you to confirm before anything is submitted.
 
 ## For developers
