@@ -1,42 +1,14 @@
 /* aBetterMyGCC Home (school content only). Gated on html.gccx-homepage. */
-/* One column of cards, one width: the banner, our cards and every portal card share the same left and
-   right edges (the #portlets content box) with a 20px gap between all of them. */
-html.gccx-homepage #gccx-home-banner,
-html.gccx-homepage #gccx-home-main {
-  margin: 0 0 20px;
-  box-sizing: border-box;
-  min-width: 0;
-  clear: both; /* the portal floats its gear/print buttons here; without this the banner narrowed beside them */
-}
+/* The page itself is the kit's section.ux-page#gccx-page; this file only places Home's extras. */
+html.gccx-homepage #gccx-page { margin-top: 0; clear: both; }
 html.gccx-homepage #portlet-grid, html.gccx-homepage #portlet-grid > .row { margin-inline: 0 !important; padding-inline: 0 !important; }
-html.gccx-homepage #portlet-grid > .row { display: flex; flex-wrap: wrap; gap: 0 20px; }
 html.gccx-homepage #portlet-grid > .row::before, html.gccx-homepage #portlet-grid > .row::after { content: none; }
-html.gccx-homepage #portlet-grid .portlet-column { flex: 1 1 340px; width: auto !important; max-width: 100%; float: none !important; padding-inline: 0 !important; min-width: 0; }
-html.gccx-homepage #portlet-grid .portlet { margin: 0 0 20px !important; }
+/* myGCC's grid is emptied by the moves; it stays in place so switching off can put everything back */
+html.gccx-homepage #portlet-grid:not(:has(.portlet)) { display: none; }
 
 /* Promo banners: always shown on Home (school news), centered in their own block above the page */
 html.gccx-homepage #TargetedMessage { display: flex !important; justify-content: center; clear: both; margin: 8px auto 20px !important; text-align: center; }
 html.gccx-homepage #TargetedMessage img { margin-inline: auto; }
-html.gccx-homepage #gccx-home-main { display: flex; flex-direction: column; gap: 20px; }
-html.gccx-homepage #gccx-home-banner {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px;
-  padding: 20px;
-  border: 1px solid color-mix(in srgb, var(--x-accent) 30%, var(--x-rule));
-  border-radius: var(--x-radius);
-  background: color-mix(in srgb, var(--x-accent) 10%, var(--x-surface));
-  color: var(--x-ink);
-}
-html.gccx-homepage #gccx-home-banner h2 { margin: 0 0 4px; font: 600 20px/1.25 var(--x-display); color: var(--x-ink); }
-html.gccx-homepage #gccx-home-banner p { margin: 0; color: var(--x-muted); font: 15px/1.5 var(--x-sans); }
-html.gccx-homepage .gccx-hm-text { min-width: 0; flex: 1 1 260px; }
-html.gccx-homepage a.gccx-hm-btn {
-  display: inline-block; padding: 10px 18px; border-radius: 999px;
-  background: var(--x-accent); color: var(--x-accent-ink); text-decoration: none;
-  font: 600 15px/1.2 var(--x-sans); transition: filter .15s, transform .1s;
-}
-html.gccx-homepage a.gccx-hm-btn:hover { filter: brightness(1.1); }
-html.gccx-homepage a.gccx-hm-btn:active { transform: translateY(1px); }
-html.gccx-homepage a.gccx-hm-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 3px; }
 
 html.gccx-homepage .gccx-hm-card {
   background: var(--x-surface); border: 1px solid var(--x-rule); border-radius: var(--x-radius);
@@ -62,15 +34,13 @@ html.gccx-homepage .gccx-hm-btn2:disabled { color: var(--x-muted); cursor: defau
 html.gccx-homepage .gccx-hm-weekbox { min-width: 0; }
 html.gccx-homepage .gccx-hm-listbox { min-width: 0; overflow-x: auto; }
 html.gccx-homepage .gccx-hm-listbox .portlet { margin: 0 !important; width: auto; max-width: 100%; }
-html.gccx-homepage #gccx-home-ann { min-width: 0; }
-html.gccx-homepage #gccx-home-ann .portlet { max-width: 100%; margin: 0 !important; }
-html.gccx-homepage #gccx-home-ann :is(.pSection, .portlet-content, .portlet-body) { max-width: 75ch; }
-
-html.gccx-homepage #gccx-home-more { margin: 4px 0 12px; font: 600 20px/1.25 var(--x-display); color: var(--x-ink); }
+/* The kit gives every portlet in a page card padding; the Home list view keeps the portal card's own */
+html.gccx-homepage #gccx-page .gccx-hm-listbox .portlet { padding: 4px 24px 20px !important; }
+html.gccx-homepage #gccx-page .gccx-hm-listbox .portlet-header-bar { padding: 0 0 4px !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  html.gccx-homepage a.gccx-hm-btn, html.gccx-homepage .gccx-hm-seg button, html.gccx-homepage .gccx-hm-btn2 { transition: none; }
-  html.gccx-homepage a.gccx-hm-btn:active, html.gccx-homepage .gccx-hm-seg button:active, html.gccx-homepage .gccx-hm-btn2:active { transform: none; }
+  html.gccx-homepage .gccx-hm-seg button, html.gccx-homepage .gccx-hm-btn2 { transition: none; }
+  html.gccx-homepage .gccx-hm-seg button:active, html.gccx-homepage .gccx-hm-btn2:active { transform: none; }
 }
 
 /* Calendar filter chips (Campus events / Classes) */
@@ -92,37 +62,33 @@ html.gccx-homepage #mainCrumbs { display: flow-root !important; visibility: hidd
 html.gccx-homepage #TargetedMessage { margin: 16px auto 0 !important; padding: 0 !important; }
 html.gccx-homepage #mainLayout { margin-top: 20px !important; }
 
-/* Portal card headers on Home: the title and its (?) help link on one line, no empty row under the title */
-html.gccx-homepage :is(#gccx-home-main, #portlet-grid) .portlet-header-bar { display: flex !important; align-items: center; gap: 8px; padding: 0 0 4px !important; }
-html.gccx-homepage :is(#gccx-home-main, #portlet-grid) .portlet-header-bar h3 { margin: 0 !important; flex: 0 1 auto; }
-html.gccx-homepage :is(#gccx-home-main, #portlet-grid) .portlet-help-wrapper { width: auto !important; margin: 0 !important; opacity: .55; }
-html.gccx-homepage :is(#gccx-home-main, #portlet-grid) .portlet-help-wrapper:is(:hover, :focus-within) { opacity: 1; }
-html.gccx-homepage :is(#gccx-home-main, #portlet-grid) .portlet-help-wrapper .help { padding: 2px 6px !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
-
-/* Announcements: flat spacing, posts as tiles that fill the card's width */
-html.gccx-homepage #gccx-home-ann .portlet { padding: 20px !important; }
-html.gccx-homepage #gccx-home-ann .portlet-padding { margin: 0 !important; padding: 12px 0 0 !important; }
-html.gccx-homepage #gccx-home-ann .pSection { padding: 0 !important; max-width: none !important; }
+/* Announcements: the section title above says it, so the portlet's own header bar is not repeated.
+   Each post is one row: title, quiet date line, body clamped to three lines, "Read more". */
+html.gccx-homepage #gccx-home-ann .portlet-header-bar { display: none !important; }
+html.gccx-homepage #gccx-home-ann .portlet { padding: 0 var(--x-pad) var(--x-s4) !important; }
+html.gccx-homepage #gccx-home-ann .portlet-padding { padding: 0 !important; margin: 0 !important; }
+html.gccx-homepage #gccx-home-ann .pSection { max-width: none !important; }
 html.gccx-homepage #gccx-home-ann .pSection > .row { margin: 0 !important; }
 html.gccx-homepage #gccx-home-ann .pSection > .row > [class*="col-"] { padding: 0 !important; float: none; width: auto; }
-html.gccx-homepage #gccx-home-ann .pSection > .row > [class*="col-"]:has(> .post-wrapper) { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px 0; }
-html.gccx-homepage #gccx-home-ann .post-wrapper { min-width: 0; border: 0 !important; padding-inline: 0 28px; }
-/* columns divided by one rule; the first column has none */
-html.gccx-homepage #gccx-home-main #gccx-home-ann .post-wrapper + .post-wrapper { border-top: 0 !important; border-left: 1px solid var(--x-rule) !important; padding-inline: 28px; }
-html.gccx-homepage #gccx-home-ann .post-wrapper > div { height: 100%; box-sizing: border-box; padding: 0 !important; border: 0 !important; border-radius: 0; background: none; }
-html.gccx-homepage #gccx-home-ann .post-item { display: flex !important; flex-direction: column; margin: 0 !important; padding: 4px 0 !important; gap: 6px !important; height: 100%; box-sizing: border-box; }
-html.gccx-homepage #gccx-home-ann .post-item > .postDiscuss { margin-top: auto; padding-top: 6px; }
+html.gccx-homepage #gccx-home-ann .post-wrapper { padding: 0 !important; border: 0 !important; }
+html.gccx-homepage #gccx-home-ann .post-wrapper + .post-wrapper { border-top: 1px solid var(--x-rule) !important; }
+html.gccx-homepage #gccx-home-ann .post-wrapper > div { padding: 0 !important; border: 0 !important; background: none; }
+html.gccx-homepage #gccx-home-ann .post-item { display: grid; gap: var(--x-s1); padding: var(--x-s4) 0 !important; margin: 0 !important; }
 html.gccx-homepage #gccx-home-ann .post-item > .top-admin-btns:empty { display: none; }
-html.gccx-homepage #gccx-home-ann .post-item > h4 { font-size: 17px !important; }
-html.gccx-homepage #gccx-home-ann .post-content { max-width: none !important; font-size: 14.5px !important; line-height: 1.55 !important; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
-html.gccx-homepage #gccx-home-ann .post-content :is(p, li) { margin: 0 0 6px !important; }
-html.gccx-homepage #gccx-home-ann .post-content ul { padding-left: 18px; margin: 0 !important; }
+html.gccx-homepage #gccx-home-ann .post-item > h4 { font-size: var(--x-fs-card) !important; }
+html.gccx-homepage #gccx-home-ann .post-content {
+  max-width: 72ch !important; font-size: var(--x-fs-body) !important; line-height: 1.5 !important; color: var(--x-muted);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+html.gccx-homepage #gccx-home-ann .post-content :is(p, li) { margin: 0 0 4px !important; }
+html.gccx-homepage #gccx-home-ann .post-content ul { list-style: disc; padding-left: 18px; margin: 0 !important; }
 html.gccx-homepage #gccx-home-ann .post-content .gccx-blank { display: none !important; }
-html.gccx-homepage #gccx-home-ann .pSection > .row + .row { margin-top: 14px !important; }
+html.gccx-homepage #gccx-home-ann #ViewMorePostsLink { display: inline-block; margin: 0 !important; padding-top: var(--x-s3); border-top: 1px solid var(--x-rule); width: 100%; }
+html.gccx-homepage #gccx-home-ann .pSection > .row + .row { margin-top: 0 !important; }
 
 /* While the week is loading from myGCC, don't claim the days are empty */
 html.gccx-homepage #gccx-home-week[aria-busy="true"] :is(.gccx-wk-none, .gccx-wk-empty) { visibility: hidden; }
 html.gccx-homepage #gccx-home-week[aria-busy="true"] .gccx-hm-range::after { content: "Loading…"; margin-left: 10px; color: var(--x-faint); }
 
-/* The page's gear/print buttons float right just above the banner: give them room so they never touch it */
+/* The page's gear/print buttons float right just above the page: give them room so they never touch it */
 html.gccx-homepage #PageBar_pageTitleButtons { margin-bottom: 16px !important; }

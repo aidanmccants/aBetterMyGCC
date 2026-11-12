@@ -1,8 +1,8 @@
 // Enhance the original home portlets without replacing links, forms, or postbacks.
 (() => {
   'use strict';
-  // #gccx-home-main: home.js moves the announcement and event portlets there (sibling of #portlet-grid)
-  const selector = ':is(#portlet-grid, #gccx-home-main) .portlet';
+  // #gccx-page: home.js moves the announcement and event portlets into this page (sibling of #portlet-grid)
+  const selector = ':is(#portlet-grid, #gccx-page) .portlet';
   const root = document.documentElement;
   // Decode a single extra encoding layer as text. Escaping angle brackets before
   // parsing prevents encoded or literal markup from becoming live elements.
