@@ -1,16 +1,11 @@
-/* Academics tab (v1.2): readable at any zoom from 75% to 200%.
-   Columns reflow from the content width (container queries), not the viewport,
-   so the plan drawer and browser zoom both trigger the same stacking. */
+/* Academics home (v2). The page is built from the shared kit (src/ui.css): hero, stat tiles, sections,
+   ux-portlets. This file only places myGCC's own cards inside it and tidies their tables.
+   Grid columns reflow from the kit's container queries (not the viewport), so the plan drawer works. */
 
-/* ---------- Layout: let the portlet area decide its own columns ---------- */
-html.gccx-acad #portlets { container: gccx-portlets / inline-size; min-width: 0; }
-html.gccx-acad #portlets .portlet-column { min-width: 0; }
+/* ---------- the portal's own wrappers stay out of the way ---------- */
+html.gccx-acad #portlets { min-width: 0; }
 html.gccx-acad #portlets .portlet { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-
-/* Two columns need ~ 2 x 420px; below that, stack into one readable column. */
-@container gccx-portlets (max-width: 880px) {
-  html.gccx-acad #portlets .portlet-column { float: none !important; width: 100% !important; }
-}
+html.gccx-acad #portlet-grid:not(:has(.portlet)) { display: none; } /* everything was moved into the page */
 
 /* Sidebar steals ~1/6 of the width; hide it once the page itself is narrow
    (zoomed in or drawer open). Quick links stay reachable from the top nav. */
@@ -19,13 +14,16 @@ html.gccx-acad #portlets .portlet { min-width: 0; max-width: 100%; overflow-wrap
   html.gccx-acad #portlets { width: 100% !important; }
 }
 
-/* ---------- Portlet headers: title, AI button and help never overlap ---------- */
-html.gccx-acad #portlets .portlet-header-bar {
-  display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px 12px;
-}
-html.gccx-acad #portlets .portlet-header-bar h3 { flex: 1 1 12ch; min-width: 0; margin: 0 !important; float: none !important; }
+/* ---------- Portlet headers: the AI button never overlaps the title ---------- */
+html.gccx-acad #portlets .portlet-header-bar { flex-wrap: wrap; gap: 8px 12px; }
 html.gccx-acad #portlets .portlet-header-bar .portlet-help-wrapper { order: 3; float: none !important; position: static !important; }
 html.gccx-acad #portlets .portlet-header-bar .gccx-ai-btn.is-head { order: 2; position: static !important; flex: 0 0 auto; margin: 0 !important; }
+html.gccx-acad #portlets .portlet-header-bar .ux-toggle { order: 4; }
+
+/* theme.css gives the search-results table min-width 900px; on this hub the same id is only
+   the short "Your Schedule" list, which must fit its half-width card. */
+html.gccx-acad #portlets .pt_CourseSchedules [id$="dgCourses"] { min-width: 0; }
+html.gccx-acad #portlets .pt_CourseSchedules [id$="dgCourses"] .gccx-col-code { min-width: 0; }
 
 /* Redundant "Add/Drop" sub-heading repeats the portlet title. */
 html.gccx-acad .pt_CourseSchedules .portlet-padding > h4 { display: none; }
@@ -61,6 +59,9 @@ html.gccx-acad #portlets .pt_DegreeAuditPortlet table { width: 100% !important; 
 html.gccx-acad #portlets .portlet :is(td, th) { overflow-wrap: normal; word-break: normal; hyphens: auto; }
 html.gccx-acad #portlets .portlet td a { white-space: nowrap; } /* keep "ECON 302 A" together */
 
+/* wide tables scroll inside their card instead of being cut off or widening the page */
+html.gccx-acad .pt_StudentSchedule [id$="divSchedule"], html.gccx-acad .pt_CourseSchedules [id$="divCourses"] { overflow-x: auto; }
+
 /* ---------- Academic Information: label/value grid, no overlapping columns ---------- */
 html.gccx-acad .pt_AcademicInformationPortlet .row:has(> .col-xs-2 + .col-xs-10) {
   display: grid !important; grid-template-columns: minmax(9ch, max-content) minmax(0, 1fr);
@@ -87,77 +88,20 @@ html.gccx-acad .pt_DegreeAuditPortlet td:last-child { white-space: nowrap; font-
 /* ---------- Comfortable reading at small zoom ---------- */
 html.gccx-acad #portlets .portlet { line-height: 1.5; }
 
-/* ================= Overview (academics.js) ================= */
-/* One panel: term + registration actions on top, a divided fact list below. */
-#gccx-acad {
-  clear: both; margin: 8px 0 32px; padding: 22px 24px 6px;
-  background: var(--x-surface); border: 1px solid var(--x-rule); border-radius: var(--x-radius);
-  font-family: var(--x-sans); color: var(--x-ink);
+/* ================= Page pieces that are not in the kit ================= */
+/* KIT GAP: a stat tile that is a <button> (the degree tile opens the audit by postback).
+   Same look as a.ux-stat; reset the button defaults and give it the link hover. */
+html.gccx button.ux-stat.gccx-acad-stat-btn {
+  width: 100%; margin: 0; font: inherit; text-align: left; cursor: pointer;
+  transition: border-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease);
 }
-#gccx-acad .gccx-acad-head {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px;
-  padding-bottom: 20px; border-bottom: 1px solid var(--x-rule);
-}
-#gccx-acad .gccx-acad-lead { display: flex; flex-direction: column; gap: 4px; margin: 0 !important; min-width: 0; }
-#gccx-acad .gccx-acad-term {
-  font: 600 clamp(22px, 2vw, 28px)/1.15 var(--x-display); letter-spacing: -0.02em; color: var(--x-ink); text-wrap: balance;
-}
-#gccx-acad .gccx-acad-state { font: 500 15px/1.4 var(--x-sans); color: var(--x-muted); }
-#gccx-acad .gccx-acad-state.is-open { color: var(--x-ok); }
-#gccx-acad .gccx-acad-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-#gccx-acad .gccx-acad-btn {
-  display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: var(--x-radius-control);
-  border: 1px solid var(--x-rule-strong); font: 600 14.5px/1 var(--x-sans);
-  color: var(--x-ink) !important; text-decoration: none !important; background: transparent;
-  transition: background-color var(--x-speed) var(--x-ease), border-color var(--x-speed) var(--x-ease);
-}
-#gccx-acad .gccx-acad-btn:hover { background: var(--x-ground-muted); }
-#gccx-acad .gccx-acad-btn.is-primary { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink) !important; }
-#gccx-acad .gccx-acad-btn.is-primary:hover { background: var(--x-accent-hover); border-color: var(--x-accent-hover); }
-#gccx-acad :is(.gccx-acad-btn, .gccx-acad-link, .gccx-acad-todo li):focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx button.ux-stat.gccx-acad-stat-btn:hover { border-color: var(--x-rule-strong); transform: translateY(-1px); }
+html.gccx button.ux-stat.gccx-acad-stat-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
+html.gccx button.ux-stat.gccx-acad-stat-btn .ux-stat-label > span:last-child:not(:first-child) { color: var(--x-accent); }
+@media (prefers-reduced-motion: reduce) { html.gccx button.ux-stat.gccx-acad-stat-btn:hover { transform: none; } }
 
-#gccx-acad .gccx-acad-facts { margin: 0; }
-#gccx-acad .gccx-acad-fact { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 4px 16px; padding: 14px 0; }
-#gccx-acad .gccx-acad-fact + .gccx-acad-fact { border-top: 1px solid var(--x-rule); }
-#gccx-acad .gccx-acad-fact dt { margin: 0; font: 500 14px/1.6 var(--x-sans); color: var(--x-muted); }
-#gccx-acad .gccx-acad-fact dd {
-  margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; font-size: 15px; line-height: 1.6;
-}
-#gccx-acad .gccx-acad-strong { font-weight: 600; font-variant-numeric: tabular-nums; }
-#gccx-acad .gccx-acad-muted { color: var(--x-muted); }
-#gccx-acad .gccx-acad-todo { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; margin: 4px 0 0; padding: 0; list-style: none; }
-#gccx-acad .gccx-acad-todo li {
-  display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 2px 10px 2px 8px;
-  border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-chip);
-  font-size: 13.5px; line-height: 1.45; color: var(--x-ink); list-style: none;
-}
-#gccx-acad .gccx-acad-todo li::before {
-  content: ""; flex: 0 0 auto; width: 12px; height: 12px; background: var(--x-bad);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7L7 17'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7L7 17'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-#gccx-acad .gccx-acad-link {
-  padding: 0; border: 0; background: none; cursor: pointer; font: 600 14px/1.6 var(--x-sans);
-  color: var(--x-accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
-}
-#gccx-acad .gccx-acad-link:hover { text-decoration-thickness: 2px; }
-@container gccx-portlets (max-width: 520px) {
-  #gccx-acad { padding: 18px 16px 4px; }
-  #gccx-acad .gccx-acad-fact { grid-template-columns: 1fr; gap: 2px; }
-}
-
-/* ---------- column group headings ---------- */
-html.gccx-acad .gccx-acad-col {
-  margin: 0 0 14px !important; font: 600 19px/1.2 var(--x-display) !important; letter-spacing: -0.01em; color: var(--x-ink) !important;
-}
-
-/* ---------- folded / hidden portlets ---------- */
-html.gccx-acad :is(.gccx-acad-folded, .gccx-acad-hidden) { display: none !important; }
-html.gccx-acad .gccx-acad-collapsible.is-collapsed > :not(.portlet-header-bar) { display: none !important; }
-html.gccx-acad .gccx-acad-toggle {
-  order: 4; padding: 4px 10px; border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control);
-  background: transparent; color: var(--x-ink); font: 600 13px var(--x-sans); cursor: pointer;
-}
-html.gccx-acad .gccx-acad-toggle:hover { background: var(--x-ground-muted); }
+/* ---------- hidden pieces inside portal cards ---------- */
+html.gccx-acad .gccx-acad-hidden { display: none !important; }
 
 /* ---------- degree checklist: dots instead of red-X images ---------- */
 html.gccx-acad .gccx-acad-degree tr.gccx-req td:last-child img { display: none; }
@@ -171,7 +115,7 @@ html.gccx-acad .gccx-acad-degree tr.gccx-req.is-met td:last-child { color: var(-
 html.gccx-acad .gccx-acad-degree tr.gccx-req.is-not-met td:last-child { color: var(--x-bad); }
 html.gccx-acad .gccx-acad-degree tr.gccx-req.is-met td:first-child { color: var(--x-muted); }
 
-/* Overview already carries the primary Add/Drop actions; demote the in-card copies. */
+/* The hero carries the Add/Drop actions and the term facts; hide the in-card copies. */
 html.gccx-acad .pt_CourseSchedules :is([id$="lnkAddDrop"], [id$="lnkAdvancedSearch"]) { display: none !important; }
 html.gccx-acad .pt_CourseSchedules [id$="divTermInfo"] { display: none; }
 
@@ -209,31 +153,15 @@ html.gccx-acad td.gccx-course-meta { color: var(--x-muted); font-size: 13.5px; }
 
 /* ---------- polish: toolbar clearance, one primary action, states ---------- */
 html.gccx-acad #PageBar_pageTitleButtons { margin-bottom: 16px; }
-html.gccx-acad #gccx-acad { margin-top: 16px; }
-/* the overview owns the primary action; Plan with AI becomes a neutral secondary */
+/* the hero owns the primary action; Plan with AI becomes a neutral secondary */
 html.gccx-acad .pt_CourseSchedules .gccx-ai-btn.is-head {
   color: var(--x-ink) !important; border-color: var(--x-rule-strong) !important; background: transparent !important;
 }
 html.gccx-acad .pt_CourseSchedules .gccx-ai-btn.is-head:hover { background: var(--x-ground-muted) !important; }
-html.gccx-acad .gccx-acad-toggle:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
 html.gccx-acad :is(.pt_CourseSchedules, .pt_AllMyCoursesPortlet, .pt_StudentSchedule) td a:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-#gccx-acad .gccx-acad-btn:active, html.gccx-acad .gccx-acad-toggle:active { transform: translateY(1px); }
-#gccx-acad .gccx-acad-link:active { opacity: .75; }
-@media (prefers-reduced-motion: reduce) {
-  #gccx-acad .gccx-acad-btn, html.gccx-acad .gccx-acad-toggle { transition: none; }
-  #gccx-acad .gccx-acad-btn:active, html.gccx-acad .gccx-acad-toggle:active { transform: none; }
-}
 
 /* ================= All My Courses: week view ================= */
-html.gccx-acad .gccx-week-bar { display: inline-flex; margin: 4px 0 12px; border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control); overflow: hidden; }
-html.gccx-acad .gccx-week-tab {
-  padding: 6px 14px; border: 0; background: transparent; color: var(--x-muted); font: 600 13px/1.2 var(--x-sans); cursor: pointer;
-}
-html.gccx-acad .gccx-week-tab + .gccx-week-tab { border-left: 1px solid var(--x-rule-strong); }
-html.gccx-acad .gccx-week-tab[aria-pressed="true"] { background: var(--x-ground-muted); color: var(--x-ink); }
-html.gccx-acad .gccx-week-tab:hover { color: var(--x-ink); }
-html.gccx-acad .gccx-week-tab:focus-visible { outline: 2px solid var(--x-accent); outline-offset: -2px; }
-
+html.gccx-acad .gccx-week-bar { margin: 4px 0 12px; }
 html.gccx-acad .gccx-week { margin: 0 0 8px; font-family: var(--x-sans); }
 html.gccx-acad .gccx-week[hidden] { display: none; }
 html.gccx-acad .gccx-week-grid {
@@ -275,64 +203,35 @@ html.gccx-acad .gccx-week-blk strong { white-space: normal; text-overflow: clip;
 html.gccx-acad .gccx-week { --gccx-hour: 44px; }
 
 /* ================= Grades and records (merged card) ================= */
-html.gccx-acad .gccx-acad-records .gccx-rec-part { padding: 0 20px 16px; }
-html.gccx-acad .gccx-acad-records .gccx-rec-part + .gccx-rec-part { border-top: 1px solid var(--x-rule); padding-top: 16px; }
-html.gccx-acad .gccx-acad-records .gccx-rec-head { margin: 0 0 8px !important; font: 600 14.5px/1.3 var(--x-sans) !important; color: var(--x-ink) !important; }
+/* The merged card has no title of its own (the section is titled); each part carries a card-level heading. */
+html.gccx-acad .pt_GradeReportPortlet.gccx-acad-records > .portlet-header-bar { display: none !important; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part { padding: 0; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part + .gccx-rec-part { border-top: 1px solid var(--x-rule); margin-top: var(--x-s4); padding-top: var(--x-s4); }
+html.gccx-acad .gccx-acad-records .gccx-rec-head { margin: 0 0 var(--x-s3) !important; font-size: var(--x-fs-card) !important; font-weight: 600 !important; letter-spacing: -0.01em !important; line-height: 1.3 !important; color: var(--x-ink) !important; }
 html.gccx-acad .gccx-acad-records .gccx-rec-part > .portlet-padding { padding: 0 !important; margin: 0 !important; }
 html.gccx-acad .gccx-acad-records .gccx-rec-part :is(table, .pSection, div) { margin-left: 0 !important; margin-right: 0 !important; }
-html.gccx-acad .gccx-acad-records .gccx-rec-part :is(td, th) { padding-left: 0 !important; border: 0 !important; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part .pSection { padding-left: 0 !important; padding-right: 0 !important; }
 html.gccx-acad .gccx-acad-records .gccx-rec-part :is(label, td:first-child:not(:only-child), th:first-child:not(:only-child), .col-xs-2, .col-sm-2) { white-space: nowrap; overflow-wrap: normal; }
-html.gccx-acad .gccx-acad-records .gccx-rec-part a { display: inline-block; margin: 2px 16px 2px 0; }
-/* records card: quiet structure, real buttons */
+/* quiet structure: no grid lines, no fills */
 html.gccx-acad .gccx-acad-records .gccx-rec-part :is(table, tr, td, th, div, hr) { border: 0 !important; background: transparent !important; box-shadow: none !important; }
 html.gccx-acad .gccx-acad-records .gccx-rec-part hr { display: none; }
 html.gccx-acad .gccx-acad-records .gccx-rec-part :is(td, th) { padding: 4px 12px 4px 0 !important; }
-html.gccx-acad .gccx-acad-records .gccx-rec-head { font-size: 15px !important; margin-bottom: 10px !important; }
-html.gccx-acad .gccx-acad-records .gccx-rec-help { font-size: 13.5px !important; font-weight: 400 !important; color: var(--x-muted) !important; line-height: 1.45; }
-html.gccx-acad .gccx-acad-records .gccx-rec-part :is(label, td:first-child:not(:only-child)) { font-size: 13.5px; font-weight: 500; color: var(--x-muted); }
+html.gccx-acad .gccx-acad-records .gccx-rec-help { white-space: normal !important; font-size: var(--x-fs-small) !important; font-weight: 400 !important; color: var(--x-muted) !important; line-height: 1.45; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part :is(label, td:first-child:not(:only-child)) { font-size: var(--x-fs-small); font-weight: 500; color: var(--x-muted); }
 html.gccx-acad .gccx-acad-records select {
   min-height: 36px; padding: 0 32px 0 12px !important; border: 1px solid var(--x-rule-strong) !important; border-radius: var(--x-radius-control) !important;
   background-color: var(--x-surface) !important; color: var(--x-ink) !important; font: 500 14px var(--x-sans) !important; cursor: pointer;
 }
+/* a label beside a select does not fit a half-width card: stack them */
+html.gccx-acad .gccx-acad-records .gccx-rec-part tr:has(select) { display: grid !important; gap: 2px; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part tr:has(select) > td { display: block; padding: 0 !important; }
+html.gccx-acad .gccx-acad-records .gccx-rec-part table { width: 100% !important; }
+html.gccx-acad .gccx-acad-records select { max-width: 100%; }
 html.gccx-acad .gccx-acad-records select:hover { border-color: var(--x-faint) !important; }
 html.gccx-acad .gccx-acad-records select:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-html.gccx-acad .gccx-acad-records .gccx-rec-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn {
-  display: inline-flex; align-items: center; min-height: 36px; margin: 0 !important; padding: 0 14px;
-  border: 1px solid var(--x-rule-strong); border-radius: var(--x-radius-control);
-  font: 600 14px/1 var(--x-sans); color: var(--x-ink) !important; text-decoration: none !important; background: transparent;
-  transition: background-color var(--x-speed) var(--x-ease), border-color var(--x-speed) var(--x-ease);
-}
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn:hover { background: var(--x-ground-muted); border-color: var(--x-faint); }
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn.is-main { background: var(--x-accent-soft); border-color: transparent; color: var(--x-accent) !important; }
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn.is-main:hover { background: color-mix(in srgb, var(--x-accent) 22%, transparent); }
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn:active { transform: translateY(1px); }
-html.gccx-acad .gccx-acad-records a.gccx-rec-btn:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { html.gccx-acad .gccx-acad-records a.gccx-rec-btn { transition: none; } html.gccx-acad .gccx-acad-records a.gccx-rec-btn:active { transform: none; } }
-/* id-anchored: outranks the theme's portlet table/link rules */
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part :is(td, th, tr) { border: 0 !important; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part .pSection { padding-left: 0 !important; padding-right: 0 !important; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records a.gccx-rec-btn { color: var(--x-ink) !important; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records a.gccx-rec-btn.is-main { color: var(--x-accent) !important; }
-/* No umbrella title: each section's heading is a card-level title (matches .portlet-header-bar h3). */
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records > .portlet-header-bar { display: none !important; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part { padding: 20px 20px 24px; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part + .gccx-rec-part { padding-top: 20px; }
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-head {
-  margin: 0 0 12px !important; font: 600 20px/1.25 var(--x-display) !important; letter-spacing: -0.015em !important; color: var(--x-ink) !important;
-}
-
-/* One gutter: 20px between columns and between stacked cards. */
-html.gccx-acad #portlets { --gccx-gutter: 20px; }
-html.gccx-acad #portlets .portlet-column { padding-left: calc(var(--gccx-gutter) / 2) !important; padding-right: calc(var(--gccx-gutter) / 2) !important; }
-html.gccx-acad #portlets .portlet-column .portlet { margin-top: 0 !important; margin-bottom: var(--gccx-gutter) !important; }
-html.gccx-acad #portlets .portlet-column .portlet:last-child { margin-bottom: 0 !important; }
-/* the overview spans both columns, so match its edges to the outer column padding */
-html.gccx-acad #gccx-acad { margin-left: calc(var(--gccx-gutter) / 2 - 5px); margin-right: calc(var(--gccx-gutter) / 2 - 5px); margin-bottom: var(--gccx-gutter); }
-@container gccx-portlets (max-width: 880px) {
-  html.gccx-acad #portlets .portlet-column + .portlet-column { margin-top: var(--gccx-gutter); }
-}
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part { padding-left: 0; padding-right: 0; }
+/* record links are kit buttons (ux-btn, added by academics.js); this only lays them out */
+html.gccx-acad .gccx-acad-records .gccx-rec-actions { display: flex; flex-wrap: wrap; gap: var(--x-s2); margin-top: var(--x-s3); }
+html.gccx-acad .gccx-acad-records .gccx-rec-actions .ux-btn { margin: 0 !important; }
 
 /* ================= Degree Audit Summary (postback screen) ================= */
 html.gccx-audit [id$="dgRequirementSummary"] { width: 100% !important; border: 0 !important; border-collapse: collapse !important; font-variant-numeric: tabular-nums; }
@@ -366,28 +265,24 @@ html.gccx-audit .gccx-audit-head { display: block; margin: 8px 0 12px; font: 600
 /* Student Self-Service embeds a registrar page with dark text on a transparent ground: give it paper. */
 html.gccx-acad iframe.gccx-fit-frame, html.gccx-acad #pg3_V_iframe { display: block; width: 100% !important; max-width: 100%; min-height: 200px; border: 0; background: #fff; color-scheme: light; border-radius: var(--x-radius-control); }
 /* left edge: every row in the merged records card starts at its section heading */
-html.gccx-acad #pg8_GradeReportPortlet.gccx-acad-records .gccx-rec-part :is(td, th) { padding-left: 0 !important; }
 
 /* ================= Academics home: planning term selector (design spec 7.5) ================= */
-/* theme.css forces select padding and border with !important (html.gccx select), so the
-   values that must win use !important too, as the records select does above. */
+/* Sits in the hero actions beside the buttons: same height and pill shape as .ux-btn.
+   theme.css forces select padding and border with !important (html.gccx select), so the
+   values that must win use !important too. */
 html.gccx-acad .gccx-acad-planterm {
-  display: inline-flex; flex: 0 1 auto; align-items: center; gap: 8px;
-  min-height: 40px; margin: 0 !important; font: 500 14.5px/1 var(--x-sans); color: var(--x-muted);
+  display: inline-flex; flex: 0 1 auto; align-items: center; gap: var(--x-s2); max-width: 100%;
+  margin: 0 !important; font: 500 var(--x-fs-small)/1.2 var(--x-sans); color: var(--x-muted); white-space: nowrap;
 }
 html.gccx-acad .gccx-acad-planterm select {
-  box-sizing: border-box; height: 40px; min-height: 40px; margin: 0 !important; padding: 0 28px 0 12px !important; font: 600 14.5px/1 var(--x-sans); color: var(--x-ink);
-  background-color: var(--x-surface); border: 1px solid var(--x-rule-strong) !important; border-radius: var(--x-radius-control);
+  box-sizing: border-box; height: 38px; min-height: 38px; min-width: 0; max-width: 100%; margin: 0 !important; padding: 0 30px 0 14px !important;
+  font: 600 var(--x-fs-small)/1.2 var(--x-sans); color: var(--x-ink);
+  background-color: var(--x-surface); border: 1px solid var(--x-rule-strong) !important; border-radius: 999px !important;
   cursor: pointer; transition: border-color var(--x-speed) var(--x-ease);
 }
 html.gccx-acad .gccx-acad-planterm select:hover { border-color: var(--x-accent) !important; }
 html.gccx-acad .gccx-acad-planterm select:active { transform: translateY(1px); }
 html.gccx-acad .gccx-acad-planterm select:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 2px; }
-/* Narrow: the label wraps as one unit and the select never wider than its line. */
-@container gccx-portlets (max-width: 480px) {
-  html.gccx-acad .gccx-acad-planterm { max-width: 100%; }
-  html.gccx-acad .gccx-acad-planterm select { max-width: 100%; }
-}
 @media (prefers-reduced-motion: reduce) {
   html.gccx-acad .gccx-acad-planterm select { transition: none; transform: none; }
 }
@@ -409,3 +304,10 @@ html.gccx img.plusminus:hover { background-color: var(--x-ink, currentColor); }
 html.gccx img.plusminus:active { background-color: var(--x-accent, currentColor); }
 html.gccx img.plusminus:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { html.gccx img.plusminus { transition: none; } }
+
+/* Registration: the schedule with meeting times is the wider card */
+html.gccx-acad .ux-portlets.gccx-acad-reg:not(.is-single) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@container uxpage (max-width: 760px) { html.gccx-acad .ux-portlets.gccx-acad-reg:not(.is-single) { grid-template-columns: minmax(0, 1fr); } }
+/* theme.css keeps grouped tables at least 760px wide for full-width pages; in a half-width card that
+   pushed Meets out of view. Here the table takes the card's width and the title column wraps. */
+html.gccx-acad .ux-page .pt_StudentSchedule table.groupedGrid { min-width: 0 !important; width: 100% !important; }

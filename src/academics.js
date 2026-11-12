@@ -1,9 +1,14 @@
-// aBetterMyGCC Academics (v1.2): one status panel on top of the Academics home,
-// headings for the two portlet columns, and a readable degree checklist.
-// Only reads text and adds classes/elements; every server link and postback stays in place.
+// aBetterMyGCC Academics (v2): the page kit (GCCX.ui) laid over the Academics home. Hero with the
+// term and registration state, stat tiles (degree, advisor, major), what is still to complete, then
+// myGCC's own cards MOVED into sections: This semester, Registration, Grades and records, Reference.
+// Only reads text, adds classes/elements and moves portal nodes; every link and postback stays live,
+// and the extension switching off puts everything back (GCCX.ui.controller).
 (function () {
   'use strict';
   if (!/^\/ICS\/Academics\/?(Home\.jnz)?$/i.test(location.pathname)) return;
+  const ui = window.GCCX && GCCX.ui;
+  if (!ui) return;
+  const c = ui.controller('academics');
 
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -40,8 +45,7 @@
     return { term: (term || '').trim(), add, drop };
   }
 
-  function readDegree() {
-    const p = $('#pg6_DegreeAuditPortlet');
+  function readDegree(p) {
     if (!p) return null;
     const rows = $$('tbody tr', p).filter((r) => r.cells.length >= 2 && r.cells[0].tagName === 'TD');
     const items = rows.map((r) => {
@@ -66,8 +70,7 @@
     return { items, btn: $('[id$="btnViewDetails"]', p) };
   }
 
-  function readInfo() {
-    const p = $('#pg5_AcademicInformationPortlet');
+  function readInfo(p) {
     if (!p) return null;
     const advisors = $$('[id*="lblAdvisorInfo"]', p).map(txt).filter(Boolean);
     // Every other label/value row: majors, minors, concentrations, certificates...
@@ -92,16 +95,26 @@
     return { main, extra, fields, portlet: p };
   }
 
-  /* ---------- build ---------- */
-  // One status panel, not a row of cards: the term and what you can do in it,
-  // the two registration actions, then a short fact list (degree, advisor, major).
-  function fact(label) {
-    const row = el('div', 'gccx-acad-fact');
-    const dd = el('dd');
-    row.append(el('dt', null, label), dd);
-    return { row, dd };
+  /* ---------- find the portal's cards ---------- */
+  // By id first, then by the portlet's pt_ class, because the pgN numbers can shift.
+  const PORTLETS = {
+    addDrop: ['pg0_CourseSchedules', 'CourseSchedules'], courses: ['pg1_AllMyCoursesPortlet', 'AllMyCoursesPortlet'],
+    schedule: ['pg2_StudentSchedule', 'StudentSchedule'], selfService: ['pg3_Universal', 'Universal'],
+    blog: ['pg4_BlogPortlet', 'BlogPortlet'], info: ['pg5_AcademicInformationPortlet', 'AcademicInformationPortlet'],
+    degree: ['pg6_DegreeAuditPortlet', 'DegreeAuditPortlet'], gpa: ['pg7_GPAProjection', 'GPAProjection'],
+    grades: ['pg8_GradeReportPortlet', 'GradeReportPortlet'], dean: ['pg9_PDFReports', 'PDFReports'],
+    transcript: ['pg10_UnofficialTranscript', 'UnofficialTranscript'],
+  };
+  let P = {};
+  function findPortlets() {
+    P = {};
+    for (const [key, [id, cls]] of Object.entries(PORTLETS)) {
+      P[key] = document.getElementById(id) || $(`#portlets .portlet.pt_${cls}`);
+      if (!P[key]) warn(`portlet ${key} (${id}) not found; skipped`);
+    }
   }
 
+  /* ---------- build ---------- */
   function registrationState(add, drop) {
     const a = /open/i.test(add), d = /open/i.test(drop);
     if (a && d) return ['Add and drop are open', true];
@@ -118,33 +131,26 @@
   }
 
   // Strip every class this file adds inside `scope`, restoring the portal's own look there.
-  const OUR_CLASSES = ['gccx-acad-hidden', 'gccx-acad-folded', 'gccx-acad-collapsible', 'is-collapsed', 'gccx-acad-degree',
-    'gccx-req', 'is-met', 'is-not-met', 'gccx-num', 'gccx-audit-label', 'gccx-audit-head', 'gccx-course-title', 'gccx-course-meta', 'gccx-acad-records', 'gccx-rec-btn', 'is-main', 'gccx-rec-help'];
+  const OUR_CLASSES = ['gccx-acad-hidden', 'gccx-acad-degree', 'gccx-req', 'is-met', 'is-not-met', 'gccx-num', 'gccx-audit-label',
+    'gccx-audit-head', 'gccx-course-title', 'gccx-course-meta', 'gccx-acad-records', 'gccx-rec-btn', 'gccx-rec-help'];
   function unmark(scope) {
     if (!scope) return;
     [scope, ...$$('*', scope)].forEach((n) => n.classList && n.classList.remove(...OUR_CLASSES));
   }
 
-  // Run one feature; if it throws, undo just that feature and keep the rest of the page.
-  // Every change is undoable so switching the extension off restores the portal without a reload.
-  let ok = 0;
-  const undos = [];
+  // Every step is undoable (c.safe) so switching the extension off restores the portal without a reload.
+  // Text we rewrite is remembered here and put back by teardown.
+  const safe = c.safe;
   const texts = [];
   function setText(node, value) {
     const prop = node.nodeType === 3 ? 'nodeValue' : 'textContent';
     texts.push([node, prop, node[prop]]);
     node[prop] = value;
   }
-  function safe(name, run, undo) {
-    try { run(); ok++; undos.push(undo); } catch (e) {
-      warn(`${name} failed; reverted it`, { error: String(e && e.message || e), stack: e && e.stack });
-      try { undo(); } catch (e2) { warn(`${name} undo failed`, { error: String(e2) }); }
-    }
-  }
 
   // ---- planning term selector (design spec 7.5) ----
   // `gen` changes on every build and teardown so async work can tell it is stale.
-  let gen = 0;
+  let gen = 0; // bumped on every build and teardown so async work can tell it is stale
   const store = {
     get: (k) => new Promise((r) => { try { chrome.storage.local.get(k, (o) => r(o ? o[k] : undefined)); } catch (e) { r(undefined); } }),
     set: (k, v) => new Promise((r) => { try { chrome.storage.local.set({ [k]: v }, () => r()); } catch (e) { r(); } }),
@@ -189,7 +195,7 @@
       await store.set('planTerm', all);
     });
     label.append('Planning for ', select);
-    acts.prepend(label);
+    acts.append(label);
   }
 
   function build() {
@@ -209,33 +215,24 @@
       });
       return;
     }
-    if (!$('#pg0_CourseSchedules')) { warn('Add/Drop portlet (#pg0_CourseSchedules) not found; skipping redesign', { portlets: count }); return; }
+    findPortlets();
+    if (!P.addDrop) { warn('Add/Drop portlet (#pg0_CourseSchedules) not found; skipping redesign', { portlets: count }); return; }
 
     document.documentElement.classList.add('gccx-acad');
-    safe('overview', () => buildOverview(portlets), () => {
-      $$('.gccx-acad-planterm').forEach((n) => n.remove());
-      $('#gccx-acad')?.remove();
-      unmark($('#pg5_AcademicInformationPortlet'));
-      unmark($('#pg6_DegreeAuditPortlet'));
+    const model = {};
+    safe('page', () => buildPage(portlets, model), () => {
+      $('#gccx-page')?.remove();
+      unmark(P.info);
+      unmark(P.degree);
     });
-    safe('column headings', labelColumns, () => $$('.gccx-acad-col').forEach((n) => n.remove()));
-    safe('folding', foldLowValue, () => {
-      $$('.gccx-acad-toggle').forEach((n) => n.remove());
-      ['#pg3_Universal', '#pg4_BlogPortlet', '#pg5_AcademicInformationPortlet', '#pg6_DegreeAuditPortlet'].forEach((s) => $(s)?.classList.remove('gccx-acad-hidden', 'gccx-acad-collapsible', 'is-collapsed'));
-    });
-    safe('course tables', tidyCourseTables, () => $$('.pt_CourseSchedules, .pt_AllMyCoursesPortlet, .pt_StudentSchedule').forEach(unmark));
+    safe('course tables', tidyCourseTables, () => [P.addDrop, P.courses, P.schedule].forEach(unmark));
     safe('week view', weekViews, () => {
       $$('.gccx-week, .gccx-week-bar').forEach((n) => n.remove());
-      $$('#pg1_AllMyCoursesPortlet table').forEach((t) => { t.hidden = false; });
+      if (P.courses) $$('table', P.courses).forEach((t) => { t.hidden = false; });
     });
     safe('records merge', mergeRecords, undoMergeRecords);
-    // Student Self-Service embeds a fixed-height, non-scrolling registrar page: size it to its content.
-    const unfit = [];
-    safe('frame sizing', () => {
-      $$('#portlets iframe').filter((f) => /^https:\/\/custom\.gcc\.edu\/gcc_misc\//i.test(f.src || ''))
-        .forEach((f) => unfit.push(GCCX.fitFrame(f)));
-    }, () => unfit.splice(0).forEach((u) => u()));
-    if (!ok) document.documentElement.classList.remove('gccx-acad');
+    safe('sections', () => layout(model), () => {});
+    if (!c.ok) document.documentElement.classList.remove('gccx-acad');
   }
 
   /* Degree Audit Summary: numbers right-aligned, status on one line, labels unbroken. */
@@ -264,70 +261,124 @@
     document.documentElement.classList.add('gccx-audit');
   }
 
-  function buildOverview(portlets) {
-    const term = readTerm(), deg = readDegree(), info = readInfo();
+  // Hero, stat tiles and "Still to complete": everything we can say from the portal's own cards.
+  function buildPage(portlets, model) {
+    const term = readTerm(), deg = readDegree(P.degree), info = readInfo(P.info);
     if (!term && !deg && !info) { warn('no term, degree or advisor data found; overview skipped'); return; }
+    model.term = term; model.deg = deg; model.info = info;
 
-    const wrap = el('section');
-    wrap.id = 'gccx-acad';
-    wrap.setAttribute('aria-label', 'Academic overview');
+    const page = ui.page('academics', 'Academics');
 
+    // 1. Hero: the term, the registration state as one sentence, the registration actions.
+    const actions = [];
+    const ad = $('[id$="lnkAddDrop"]'), cs = $('[id$="lnkAdvancedSearch"]');
+    if (ad) actions.push(ui.button('Add or drop courses', { href: ad.href, primary: true }));
+    if (cs) actions.push(ui.button('Search courses', { href: cs.href }));
+    let lead = null;
     if (term) {
-      const head = el('div', 'gccx-acad-head');
       const [state, open] = registrationState(term.add, term.drop);
-      const h = el('h2', 'gccx-acad-lead');
-      h.append(el('span', 'gccx-acad-term', term.term || 'This term'),
-        el('span', 'gccx-acad-state' + (open ? ' is-open' : ''), state));
-      const acts = el('div', 'gccx-acad-actions');
-      const ad = $('[id$="lnkAddDrop"]'), cs = $('[id$="lnkAdvancedSearch"]');
-      if (ad) { const a = el('a', 'gccx-acad-btn is-primary', 'Add or drop courses'); a.href = ad.href; acts.append(a); }
-      if (cs) { const a = el('a', 'gccx-acad-btn', 'Search courses'); a.href = cs.href; acts.append(a); }
-      head.append(h, acts);
-      wrap.append(head);
+      lead = open ? [{ strong: state + '.' }] : [state + '.'];
+    }
+    const hero = ui.hero({ title: (term && term.term) || 'Academics', lead, actions });
+    hero.id = 'gccx-acad'; // the "already built" guard
+    hero.setAttribute('aria-label', 'Academic overview');
+    page.append(hero);
+    if (term) {
+      let acts = $('.ux-hero-actions', hero);
+      if (!acts) hero.append(acts = ui.el('div', 'ux-hero-actions'));
       const g = gen;
       addPlanTerm(acts, g).catch((e) => warn('planning term failed', { error: String(e && e.message || e) }));
     }
 
-    const dl = el('dl', 'gccx-acad-facts');
+    // 2. Stats: what the student would otherwise click to find. A tile with no data is left out.
+    const tiles = [];
     if (deg) {
-      const met = deg.items.filter((i) => i.met).length;
-      const todo = deg.items.filter((i) => !i.met);
-      const f = fact('Degree');
-      f.dd.append(el('span', 'gccx-acad-strong', `${met} of ${deg.items.length} requirements met`));
+      const met = deg.items.filter((i) => i.met).length, total = deg.items.length, left = total - met;
+      const tile = ui.stat({ label: 'Degree', value: `${met} of ${total}`, small: 'requirements met', meter: (met / total) * 100,
+        note: left ? `${left} still to complete` : 'All requirements met', tone: left ? null : 'ok' });
       if (deg.btn) {
-        const b = el('button', 'gccx-acad-link', 'Full degree audit');
-        b.type = 'button';
-        b.addEventListener('click', () => postBack(deg.btn));
-        f.dd.append(b);
-      }
-      if (todo.length) {
-        const ul = el('ul', 'gccx-acad-todo');
-        ul.setAttribute('aria-label', 'Not met yet');
-        todo.forEach((i) => ul.append(el('li', null, i.name)));
-        f.dd.append(ul);
-      }
-      dl.append(f.row);
+        // a button (keyboard reachable) wearing the stat tile; the portal's postback does the navigating
+        tile.querySelector('.ux-stat-label').append(ui.el('span', { 'aria-hidden': 'true' }, '›'));
+        const b = ui.el('button', { class: tile.className + ' gccx-acad-stat-btn', type: 'button', title: 'Open the full degree audit',
+          on: { click: () => postBack(deg.btn) } }, [...tile.childNodes]);
+        tiles.push(b);
+      } else tiles.push(tile);
     }
-    if (info && info.main) {
-      const f = fact('Advisor');
-      f.dd.append(el('span', 'gccx-acad-strong', info.main));
-      if (info.extra.length) f.dd.append(el('span', 'gccx-acad-muted', info.extra.join(', ')));
-      dl.append(f.row);
-    }
-    if (info) {
-      info.fields.forEach(({ label, values }) => {
-        const f = fact(label);
-        f.dd.append(el('span', 'gccx-acad-strong', values.join(', ')));
-        dl.append(f.row);
-      });
-    }
-    if (dl.children.length) wrap.append(dl);
-    // its facts are summarised above; keep the full card one click away (never remove student info)
-    if (info) collapse(info.portlet);
+    if (info && info.main) tiles.push(ui.stat({ label: 'Advisor', value: info.main, text: true, note: info.extra.join(', ') }));
+    if (info) info.fields.forEach(({ label, values }) => tiles.push(ui.stat({ label, value: values.join(', '), text: true })));
+    if (tiles.length) page.append(ui.el('div', 'ux-stats', tiles));
 
-    // Below the page title + toolbar, directly above the portlet grid.
+    // 3. Still to complete: the unmet requirements, one card.
+    const todo = deg ? deg.items.filter((i) => !i.met) : [];
+    if (todo.length) {
+      const sec = ui.section('Still to complete');
+      const card = ui.card(`${todo.length} requirement${todo.length === 1 ? '' : 's'} not met yet`,
+        { aside: deg.btn ? ui.button('Full degree audit', { small: true, onClick: () => postBack(deg.btn) }) : null });
+      card.body.append(ui.chips(todo.map((i) => i.name)));
+      sec.body.append(card.root);
+      page.append(sec.root);
+    }
+
+    // Directly above the portlet grid.
     const grid = $('#portlet-grid', portlets);
-    portlets.insertBefore(wrap, grid && grid.parentElement === portlets ? grid : portlets.firstElementChild);
+    portlets.insertBefore(page, grid && grid.parentElement === portlets ? grid : portlets.firstElementChild);
+  }
+
+  // myGCC's own cards, moved (never copied) into sections under the hero. #portlet-grid stays, emptied.
+  function layout(model) {
+    const page = $('#gccx-page');
+    if (!page) return;
+    const box = (kids, single) => {
+      const b = ui.el('div', 'ux-portlets');
+      kids.filter(Boolean).forEach((p) => c.move(p, b));
+      if (single || b.children.length < 2) b.classList.add('is-single');
+      return b.children.length ? b : null;
+    };
+    const add = (title, body, aside) => {
+      if (!body) return;
+      const sec = ui.section(title, { aside });
+      sec.body.append(body);
+      page.append(sec.root);
+    };
+    const { deg, info, term } = model;
+    const regTerm = (() => {
+      const h = P.schedule && $('table thead th', P.schedule);
+      const t = txt(h).replace(/\s+-\s+[A-Z]{1,4}$/, '');
+      return /\d{4}|semester|term/i.test(t) ? t : (term && term.term) || '';
+    })();
+
+    add('This semester', box([P.courses], true));
+    // Student Schedule has the meeting times, so it gets the wider column; Add/Drop (seats, actions) sits beside it.
+    const reg = box([P.schedule, P.addDrop]);
+    if (reg) reg.classList.add('gccx-acad-reg');
+    add('Registration', reg, regTerm);
+
+    // Grades card on the left; the GPA projection and the (folded) degree table beside it.
+    const left = ui.col(), right = ui.col();
+    if (P.grades) c.move(P.grades, left);
+    [P.gpa, P.degree].forEach((p) => p && c.move(p, right));
+    const cols = [left, right].filter((x) => x.children.length);
+    if (cols.length) {
+      const b = ui.el('div', 'ux-portlets' + (cols.length < 2 ? ' is-single' : ''), cols);
+      add('Grades and records', b);
+    }
+    if (deg) c.collapse(P.degree); // the stats and "Still to complete" summarise it
+
+    // Reference: summarised-elsewhere or rarely needed cards, then anything the portal added that we do not know.
+    const known = new Set(Object.values(P));
+    const ref = [P.info, P.blog, P.selfService];
+    if (info) c.collapse(P.info);
+    c.collapse(P.blog);
+    $$('#portlet-grid .portlet').filter((p) => !known.has(p)).forEach((p) => {
+      const kind = ui.triage(p);
+      if (kind === 'empty') c.hide(p);
+      else { if (kind === 'decor') c.collapse(p); ref.push(p); }
+    });
+    [P.selfService, P.blog].forEach((p) => { if (p && ui.triage(p) === 'empty') c.hide(p); });
+    add('Reference', box(ref, true));
+    // the grid's columns are empty now; they stay in place so teardown has somewhere to put things back
+    // Student Self-Service embeds a fixed-height, non-scrolling registrar page: size it to its content.
+    c.fitFrames(page);
   }
 
   /* "INTERMEDIATE SPANISH II" -> "Intermediate Spanish II"; keeps numerals and short acronyms. */
@@ -372,47 +423,12 @@
     });
   }
 
-  /* Real headings so the two columns read as groups. */
-  function labelColumns() {
-    const names = ['This semester', 'Records and progress'];
-    $$('#portlets .portlet-column').slice(0, 2).forEach((c, i) => {
-      if (!c.querySelector(':scope > .gccx-acad-col')) c.prepend(el('h2', 'gccx-acad-col', names[i]));
-    });
-  }
-
-  /* Empty portlets go; reference-only or already-summarised ones collapse behind their header. */
-  function collapse(p) {
-    const head = p && $('.portlet-header-bar', p);
-    if (!head || head.querySelector('.gccx-acad-toggle')) return;
-    p.classList.add('gccx-acad-collapsible', 'is-collapsed');
-    const b = el('button', 'gccx-acad-toggle', 'Show');
-    b.type = 'button';
-    b.setAttribute('aria-expanded', 'false');
-    b.addEventListener('click', () => {
-      const open = !p.classList.toggle('is-collapsed');
-      b.textContent = open ? 'Hide' : 'Show';
-      b.setAttribute('aria-expanded', String(open));
-    });
-    head.append(b);
-  }
-
-  function foldLowValue() {
-    const uni = $('#pg3_Universal');
-    // Only truly empty: Student Self-Service is an <iframe> (registrar app) with almost no text of its own.
-    const body = uni && $('.portlet-padding, .pSection', uni);
-    if (uni && txt(body || uni).length < 40 && !uni.querySelector('iframe, object, embed, form, input, img, a[href]:not([href^="#"]):not(.help)')) {
-      uni.classList.add('gccx-acad-hidden');
-    }
-    collapse($('#pg4_BlogPortlet'));
-    // the overview already lists what's unmet; the full table is one click away
-    if ($('#gccx-acad .gccx-acad-todo, #gccx-acad .gccx-acad-strong')) collapse($('#pg6_DegreeAuditPortlet'));
-  }
-
   /* ---------- Grade Report + Dean's List + Transcript -> one "Grades and records" card ---------- */
   // Moves the other two portlets' bodies (not copies), so their controls, ids and postbacks keep working.
   // Every move and rename is recorded so undoMergeRecords can put the portal back exactly.
   const recMoves = [];
   let recTitle = null;
+  const recBtns = []; // links we dressed as kit buttons
   const remember = (node) => recMoves.push([node, node.parentNode, node.nextSibling]);
   function undoMergeRecords() {
     recMoves.reverse().forEach(([node, parent, next]) => parent && parent.insertBefore(node, next && next.parentNode === parent ? next : null));
@@ -420,15 +436,16 @@
     $$('.gccx-rec-part, .gccx-rec-actions').forEach((n) => { if (!n.querySelector('[id]')) n.remove(); });
     $$('.gccx-rec-part').forEach((n) => n.replaceWith(...[...n.childNodes].filter((c) => !c.classList || !c.classList.contains('gccx-rec-head'))));
     if (recTitle) recTitle[0].textContent = recTitle[1];
-    ['#pg8_GradeReportPortlet', '#pg9_PDFReports', '#pg10_UnofficialTranscript'].forEach((s) => unmark($(s)));
+    recBtns.splice(0).forEach((a) => a.classList.remove('ux-btn'));
+    [P.grades, P.dean, P.transcript].forEach(unmark);
   }
 
   function mergeRecords() {
-    const host = $('#pg8_GradeReportPortlet');
+    const host = P.grades;
     const hostBody = host && $('.portlet-padding', host);
     if (!hostBody || host.classList.contains('gccx-acad-records')) return;
-    const parts = [['#pg9_PDFReports', "Dean's List letters"], ['#pg10_UnofficialTranscript', 'Unofficial transcript']]
-      .map(([sel, label]) => [$(sel), label])
+    const parts = [[P.dean, "Dean's List letters"], [P.transcript, 'Unofficial transcript']]
+      .map(([p, label]) => [p, label])
       .filter(([p]) => p && $('.portlet-padding', p));
     if (!parts.length) return;
     host.classList.add('gccx-acad-records');
@@ -451,12 +468,12 @@
     $$('tr', host).forEach((r) => {
       if (!txt(r) && !r.querySelector('input, select, a, button, img')) r.classList.add('gccx-acad-hidden');
     });
-    // Every record link becomes a button; the first in each section is the main one.
+    // Every record link becomes a kit button.
     $$('.gccx-rec-part', host).forEach((part) => {
       const links = $$('a[href]', part).filter((a) => txt(a) && !a.closest('.portlet-header-bar'));
-      links.forEach((a, i) => {
-        a.classList.add('gccx-rec-btn');
-        if (i === 0) a.classList.add('is-main');
+      links.forEach((a) => {
+        a.classList.add('gccx-rec-btn', 'ux-btn');
+        recBtns.push(a);
         setText(a, txt(a).replace(/^View\s+/i, '').replace(/^Deans List/i, "Dean's List"));
       });
       if (links.length) {
@@ -576,31 +593,20 @@
   }
 
   function weekViews() {
-    const p = $('#pg1_AllMyCoursesPortlet');
+    const p = P.courses;
     if (!p) return;
     let pref = 'week';
-    try { pref = localStorage.getItem('gccx-acad-courses-view') || 'week'; } catch (e) { /* storage blocked */ }
+    try { pref = localStorage.getItem('gccx-acad-courses-view') === 'list' ? 'list' : 'week'; } catch (e) { /* storage blocked */ }
     $$('table', p).forEach((table) => {
       if (table.previousElementSibling && table.previousElementSibling.classList.contains('gccx-week-bar')) return;
       const week = weekFor(table);
       if (!week) return;
       const bar = el('div', 'gccx-week-bar');
-      bar.setAttribute('role', 'group');
-      bar.setAttribute('aria-label', 'Course view');
-      const mk = (label, v) => {
-        const b = el('button', 'gccx-week-tab', label);
-        b.type = 'button';
-        b.dataset.view = v;
-        b.addEventListener('click', () => set(v, true));
-        return b;
-      };
-      const bw = mk('Week', 'week'), bl = mk('List', 'list');
-      bar.append(bw, bl);
+      const seg = ui.seg([{ value: 'week', label: 'Week' }, { value: 'list', label: 'List' }], pref, (v) => set(v, true), 'Course view');
+      bar.append(seg);
       const set = (v, save) => {
         week.hidden = v !== 'week';
         table.hidden = v === 'week';
-        bw.setAttribute('aria-pressed', String(v === 'week'));
-        bl.setAttribute('aria-pressed', String(v !== 'week'));
         if (save) { try { localStorage.setItem('gccx-acad-courses-view', v); } catch (e) { /* storage blocked */ } }
       };
       table.before(bar, week);
@@ -608,12 +614,12 @@
     });
   }
 
-  // Extension switched off: undo every feature in reverse and drop our page classes.
+  // Extension switched off: the controller puts every moved, hidden or collapsed card back and runs each
+  // step's undo in reverse; then the text we rewrote is restored and our page classes dropped.
   function teardown() {
     gen++;
-    undos.splice(0).reverse().forEach((u) => { try { u(); } catch (e) { warn('teardown step failed', { error: String(e) }); } });
+    c.teardown();
     texts.splice(0).reverse().forEach(([node, prop, value]) => { node[prop] = value; });
-    ok = 0;
     document.documentElement.classList.remove('gccx-acad', 'gccx-audit');
   }
 
