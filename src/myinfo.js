@@ -50,15 +50,17 @@
       if (!chapel) c.warn('chapel attendance card not found');
       if (!mine.length) return;
       const sec = ui.section('My records');
-      const body = ui.el('div', 'ux-portlets');
+      // two columns, so a folded card (chapel) does not leave a hole beside a tall one
+      const colA = ui.col(), colB = ui.col();
+      const body = ui.el('div', 'ux-portlets', [colA, colB]);
       sec.body.append(body);
       page.append(sec.root);
-      mine.forEach((p) => c.move(p, body));
+      mine.forEach((p) => c.move(p, p === chapel || /financial/i.test(p.className) ? colA : colB));
       if (chapel) c.collapse(chapel); // the Chapel tile above already states the number
       c.fitFrames(page);
     }, () => {});
 
-    // 2. One-link cards: a tile for each plain link; a card whose link is a postback stays visible as it was
+    // 2. One-link cards: one tile per link, driving the portal's own link
     c.safe('link tiles', () => {
       const specs = [
         { card: find(grid, { id: 'pg6_ResidenceInfo', cls: 'pt_ResidenceInfo', title: /residence/i }), tiles: [{ title: 'Residence information', desc: 'Your room assignment and housing details.' }] },
@@ -72,11 +74,14 @@
         if (!s.card) { c.warn('one-link card not found', { first: s.tiles[0].title }); return; }
         const found = s.tiles.map((t) => {
           const links = $$('.portlet-padding a[href]', s.card);
-          const a = t.match ? links.find((l) => t.match.test(ui.txt(l)) && isPlain(l)) : ($('.portlet-header-bar h3 a[href]', s.card) || links.find(isPlain));
-          return isPlain(a) ? { title: t.title, desc: t.desc, href: a.getAttribute('href') } : null;
+          // the card's own link: a plain link becomes a link tile; a postback link is run through the portal's form on click
+          const a = t.match ? links.find((l) => t.match.test(ui.txt(l))) : links[0];
+          if (!a) return null;
+          if (isPlain(a)) return { title: t.title, desc: t.desc, href: a.getAttribute('href') };
+          return ui.isPostBack(a) ? { title: t.title, desc: t.desc, onClick: () => ui.postBack(a) } : null;
         });
         if (found.every(Boolean)) { tiles.push(...found); hide.push(s.card); }
-        else c.warn('a link is a postback, so its card stays as it is', { card: titleOf(s.card) });
+        else c.warn('link not recognised, so its card stays as it is', { card: titleOf(s.card) });
       });
       if (!tiles.length) return;
       const sec = ui.section('Housing, vehicle and directories');

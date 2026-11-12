@@ -24,3 +24,5 @@ html.gccx #gccx-dash .x-gpa-stat { display: inline-block; }
 /* Frames never push the page wider, even before framefit has measured them */
 html.gccx .ux-page iframe { max-width: 100% !important; }
 html.gccx .ux-portlets > .portlet { overflow-x: clip; }
+/* Kit gap: the sentence under a card title needs room before the body (ux-page resets p margins) */
+html.gccx #gccx-dash .ux-card-sub { margin: calc(var(--x-s2) * -1) 0 var(--x-s3) !important; padding-top: var(--x-s1); }

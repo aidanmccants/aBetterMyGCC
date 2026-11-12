@@ -67,7 +67,7 @@ All built with `GCCX.ui` (DOM nodes, `textContent` only). The dashboard in `cont
 | Button / link | `ui.button(text, { href, primary })`, `ui.link(text, href)` | actions; "see all" |
 | Segmented | `ui.seg(options, current, onPick, label)` | switching a view |
 | Facts | `ui.facts([[label, value]])` | advisor, major |
-| Tiles | `ui.tiles([{ title, desc, href }])` | a set of destinations, each with a reason |
+| Tiles | `ui.tiles([{ title, desc, href }])` or `{ title, desc, onClick }` | a set of destinations, each with a reason. For a portal postback link use `onClick: () => ui.postBack(link)` |
 | Disclosure | `ui.more(summary, kids)` | detail on demand |
 | State | `ui.state(kind, text)` | loading / empty / error / stale |
 

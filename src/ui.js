@@ -101,7 +101,8 @@
     return root;
   }
   const facts = (pairs) => el('dl', 'ux-facts', pairs.flatMap(([k, v]) => [el('dt', null, k), el('dd', null, v)]));
-  const tile = (o) => el('a', { class: 'ux-tile', href: o.href, target: o.external ? '_blank' : null, rel: o.external ? 'noopener' : null },
+  // tile({ title, desc, href }) is a link; tile({ title, desc, onClick }) is a button (e.g. one that runs a portal postback)
+  const tile = (o) => el(o.href ? 'a' : 'button', { class: 'ux-tile', href: o.href, type: o.href ? null : 'button', target: o.external ? '_blank' : null, rel: o.external ? 'noopener' : null, on: o.onClick ? { click: o.onClick } : null },
     [el('span', 'ux-tile-title', o.title), o.desc ? el('span', 'ux-tile-desc', o.desc) : null]);
   const tiles = (items) => el('div', 'ux-tiles', items.map(tile));
   function more(summary, kids, open) {
@@ -114,6 +115,21 @@
   const note = (text) => el('p', 'ux-note', text);
 
   /* ---------- working with myGCC's own cards ---------- */
+  // Run a portal link the way the portal would. ASP.NET links are `javascript:__doPostBack('target','arg')`,
+  // which Chrome will not run when clicked from an extension, so fill the form's two hidden fields and submit it.
+  // The portal's own link is used as the source; nothing about it is copied or changed.
+  const isPostBack = (a) => /^\s*javascript:\s*__doPostBack\(/i.test((a && a.getAttribute('href')) || '');
+  function postBack(a) {
+    const m = (a.getAttribute('href') || '').match(/__doPostBack\('([^']*)','([^']*)'\)/);
+    const form = a.closest('form') || document.forms[0];
+    if (!m || !form) { a.click(); return; }
+    const field = (name) => form.querySelector(`input[name="${name}"]`) ||
+      form.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name }));
+    field('__EVENTTARGET').value = m[1];
+    field('__EVENTARGUMENT').value = m[2];
+    form.submit();
+  }
+
   // What a portal card holds: 'empty' (nothing a student can read or use), 'decor' (only a picture),
   // or 'content'. Empty cards may be hidden; decor cards collapse; content is never hidden.
   function triage(portlet) {
@@ -188,5 +204,5 @@
     return c;
   }
 
-  X.ui = { el, txt, sentence, page, hero, section, grid, col, card, stat, row, list, badge, chips, button, link, seg, facts, tile, tiles, more, state, note, triage, controller };
+  X.ui = { el, txt, sentence, page, hero, section, grid, col, card, stat, row, list, badge, chips, button, link, seg, facts, tile, tiles, more, state, note, triage, isPostBack, postBack, controller };
 })();

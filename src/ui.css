@@ -135,12 +135,14 @@ html.gccx .ux-facts { display: grid; grid-template-columns: max-content minmax(0
 html.gccx .ux-facts dt { color: var(--x-muted); font-size: var(--x-fs-small); font-weight: 400; }
 html.gccx .ux-facts dd { font-size: var(--x-fs-body); font-weight: 500; }
 html.gccx .ux-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--x-s2); }
-html.gccx a.ux-tile {
+html.gccx :is(a, button).ux-tile {
+  all: unset; box-sizing: border-box; cursor: pointer; text-align: left;
   display: grid; gap: 2px; padding: var(--x-s3) var(--x-s4); border: 1px solid var(--x-rule); border-radius: var(--x-radius-control);
   background: var(--x-surface); color: var(--x-ink) !important; text-decoration: none !important;
   transition: border-color var(--x-speed) var(--x-ease), background-color var(--x-speed) var(--x-ease);
 }
-html.gccx a.ux-tile:hover { border-color: var(--x-accent); background: color-mix(in srgb, var(--x-accent) 5%, var(--x-surface)); }
+html.gccx :is(a, button).ux-tile:hover { border-color: var(--x-accent); background: color-mix(in srgb, var(--x-accent) 5%, var(--x-surface)); }
+html.gccx :is(a, button).ux-tile:focus-visible { outline: 2px solid var(--x-accent) !important; outline-offset: 2px !important; }
 html.gccx .ux-tile-title { font-weight: 600; font-size: var(--x-fs-body); }
 html.gccx .ux-tile-title::after { content: " \203A"; color: var(--x-accent); }
 html.gccx .ux-tile-desc { color: var(--x-muted); font-size: var(--x-fs-micro); line-height: 1.4; }
