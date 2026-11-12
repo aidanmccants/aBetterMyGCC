@@ -41,6 +41,21 @@ html:not(.gccx) :is(#gccx-signedout, #gccx-onboarding) {
   --x-radius-chip: 4px;
   --x-speed: 160ms;
   --x-ease: ease-out;
+  /* layout and type scale for the page kit (src/ui.css, docs/DESIGN.md) */
+  --x-s1: 4px; --x-s2: 8px; --x-s3: 12px; --x-s4: 16px; --x-s5: 20px; --x-s6: 28px; --x-s7: 40px;
+  --x-gap: var(--x-s5);        /* between cards and columns */
+  --x-pad: var(--x-s5);        /* inside a card */
+  --x-fs-hero: clamp(28px, 2.2vw + 14px, 36px);
+  --x-fs-section: 22px;
+  --x-fs-card: 17px;
+  --x-fs-body: 15.5px;
+  --x-fs-small: 14px;
+  --x-fs-micro: 13px;
+  --x-fs-figure: 28px;         /* the number on a stat tile */
+  --x-warn: #8a5a00;           /* GCC gold, darkened to 5.6:1 on white */
+  --x-warn-soft: rgba(232, 152, 46, 0.18);
+  --x-ok-soft: rgba(83, 104, 43, 0.14);
+  --x-info-soft: rgba(0, 90, 139, 0.12);
   color-scheme: light;
 }
 html.gccx.gccx-dark {
@@ -65,6 +80,10 @@ html.gccx.gccx-dark {
   --x-bad-soft: rgba(255, 138, 128, 0.18);
   --x-bad-ring: rgba(255, 138, 128, 0.25);
   --x-info: #7fb8dd;
+  --x-warn: #f0b860;
+  --x-warn-soft: rgba(240, 184, 96, 0.16);
+  --x-ok-soft: rgba(169, 196, 127, 0.16);
+  --x-info-soft: rgba(127, 184, 221, 0.16);
   --x-scrim: rgba(0, 0, 0, 0.6);
   --x-shadow: none;
   --x-shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 12px rgba(0, 0, 0, 0.45);

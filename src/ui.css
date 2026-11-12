@@ -1,0 +1,188 @@
+/* aBetterMyGCC page kit: one set of layout and component classes shared by every redesigned page
+   (Home, My Info, Academics; new pages start here too). Spec and rules: docs/DESIGN.md.
+   - Every class starts with ux-. Every rule sits under html.gccx, so switching the extension off drops it all.
+   - Colours, radii, spacing and type sizes come from tokens (src/theme-engine/tokens.css). No raw colours here.
+   - Page files (home.css, myinfo.css, academics.css) only place things; they do not restyle kit parts.
+   - !important appears only where myGCC's own stylesheet or theme.css would otherwise win (headings, margins, links). */
+
+/* ---------- page frame ---------- */
+html.gccx .ux-page {
+  display: grid; gap: var(--x-s6); margin: var(--x-s1) 0 var(--x-s6); min-width: 0; clear: both;
+  color: var(--x-ink); font-size: var(--x-fs-body); line-height: 1.5;
+  container: uxpage / inline-size;
+}
+html.gccx .ux-page *, html.gccx .ux-page *::before, html.gccx .ux-page *::after { box-sizing: border-box; }
+html.gccx .ux-page :is(h2, h3, h4, p, ul, ol, dl, dd) { margin: 0 !important; padding: 0; }
+html.gccx .ux-page :is(ul, ol) { list-style: none; }
+
+/* ---------- hero: who/what this page is, and the one thing that matters now ---------- */
+html.gccx .ux-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--x-s3) var(--x-s5); }
+html.gccx .ux-hero-text { min-width: 0; flex: 1 1 320px; display: grid; gap: var(--x-s2); }
+html.gccx .ux-hero-eyebrow { color: var(--x-muted); font-size: var(--x-fs-small); }
+html.gccx .ux-hero-title { font-size: var(--x-fs-hero) !important; font-weight: 650 !important; letter-spacing: -0.025em !important; line-height: 1.1 !important; }
+html.gccx .ux-hero-lead { color: var(--x-muted); font-size: 17px; line-height: 1.45; max-width: 68ch; text-wrap: pretty; }
+html.gccx .ux-hero-lead strong { color: var(--x-ink); font-weight: 600; }
+html.gccx .ux-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--x-s2); }
+
+/* ---------- stat tiles: the numbers a student checks, answered without a click ---------- */
+html.gccx .ux-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--x-s3); }
+html.gccx .ux-stat {
+  display: grid; align-content: start; gap: var(--x-s1); min-width: 0; padding: var(--x-s4) var(--x-pad);
+  background: var(--x-surface); border: 1px solid var(--x-rule); border-radius: var(--x-radius); box-shadow: var(--x-shadow);
+  color: var(--x-ink) !important; text-decoration: none !important;
+}
+html.gccx a.ux-stat { transition: border-color var(--x-speed) var(--x-ease), transform var(--x-speed) var(--x-ease); }
+html.gccx a.ux-stat:hover { border-color: var(--x-rule-strong); transform: translateY(-1px); }
+html.gccx .ux-stat-label { color: var(--x-muted); font-size: var(--x-fs-small); display: flex; justify-content: space-between; gap: var(--x-s2); }
+html.gccx .ux-stat-value { font: 650 var(--x-fs-figure)/1.15 var(--x-display) !important; font-variant-numeric: lining-nums tabular-nums; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+html.gccx .ux-stat-value small { font: 400 var(--x-fs-small)/1 var(--x-sans); color: var(--x-muted); letter-spacing: 0; }
+html.gccx .ux-stat-value.is-text { font-size: 18px !important; line-height: 1.3 !important; letter-spacing: -0.01em; }
+html.gccx .ux-stat-note { color: var(--x-muted); font-size: var(--x-fs-micro); line-height: 1.4; }
+html.gccx .ux-stat.is-ok .ux-stat-note { color: var(--x-ok); }
+html.gccx .ux-stat.is-warn .ux-stat-value, html.gccx .ux-stat.is-warn .ux-stat-note { color: var(--x-warn); }
+html.gccx .ux-stat.is-bad .ux-stat-value, html.gccx .ux-stat.is-bad .ux-stat-note { color: var(--x-bad); }
+html.gccx .ux-meter { height: 4px; border-radius: 2px; background: var(--x-rule); overflow: hidden; margin-block: var(--x-s1); }
+html.gccx .ux-meter > i { display: block; height: 100%; border-radius: 2px; background: var(--x-accent); }
+html.gccx .is-ok > .ux-meter > i, html.gccx .ux-meter.is-ok > i { background: var(--x-ok); }
+
+/* ---------- sections and grids ---------- */
+html.gccx .ux-section { display: grid; gap: var(--x-s3); min-width: 0; }
+html.gccx .ux-section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--x-s2) var(--x-s4); }
+html.gccx .ux-section-title { font-size: var(--x-fs-section) !important; font-weight: 600 !important; letter-spacing: -0.02em !important; line-height: 1.2 !important; }
+html.gccx .ux-section-aside { color: var(--x-muted); font-size: var(--x-fs-small); }
+html.gccx .ux-grid { display: grid; gap: var(--x-gap); align-items: start; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+html.gccx .ux-grid.is-wide-narrow { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+html.gccx .ux-grid.is-even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html.gccx .ux-grid.is-thirds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html.gccx .ux-col { display: grid; gap: var(--x-gap); min-width: 0; align-content: start; }
+@container uxpage (max-width: 900px) { html.gccx .ux-grid.is-thirds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container uxpage (max-width: 760px) { html.gccx .ux-grid:is(.is-wide-narrow, .is-even, .is-thirds) { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- card ---------- */
+html.gccx .ux-card {
+  min-width: 0; padding: var(--x-pad); background: var(--x-surface); border: 1px solid var(--x-rule);
+  border-radius: var(--x-radius); box-shadow: var(--x-shadow); container: uxcard / inline-size;
+}
+html.gccx .ux-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--x-s2) var(--x-s3); margin-bottom: var(--x-s3); }
+html.gccx .ux-card-title { font-size: var(--x-fs-card) !important; font-weight: 600 !important; letter-spacing: -0.01em !important; line-height: 1.3 !important; }
+html.gccx .ux-card-sub { color: var(--x-muted); font-size: var(--x-fs-small); margin: calc(var(--x-s2) * -1) 0 var(--x-s3) !important; }
+html.gccx .ux-card-aside { display: flex; align-items: center; gap: var(--x-s2); color: var(--x-muted); font-size: var(--x-fs-small); }
+html.gccx .ux-card-foot { margin-top: var(--x-s3); padding-top: var(--x-s3); border-top: 1px solid var(--x-rule); color: var(--x-muted); font-size: var(--x-fs-small); display: flex; flex-wrap: wrap; gap: var(--x-s2) var(--x-s4); }
+html.gccx .ux-card.is-accent { border-color: color-mix(in srgb, var(--x-accent) 35%, var(--x-rule)); background: color-mix(in srgb, var(--x-accent) 6%, var(--x-surface)); }
+
+/* ---------- rows: any list of dated or labelled things (classes, events, posts, buildings) ---------- */
+html.gccx .ux-list { display: grid; }
+html.gccx .ux-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--x-s1) var(--x-s4); align-items: baseline; padding: var(--x-s3) 0; border-top: 1px solid var(--x-rule); }
+html.gccx .ux-list > .ux-row:first-child { border-top: 0; padding-top: 0; }
+html.gccx .ux-list > .ux-row:last-child { padding-bottom: 0; }
+html.gccx .ux-row-lead { min-width: 76px; color: var(--x-muted); font-size: var(--x-fs-small); font-variant-numeric: lining-nums tabular-nums; }
+html.gccx .ux-row-lead small { display: block; font-size: var(--x-fs-micro); color: var(--x-accent); }
+html.gccx .ux-row-main { min-width: 0; }
+html.gccx .ux-row-title { font-size: 16px; font-weight: 500; line-height: 1.35; color: var(--x-ink); overflow-wrap: anywhere; }
+html.gccx a.ux-row-title, html.gccx .ux-row-title a { color: var(--x-ink) !important; text-decoration: none !important; }
+html.gccx a.ux-row-title:hover, html.gccx .ux-row-title a:hover { color: var(--x-accent) !important; }
+html.gccx .ux-row-sub { color: var(--x-muted); font-size: var(--x-fs-small); line-height: 1.4; }
+html.gccx .ux-row-end { color: var(--x-ink); font-size: var(--x-fs-small); text-align: right; white-space: nowrap; }
+html.gccx .ux-row.is-past :is(.ux-row-lead, .ux-row-title, .ux-row-title a, .ux-row-sub, .ux-row-end) { color: var(--x-faint) !important; }
+html.gccx .ux-row:is(.is-now, .is-next) .ux-row-lead { color: var(--x-accent); font-weight: 600; }
+html.gccx .ux-row.is-now { position: relative; }
+html.gccx .ux-row.is-now::before { content: ""; position: absolute; inset: var(--x-s2) auto var(--x-s2) calc(var(--x-pad) * -1); width: 3px; border-radius: 0 2px 2px 0; background: var(--x-accent); }
+@container uxcard (max-width: 380px) {
+  html.gccx .ux-row { grid-template-columns: minmax(0, 1fr) auto; }
+  html.gccx .ux-row-lead { grid-column: 1 / -1; min-width: 0; }
+}
+
+/* ---------- badges, chips, dots ---------- */
+html.gccx .ux-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  font: 600 12.5px/1.5 var(--x-sans); color: var(--x-muted); background: var(--x-ground-muted);
+}
+html.gccx .ux-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+html.gccx .ux-badge.is-plain::before { content: none; }
+html.gccx .ux-badge.is-ok { color: var(--x-ok); background: var(--x-ok-soft); }
+html.gccx .ux-badge.is-warn { color: var(--x-warn); background: var(--x-warn-soft); }
+html.gccx .ux-badge.is-bad { color: var(--x-bad); background: var(--x-bad-soft); }
+html.gccx .ux-badge.is-info { color: var(--x-info); background: var(--x-info-soft); }
+html.gccx .ux-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html.gccx .ux-chip { display: inline-block; padding: 3px 10px; border: 1px solid var(--x-rule); border-radius: 999px; font-size: var(--x-fs-micro); line-height: 1.5; color: var(--x-ink); background: var(--x-surface); }
+html.gccx .ux-chip.is-done { color: var(--x-faint); text-decoration: line-through; text-decoration-color: var(--x-rule-strong); }
+
+/* ---------- buttons, links, segmented control ---------- */
+html.gccx :is(a, button).ux-btn {
+  all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  min-height: 38px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--x-rule-strong); background: var(--x-surface);
+  font: 600 var(--x-fs-small)/1.2 var(--x-sans) !important; color: var(--x-ink) !important; text-decoration: none !important; white-space: nowrap;
+  transition: background-color var(--x-speed) var(--x-ease), border-color var(--x-speed) var(--x-ease), transform 80ms var(--x-ease);
+}
+html.gccx :is(a, button).ux-btn:hover { background: var(--x-ground-muted); }
+html.gccx :is(a, button).ux-btn:active { transform: translateY(1px); }
+html.gccx :is(a, button).ux-btn.is-primary { background: var(--x-accent); border-color: var(--x-accent); color: var(--x-accent-ink) !important; }
+html.gccx :is(a, button).ux-btn.is-primary:hover { background: var(--x-accent-hover); border-color: var(--x-accent-hover); }
+html.gccx :is(a, button).ux-btn.is-small { min-height: 30px; padding: 4px 12px; font-size: var(--x-fs-micro) !important; }
+html.gccx :is(a, button).ux-btn:focus-visible { outline: 2px solid var(--x-accent) !important; outline-offset: 2px !important; }
+html.gccx :is(a, button).ux-link { all: unset; cursor: pointer; color: var(--x-muted) !important; font: 500 var(--x-fs-small)/1.3 var(--x-sans) !important; text-decoration: none !important; white-space: nowrap; }
+html.gccx :is(a, button).ux-link::after { content: " \203A"; }
+html.gccx :is(a, button).ux-link:hover { color: var(--x-accent) !important; }
+html.gccx :is(a, button).ux-link:focus-visible { outline: 2px solid var(--x-accent) !important; outline-offset: 2px !important; border-radius: 2px; }
+html.gccx .ux-seg { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--x-rule); border-radius: 999px; background: var(--x-ground-muted); }
+html.gccx .ux-seg button { all: unset; box-sizing: border-box; cursor: pointer; padding: 5px 12px; border-radius: 999px; font: 500 var(--x-fs-micro)/1.2 var(--x-sans); color: var(--x-muted); white-space: nowrap; }
+html.gccx .ux-seg button:hover { color: var(--x-ink); }
+html.gccx .ux-seg button[aria-pressed="true"] { background: var(--x-surface); color: var(--x-ink); box-shadow: var(--x-shadow); font-weight: 600; }
+html.gccx .ux-seg button:focus-visible { outline: 2px solid var(--x-accent); outline-offset: 1px; }
+
+/* ---------- facts (label / value), tiles (a link with a reason), disclosure, notes ---------- */
+html.gccx .ux-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--x-s2) var(--x-s4); }
+html.gccx .ux-facts dt { color: var(--x-muted); font-size: var(--x-fs-small); font-weight: 400; }
+html.gccx .ux-facts dd { font-size: var(--x-fs-body); font-weight: 500; }
+html.gccx .ux-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--x-s2); }
+html.gccx a.ux-tile {
+  display: grid; gap: 2px; padding: var(--x-s3) var(--x-s4); border: 1px solid var(--x-rule); border-radius: var(--x-radius-control);
+  background: var(--x-surface); color: var(--x-ink) !important; text-decoration: none !important;
+  transition: border-color var(--x-speed) var(--x-ease), background-color var(--x-speed) var(--x-ease);
+}
+html.gccx a.ux-tile:hover { border-color: var(--x-accent); background: color-mix(in srgb, var(--x-accent) 5%, var(--x-surface)); }
+html.gccx .ux-tile-title { font-weight: 600; font-size: var(--x-fs-body); }
+html.gccx .ux-tile-title::after { content: " \203A"; color: var(--x-accent); }
+html.gccx .ux-tile-desc { color: var(--x-muted); font-size: var(--x-fs-micro); line-height: 1.4; }
+html.gccx details.ux-more > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; color: var(--x-accent); font: 600 var(--x-fs-small)/1.3 var(--x-sans); padding: var(--x-s1) 0; }
+html.gccx details.ux-more > summary::-webkit-details-marker { display: none; }
+html.gccx details.ux-more > summary::before { content: "\203A"; display: inline-block; transition: transform var(--x-speed) var(--x-ease); }
+html.gccx details.ux-more[open] > summary::before { transform: rotate(90deg); }
+html.gccx details.ux-more > summary + * { margin-top: var(--x-s3) !important; }
+html.gccx .ux-note { color: var(--x-faint); font-size: var(--x-fs-micro); line-height: 1.45; }
+html.gccx .ux-muted { color: var(--x-muted); }
+
+/* ---------- states: loading, nothing to show, could not load, showing a saved copy ---------- */
+html.gccx .ux-state { color: var(--x-muted); font-size: var(--x-fs-small); line-height: 1.45; padding: var(--x-s1) 0; }
+html.gccx .ux-state[data-kind="loading"] { display: grid; gap: var(--x-s2); color: transparent; user-select: none; }
+html.gccx .ux-state[data-kind="loading"]::before, html.gccx .ux-state[data-kind="loading"]::after {
+  content: ""; height: 12px; border-radius: 6px; background: var(--x-ground-muted); animation: ux-pulse 1.4s ease-in-out infinite;
+}
+html.gccx .ux-state[data-kind="loading"]::after { width: 60%; }
+html.gccx .ux-state[data-kind="error"] { color: var(--x-ink); padding: var(--x-s2) var(--x-s3); border-radius: var(--x-radius-control); background: var(--x-bad-soft); }
+html.gccx .ux-state[data-kind="stale"] { font-size: var(--x-fs-micro); margin-top: var(--x-s2) !important; }
+@keyframes ux-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  html.gccx .ux-state[data-kind="loading"]::before, html.gccx .ux-state[data-kind="loading"]::after { animation: none; }
+  html.gccx a.ux-stat:hover { transform: none; }
+}
+
+/* ---------- myGCC's own cards, placed in a kit section ----------
+   .ux-portlets holds portal .portlet nodes that were moved (never copied) into our layout, so their
+   links, forms and postbacks keep working. They take the card look and the card title size. */
+html.gccx .ux-portlets { display: grid; gap: var(--x-gap); align-items: start; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html.gccx .ux-portlets.is-single { grid-template-columns: minmax(0, 1fr); }
+@container uxpage (max-width: 760px) { html.gccx .ux-portlets { grid-template-columns: minmax(0, 1fr); } }
+html.gccx .ux-portlets > .ux-col { gap: var(--x-gap); }
+html.gccx .ux-page .portlet { margin: 0 !important; width: auto !important; max-width: 100%; min-width: 0; float: none !important; padding: var(--x-pad) !important; }
+html.gccx .ux-page .portlet.is-span { grid-column: 1 / -1; }
+html.gccx .ux-page .portlet .portlet-header-bar { display: flex !important; align-items: center; gap: var(--x-s2); padding: 0 0 var(--x-s2) !important; margin: 0 !important; min-height: 0 !important; }
+html.gccx .ux-page .portlet .portlet-header-bar h3 { flex: 1 1 auto; min-width: 0; }
+html.gccx .ux-page .portlet .portlet-header-bar :is(h3, h3 a) { font-size: var(--x-fs-card) !important; font-weight: 600 !important; letter-spacing: -0.01em !important; line-height: 1.3 !important; margin: 0 !important; padding: 0 !important; }
+html.gccx .ux-page .portlet .portlet-help-wrapper { width: auto !important; margin: 0 !important; opacity: 0.5; }
+html.gccx .ux-page .portlet .portlet-help-wrapper:is(:hover, :focus-within) { opacity: 1; }
+html.gccx .ux-page .portlet :is(.portlet-padding, .pSection) { padding: 0 !important; margin: 0 !important; }
+/* collapsed: the header stays, the body is one click away (GCCX.ui.collapse) */
+html.gccx .portlet.ux-collapsed > :not(.portlet-header-bar) { display: none !important; }
+html.gccx .portlet.ux-collapsed .portlet-header-bar { padding-bottom: 0 !important; }
+html.gccx .ux-hidden { display: none !important; }
