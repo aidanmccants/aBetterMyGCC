@@ -1,80 +1,121 @@
-// aBetterMyGCC My Info: size the chapel frame to its content, fold the one-link cards
-// (residence, vehicle, directories) into one card, and even out the gutters.
-// Same safety model as academics.js: check first, run each step on its own, undo a step that fails.
+// aBetterMyGCC My Info, part 2: myGCC's own cards below the dashboard (content.js draws the dashboard).
+// Built with the page kit (src/ui.js): a "My records" section, one tiles card for the one-link cards
+// (residence, vehicle, directories) and "More from myGCC" for whatever is left. Portal cards are MOVED
+// (never copied), so forms, frames and postbacks keep working; switching the extension off puts them back.
 (function () {
   'use strict';
   if (!/^\/ICS\/My_Info\/?(Default_Page\.jnz)?$/i.test(location.pathname)) return;
 
+  const ui = window.GCCX && GCCX.ui;
+  if (!ui) return;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const txt = (n) => (n ? n.textContent.replace(/\s+/g, ' ').trim() : '');
   const root = document.documentElement;
+  const c = ui.controller('my info');
 
-  function warn(message, data) {
-    try { if (window.GCCX && GCCX.log) GCCX.log('warn', 'content', `[my info] ${message}`, data); } catch (e) { /* log unavailable */ }
-    console.warn('[aBetterMyGCC] my info:', message);
+  const titleOf = (p) => ui.txt($('.portlet-header-bar h3', p));
+  // A portal card by id first, then by its pt_ class, then by header text: the pgN numbers shift between students.
+  function find(grid, { id, cls, title }) {
+    const byId = id && $('#' + id, grid);
+    if (byId && byId.classList.contains('portlet')) return byId;
+    const all = $$('.portlet', grid).filter((p) => !p.parentElement.closest('.portlet'));
+    return (cls && all.find((p) => p.classList.contains(cls))) || (title && all.find((p) => title.test(titleOf(p)))) || null;
   }
-  let ok = 0;
-  const undos = [];
-  function safe(name, run, undo) {
-    try { run(); ok++; undos.push(undo); } catch (e) {
-      warn(`${name} failed; reverted it`, { error: String(e && e.message || e) });
-      try { undo(); } catch (e2) { warn(`${name} undo failed`, { error: String(e2) }); }
-    }
-  }
-
-  /* ---------- custom.gcc.edu frames (chapel, contact info...): full width, height from the frame ---------- */
-  const unfit = [];
-  function fitFrames() {
-    const frames = $$('#portlets iframe').filter((f) => /^https:\/\/custom\.gcc\.edu\/gcc_misc\//i.test(f.src || ''));
-    if (!frames.length) { warn('no custom.gcc.edu frames found (chapel attendance expected)'); return; }
-    frames.forEach((f) => unfit.push(GCCX.fitFrame(f)));
-  }
-
-  /* ---------- one-link cards -> one card with full-size section titles ---------- */
-  const moves = [];
-  const merged = [];
-  function mergeLinkCards() {
-    const cards = ['#pg6_ResidenceInfo', '#pg7_VehicleInfo', '#pg8_PDFReports']
-      .map((s) => $(s))
-      .filter((p) => p && $('.portlet-padding', p) && $('.portlet-header-bar h3', p));
-    // Fall back by shape if ids moved: small link-only cards in the same column.
-    if (cards.length < 2) { warn('residence/vehicle/directory cards not found by id', { found: cards.length }); return; }
-    const host = cards[0];
-    host.classList.add('gccx-info-merged');
-    cards.forEach((p, i) => {
-      const body = $('.portlet-padding', p);
-      const sec = document.createElement('section');
-      sec.className = 'gccx-info-part';
-      const h = document.createElement('h3');
-      h.className = 'gccx-info-head';
-      h.textContent = txt($('.portlet-header-bar h3', p)).replace(/^My\s+/i, '');
-      moves.push([body, body.parentNode, body.nextSibling]);
-      sec.append(h, body);
-      host.append(sec);
-      merged.push(sec);
-      if (i > 0) p.classList.add('gccx-info-hidden');
-    });
-  }
-  function undoMerge() {
-    moves.reverse().forEach(([n, parent, next]) => parent && parent.insertBefore(n, next && next.parentNode === parent ? next : null));
-    merged.forEach((s) => s.remove());
-    $$('.gccx-info-merged, .gccx-info-hidden').forEach((p) => p.classList.remove('gccx-info-merged', 'gccx-info-hidden'));
-  }
+  const isPlain = (a) => a && /^(https?:\/\/|\/)/i.test(a.getAttribute('href') || '');
 
   function build() {
-    if (!$('#portlets .portlet-column')) { warn('#portlets columns not found; portal layout may have changed'); return; }
-    root.classList.add('gccx-info');
-    safe('frame sizing', fitFrames, () => unfit.splice(0).forEach((u) => u()));
-    safe('merge link cards', mergeLinkCards, undoMerge);
-    if (!ok) root.classList.remove('gccx-info');
+    const grid = $('#portlet-grid');
+    if (!grid || $('#gccx-page')) { if (!grid) c.warn('#portlet-grid not found; portal layout may have changed'); return; }
+    const all = $$('.portlet', grid).filter((p) => !p.parentElement.closest('.portlet'));
+    if (!all.length) { c.warn('no portal cards found'); return; }
+    const used = new Set();
+    const portlets = (...nodes) => nodes.filter(Boolean).map((n) => { used.add(n); return n; });
+
+    const page = ui.page('me-records', 'Your records');
+    c.safe('page frame', () => {
+      const dash = $('#gccx-dash');
+      if (dash && dash.parentNode) dash.parentNode.insertBefore(page, dash.nextSibling);
+      else grid.parentNode.insertBefore(page, grid);
+      root.classList.add('gccx-info');
+    }, () => { page.remove(); root.classList.remove('gccx-info'); });
+    if (!page.isConnected) return;
+
+    // 1. My records
+    c.safe('my records', () => {
+      const chapel = find(grid, { id: 'pg2_Universal', title: /^chapel/i });
+      const mine = portlets(chapel,
+        find(grid, { id: 'pg9_Universal', title: /^contact information/i }),
+        find(grid, { id: 'pg3_FinancialDocumentCenter', cls: 'pt_FinancialDocumentCenter', title: /financial document/i }),
+        find(grid, { id: 'pg1_ResourcesPortlet', cls: 'pt_ResourcesPortlet', title: /^resources/i }));
+      if (!chapel) c.warn('chapel attendance card not found');
+      if (!mine.length) return;
+      const sec = ui.section('My records');
+      const body = ui.el('div', 'ux-portlets');
+      sec.body.append(body);
+      page.append(sec.root);
+      mine.forEach((p) => c.move(p, body));
+      if (chapel) c.collapse(chapel); // the Chapel tile above already states the number
+      c.fitFrames(page);
+    }, () => {});
+
+    // 2. One-link cards: a tile for each plain link; a card whose link is a postback stays visible as it was
+    c.safe('link tiles', () => {
+      const specs = [
+        { card: find(grid, { id: 'pg6_ResidenceInfo', cls: 'pt_ResidenceInfo', title: /residence/i }), tiles: [{ title: 'Residence information', desc: 'Your room assignment and housing details.' }] },
+        { card: find(grid, { id: 'pg7_VehicleInfo', cls: 'pt_VehicleInfo', title: /vehicle/i }), tiles: [{ title: 'Vehicle information', desc: 'Register or review the vehicle you park on campus.' }] },
+        { card: find(grid, { id: 'pg8_PDFReports', cls: 'pt_PDFReports', title: /directories/i }), tiles: [
+          { title: 'Student directory', desc: 'Look up a student.', match: /student/i },
+          { title: 'Employee directory', desc: 'Look up faculty and staff.', match: /employee/i }] },
+      ];
+      const tiles = [], hide = [];
+      specs.forEach((s) => {
+        if (!s.card) { c.warn('one-link card not found', { first: s.tiles[0].title }); return; }
+        const found = s.tiles.map((t) => {
+          const links = $$('.portlet-padding a[href]', s.card);
+          const a = t.match ? links.find((l) => t.match.test(ui.txt(l)) && isPlain(l)) : ($('.portlet-header-bar h3 a[href]', s.card) || links.find(isPlain));
+          return isPlain(a) ? { title: t.title, desc: t.desc, href: a.getAttribute('href') } : null;
+        });
+        if (found.every(Boolean)) { tiles.push(...found); hide.push(s.card); }
+        else c.warn('a link is a postback, so its card stays as it is', { card: titleOf(s.card) });
+      });
+      if (!tiles.length) return;
+      const sec = ui.section('Housing, vehicle and directories');
+      const card = ui.card('Your information');
+      card.body.append(ui.tiles(tiles));
+      sec.body.append(card.root);
+      page.append(sec.root);
+      hide.forEach((p) => { used.add(p); c.hide(p); });
+    }, () => {});
+
+    // 3. Everything else, sorted by what it holds
+    c.safe('more from myGCC', () => {
+      const welcome = (p) => /pi_Welcome|pi_Free_form_Content\b/.test(p.className) && /welcome|instagram/i.test(titleOf(p));
+      const left = all.filter((p) => !used.has(p) && !p.hidden && !welcome(p));
+      const shown = [];
+      left.forEach((p) => {
+        const kind = ui.triage(p);
+        if (kind === 'empty') { c.hide(p); return; }
+        if (kind === 'decor') c.collapse(p);
+        if (p.classList.contains('pt_ForumPortlet') || /^forums?$/i.test(titleOf(p))) c.collapse(p); // the dashboard lists recent posts
+        shown.push(p);
+      });
+      if (!shown.length) return;
+      const sec = ui.section('More from myGCC');
+      const body = ui.el('div', 'ux-portlets');
+      sec.body.append(body);
+      page.append(sec.root);
+      shown.forEach((p) => c.move(p, body));
+    }, () => {});
+
+    // the stock grid is now empty (or holds only hidden cards): take it out of the flow
+    c.safe('empty grid', () => { if (!$$('.portlet', grid).some((p) => !p.classList.contains('ux-hidden') && !p.hidden)) c.hide(grid); }, () => {});
+    if (!c.ok) root.classList.remove('gccx-info');
   }
 
   // Extension switched off: undo every step in reverse so the portal is back without a reload.
   function teardown() {
-    undos.splice(0).reverse().forEach((u) => { try { u(); } catch (e) { warn('teardown step failed', { error: String(e) }); } });
-    moves.length = 0; merged.length = 0;
-    ok = 0;
+    c.teardown();
+    $('#gccx-page')?.remove();
     root.classList.remove('gccx-info');
   }
 

@@ -320,7 +320,7 @@
   }
   const staleNote = (...keys) => {
     const ts = keys.filter((k) => cards[k].state === 'stale' && savedAt[k]).map((k) => savedAt[k]);
-    return ts.length ? `<p class="x-stale">Couldn't refresh · showing info from ${esc(M.ago(Math.min(...ts)))}</p>` : '';
+    return ts.length ? `<p class="ux-state" data-kind="stale">Couldn't refresh · showing info from ${esc(M.ago(Math.min(...ts)))}</p>` : '';
   };
 
   function isHome() {
@@ -382,13 +382,12 @@
     root.classList.add('gccx-home');
     const el = old || Object.assign(document.createElement('section'), { id: 'gccx-dash' });
     el.setAttribute('aria-label', 'Your day');
+    el.className = 'ux-page';
+    el.dataset.uxPage = 'me';
     el.innerHTML = dashboardHTML();
     if (!old) {
-      host.parentNode.insertBefore(el, host);
-      if (!document.getElementById('gccx-more')) {
-        const more = Object.assign(document.createElement('h3'), { id: 'gccx-more', textContent: 'From myGCC' });
-        host.parentNode.insertBefore(more, host);
-      }
+      // myinfo.js may already have put its records section (#gccx-page) above the portal grid: the dashboard goes first
+      host.parentNode.insertBefore(el, document.getElementById('gccx-page') || host);
       // Decorative portlets that add nothing once the dashboard exists
       document.querySelectorAll('.portlet').forEach((p) => {
         if (/pi_Welcome|pi_Free_form_Content\b/.test(p.className) && /welcome|instagram/i.test(p.querySelector('h3')?.textContent || '')) {
@@ -413,7 +412,7 @@
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // "See academic progress" disclosure inside At a glance: GPA, credits. A figure is left out when its data is missing.
+  // "Academic progress" disclosure in the Degree section: GPA (press and hold), credits. A figure is left out when its data is missing.
   let progressOpen = false;
   document.addEventListener('toggle', (e) => { if (e.target && e.target.classList && e.target.classList.contains('x-progress')) progressOpen = e.target.open; }, true);
   function progressHTML() {
@@ -421,16 +420,16 @@
     const sg = state.standing;
     if (sg && sg.gpa != null) {
       const locked = settings.hideGpa && !gpaShown;
-      rows.push(`<div class="x-prog-row"><dt>GPA</dt><dd><span class="x-gpa-stat${locked ? ' x-gpa-locked' : ''}"${locked ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : ''}><span class="x-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(sg.gpa.toFixed(2))}</span><span class="x-gpa-ring" aria-hidden="true"></span></span>${locked ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</span></dd></div>`);
+      rows.push(['GPA', `<span class="x-gpa-stat${locked ? ' x-gpa-locked' : ''}"${locked ? ' title="Press and hold to show your GPA" aria-label="GPA hidden. Press and hold to show."' : ''}><span class="x-gpa-val"><span class="x-gpa-mask">•.••</span><span class="x-gpa-real">${esc(sg.gpa.toFixed(2))}</span><span class="x-gpa-ring" aria-hidden="true"></span></span>${locked ? '<span class="x-gpa-hint" aria-hidden="true">Click and hold to reveal</span>' : ''}</span>`]);
     }
-    if (sg && sg.earned != null) rows.push(`<div class="x-prog-row"><dt>Credits earned</dt><dd>${esc(sg.earned)}${sg.needed > 0 ? `<small> of ${esc(sg.needed)}</small>` : ''}</dd></div>`);
-    if (sg && sg.inProgress != null) rows.push(`<div class="x-prog-row"><dt>Credits in progress</dt><dd>${esc(sg.inProgress)}</dd></div>`);
+    if (sg && sg.earned != null) rows.push(['Credits earned', `${esc(sg.earned)}${sg.needed > 0 ? ` <span class="ux-muted">of ${esc(sg.needed)}</span>` : ''}`]);
+    if (sg && sg.inProgress != null) rows.push(['Credits in progress', esc(sg.inProgress)]);
     if (state.schedule && state.schedule.courses.length) {
       const credits = state.schedule.courses.reduce((n, c) => n + (c.credits || 0), 0);
-      rows.push(`<div class="x-prog-row"><dt>Credits registered this term</dt><dd>${esc(credits)}</dd></div>`);
+      rows.push(['Credits registered this term', esc(credits)]);
     }
-    if (!rows.length) return `<a class="x-progress-link" href="${DEGREE_URL}">See academic progress</a>`;
-    return `<details class="x-progress"${progressOpen ? ' open' : ''}><summary>See academic progress</summary><dl class="x-prog">${rows.join('')}</dl><a class="x-prog-link" href="${DEGREE_URL}">Open degree progress</a>${staleNote('standing', 'schedule')}</details>`;
+    if (!rows.length) return `<a class="ux-link" href="${DEGREE_URL}">See academic progress</a>`;
+    return `<details class="ux-more x-progress"${progressOpen ? ' open' : ''}><summary>Academic progress</summary><div><dl class="ux-facts">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>${staleNote('standing', 'schedule')}</div></details>`;
   }
 
   // GPA privacy: hidden until pressed and held; hides again when the pointer leaves.
@@ -471,14 +470,11 @@
     }, true);
   })();
 
-  function registrationCard() {
-    const r = state.registration;
-    if (!r && cards.registration.state === 'error') return `<div class="x-card" data-gccx-state="error"><h3>Registration</h3><p class="x-empty">Couldn't check whether registration is open. Try Refresh below.</p></div>`;
-    if (!r) return '';
-    return `<div class="x-card x-reg" data-gccx-state="${cards.registration.state}"><h3>Registration is open for ${esc(r.term)}</h3>
-      <p>Plan your schedule, see conflicts on a calendar, and register for everything at once.</p>
-      <a class="x-reg-btn" href="${REG_URL}">Open the planner</a>${staleNote('registration')}</div>`;
+  // A kit card as an HTML string. title and aside are markup the caller has already escaped.
+  function kcard(title, o = {}) {
+    return `<div class="ux-card"${o.state ? ` data-gccx-state="${o.state}"` : ''}><div class="ux-card-head"><h3 class="ux-card-title">${title}</h3>${o.aside ? `<div class="ux-card-aside">${o.aside}</div>` : ''}</div>${o.sub ? `<p class="ux-card-sub">${o.sub}</p>` : ''}<div class="ux-card-body">${o.body || ''}</div></div>`;
   }
+  const sectionHTML = (title, inner, id) => `<section class="ux-section"${id ? ` id="${id}"` : ''}><div class="ux-section-head"><h2 class="ux-section-title">${esc(title)}</h2></div>${inner}</section>`;
 
   function dashboardHTML() {
     const now = new Date();
@@ -486,36 +482,54 @@
     const hour = now.getHours();
     const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    const reg = registrationCard();
-    const left = todayCard(now);
-    const glance = glanceCard();
-    const dining = diningCard(now);
-    const cash = `<div class="x-quick"><a class="x-quick-btn" href="${CASHNET_URL}" target="_blank" rel="noopener">CashNet <span>Student financials and CrimsonCash</span></a></div>`;
-    return `
-      <div class="x-hello"><h2>${greet}${user && user.first ? ', ' + esc(user.first) : ''}</h2><span class="x-date">${dateStr}</span></div>
-      <div class="x-grid">
-        <div class="x-col">${reg}${left}${dining}${forumsCard()}</div>
-        <div class="x-col">${glance}${cash}${buildingsCard()}</div>
-      </div>
-      <div class="x-foot" data-gccx-state="${st(...M.CARDS)}"><span>${{ loading: 'Updating…', problem: 'Some info couldn\'t be refreshed', ok: 'Up to date' }[M.cardsFooter(M.CARDS.map((k) => cards[k].state))]}</span><button type="button" data-refresh>Refresh</button></div>`;
+    // registration open -> the one primary action; "could not check" is reported by the footer, not a card
+    const r = state.registration;
+    const actions = (r ? `<a class="ux-btn is-primary" href="${REG_URL}">Plan ${esc(r.term)}</a>` : '')
+      + `<a class="ux-btn" href="${CASHNET_URL}" target="_blank" rel="noopener">CashNet</a>`;
+    const hero = `<header class="ux-hero"><div class="ux-hero-text"><div class="ux-hero-eyebrow">${esc(dateStr)}</div>
+      <h2 class="ux-hero-title">${greet}${user && user.first ? ', ' + esc(user.first) : ''}</h2>
+      <p class="ux-hero-lead" data-gccx-state="${cards.schedule.state}">${heroLead(now)}</p></div><div class="ux-hero-actions">${actions}</div></header>`;
+
+    const today = todayCard(now), dining = diningCard(now);
+    const dayHTML = [today.html, dining].filter(Boolean);
+    const daySection = dayHTML.length ? sectionHTML(today.html ? today.title : 'Dining', `<div class="ux-grid${dayHTML.length > 1 ? ' is-wide-narrow' : ''}">${dayHTML.join('')}</div>`) : '';
+    const campus = [buildingsCard(), forumsCard()].filter(Boolean);
+    const campusSection = sectionHTML('Around campus', `<div class="ux-grid${campus.length > 1 ? ' is-even' : ''}">${campus.join('')}</div>`);
+    const degree = degreeSection();
+    return `${hero}${statsHTML()}${daySection}${campusSection}${degree}
+      <p class="ux-note me-foot" data-gccx-state="${st(...M.CARDS)}"><span>${{ loading: 'Updating…', problem: 'Some info couldn\'t be refreshed', ok: 'Up to date' }[M.cardsFooter(M.CARDS.map((k) => cards[k].state))]}</span><button type="button" class="ux-link" data-refresh>Refresh</button></p>`;
+  }
+
+  // Degree: what is still open (met ones are counted, not listed), plus the "Academic progress" disclosure.
+  function degreeSection() {
+    const dg = state.degree && state.degree.reqs.length ? state.degree : null;
+    if (!dg && !state.standing) return '';
+    let body = '';
+    if (dg) {
+      const open = dg.reqs.filter((r) => !r.met);
+      const met = dg.reqs.length - open.length;
+      body += `<p class="ux-muted">${met} of ${dg.reqs.length} requirements met${open.length ? '. Still open:' : '. All requirements are met.'}</p>`;
+      if (open.length) body += `<div class="ux-chips">${open.map((r) => `<span class="ux-chip">${esc(r.name.replace(/\s*=\s*/, ' '))}</span>`).join('')}</div>`;
+    }
+    body += `<div data-gccx-state="${st('standing', 'schedule')}">${progressHTML()}</div>${staleNote('degree')}`;
+    return sectionHTML('Degree', kcard('Requirements', { aside: `<a class="ux-link" href="${DEGREE_URL}">Degree progress</a>`, state: st('degree', 'standing'), body: `<div class="me-stack">${body}</div>` }));
   }
 
   // ---- forum posts (data from GCCX.feed). Announcements and the campus calendar stay on Home
   // (user's choice, 2026-11-09); My Info keeps the personal cards plus forum posts. ----
-  const feedMsg = (title, aside, text, key) => `<div class="x-card" data-gccx-state="${cards[key].state}"><h3>${title}${aside}</h3><p class="x-empty">${text}</p></div>`;
-
   function forumsHref() {
     try { return X.feed && X.feed.forumsUrl ? X.feed.forumsUrl(document) : '/ICS/Campus_Life/Forums.jnz?portlet=Forums'; } catch (e) { return '/ICS/Campus_Life/Forums.jnz?portlet=Forums'; }
   }
   function forumsCard() {
     const f = state.forums, c = cards.forums.state, title = 'Forum posts';
-    const aside = `<a class="x-aside" href="${esc(forumsHref())}">All forums</a>`;
-    if (!f && c === 'loading') return feedMsg(title, aside, 'Loading forum posts…', 'forums');
-    if (!f && c === 'error') return feedMsg(title, aside, "Couldn't load forum posts. Try Refresh below.", 'forums');
+    const aside = `<a class="ux-link" href="${esc(forumsHref())}">All forums</a>`;
+    if (!f && c === 'loading') return kcard(title, { aside, state: 'loading', body: '<p class="ux-state" data-kind="loading">Loading forum posts…</p>' });
+    if (!f && c === 'error') return kcard(title, { aside, state: 'error', body: `<p class="ux-state" data-kind="error" role="alert">Couldn't load forum posts. Try Refresh below.</p>` });
     const list = (Array.isArray(f) ? f : []).slice(0, 5);
     if (!list.length) return '';
-    const li = list.map((p) => `<li><span class="x-forum">${p.forumHref ? `<a href="${esc(p.forumHref)}">${esc(p.forum)}</a>` : esc(p.forum)}</span>${p.href ? `<a class="x-post" href="${esc(p.href)}">${esc(p.title)}</a>` : `<span class="x-post">${esc(p.title)}</span>`}<span class="x-quiet">${[p.by ? 'by ' + esc(p.by) : '', esc(p.when)].filter(Boolean).join(', ')}</span></li>`).join('');
-    return `<div class="x-card" data-gccx-state="${c}"><h3>${title}${aside}</h3><ul class="x-list x-forums">${li}</ul>${staleNote('forums')}</div>`;
+    const rows = list.map((p) => `<div class="ux-row me-plain"><div class="ux-row-main">${p.href ? `<a class="ux-row-title" href="${esc(p.href)}">${esc(p.title)}</a>` : `<div class="ux-row-title">${esc(p.title)}</div>`}
+      <div class="ux-row-sub">${[p.forum ? esc(p.forum) : '', p.by ? 'by ' + esc(p.by) : '', esc(p.when)].filter(Boolean).join(' &middot; ')}</div></div></div>`).join('');
+    return kcard(title, { aside, state: c, body: `<div class="ux-list">${rows}</div>${staleNote('forums')}` });
   }
 
   function inTerm(c, d) {
@@ -540,13 +554,36 @@
     return a ? a.href : parts.length >= 2 ? null : null;
   }
 
+  // Which class is on, which is next, and what to say about it. One sentence, most urgent first.
+  function heroLead(now) {
+    const s = state.schedule, c = cards.schedule.state;
+    if (!s) return c === 'error' ? "Couldn't load your schedule from myGCC." : c === 'loading' ? 'Checking your schedule…' : 'No schedule found for this term.';
+    if (!s.courses.length) return 'No classes on your schedule yet.';
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const items = classesOn(now);
+    const at = (m) => (m.room ? ` in ${esc(m.room)}` : '');
+    const cur = items.find((x) => x.m.start <= mins && mins < x.m.end);
+    if (cur) return `<strong>${esc(cur.c.title)}</strong> is in session until ${esc(X.fmtTime(cur.m.end))}${at(cur.m)}.`;
+    const nxt = items.find((x) => x.m.start > mins);
+    if (nxt) return `Next: <strong>${esc(nxt.c.title)}</strong> at ${esc(X.fmtTime(nxt.m.start))}${at(nxt.m)}, in ${dur(nxt.m.start - mins)}.`;
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(now); d.setDate(d.getDate() + i);
+      const l = classesOn(d);
+      if (l.length) {
+        const when = i === 1 ? 'tomorrow' : 'on ' + d.toLocaleDateString(undefined, { weekday: 'long' });
+        return `${items.length ? 'No more classes today.' : 'No classes today.'} <strong>${esc(l[0].c.title)}</strong> at ${esc(X.fmtTime(l[0].m.start))} ${when}${at(l[0].m)}.`;
+      }
+    }
+    return 'No classes scheduled this week.';
+  }
+
   function todayCard(now) {
     const s = state.schedule;
-    if (!s && cards.schedule.state === 'loading') return `<div class="x-card" data-gccx-state="loading"><h3>Today</h3><p class="x-empty">Loading your schedule…</p></div>`;
-    if (!s && cards.schedule.state === 'error') return `<div class="x-card" data-gccx-state="error"><h3>Today</h3><p class="x-empty">Couldn't load your schedule from myGCC. Try Refresh below.</p></div>`;
-    if (!s || !s.courses.length) return '';
+    if (!s && cards.schedule.state === 'loading') return { title: 'Today', html: kcard('Today', { state: 'loading', body: '<p class="ux-state" data-kind="loading">Loading your schedule…</p>' }) };
+    if (!s && cards.schedule.state === 'error') return { title: 'Today', html: kcard('Today', { state: 'error', body: `<p class="ux-state" data-kind="error" role="alert">Couldn't load your schedule from myGCC. Try Refresh below.</p>` }) };
+    if (!s || !s.courses.length) return { title: 'Today', html: '' };
     const mins = now.getHours() * 60 + now.getMinutes();
-    let list = classesOn(now);
+    const list = classesOn(now);
     let heading = 'Today';
     let showDay = null;
     if (!list.length || list.every((x) => x.m.end <= mins)) {
@@ -564,21 +601,20 @@
     for (const { c, m } of items) {
       let cls = '', when = '';
       if (!showDay) {
-        if (m.end <= mins) cls = 'is-past';
-        else if (m.start <= mins) { cls = 'is-now'; when = `Ends in ${dur(m.end - mins)}`; }
-        else if (!nextMarked) { cls = 'is-next'; when = `In ${dur(m.start - mins)}`; nextMarked = true; }
+        if (m.end <= mins) cls = ' is-past';
+        else if (m.start <= mins) { cls = ' is-now'; when = `Ends in ${dur(m.end - mins)}`; }
+        else if (!nextMarked) { cls = ' is-next'; when = `In ${dur(m.start - mins)}`; nextMarked = true; }
       }
       const href = courseHref(c.code);
-      rows.push(`<div class="x-class ${cls}">
-        <div class="x-time">${X.fmtTime(m.start)}${when ? `<span class="x-when">${when}</span>` : ''}</div>
-        <div><div class="x-title">${href ? `<a href="${esc(href)}">${esc(c.title)}</a>` : esc(c.title)}</div>
-          <div class="x-sub">${esc(c.code)}${c.instructor ? ', ' + esc(shortName(c.instructor)) : ''}</div></div>
-        <div class="x-room">${esc(m.room)}</div></div>`);
+      rows.push(`<div class="ux-row${cls}"><div class="ux-row-lead">${esc(X.fmtTime(m.start))}${when ? `<small>${esc(when)}</small>` : ''}</div>
+        <div class="ux-row-main">${href ? `<a class="ux-row-title" href="${esc(href)}">${esc(c.title)}</a>` : `<div class="ux-row-title">${esc(c.title)}</div>`}
+          <div class="ux-row-sub">${esc(c.code)}${c.instructor ? ', ' + esc(shortName(c.instructor)) : ''}</div></div>
+        <div class="ux-row-end">${esc(m.room)}</div></div>`);
     }
     const online = s.courses.filter((c) => c.online && inTerm(c, day));
-    const onlineNote = online.length ? `<p class="x-muted" style="margin:12px 0 0;font-size:14.5px">Online, no set meeting time: ${online.map((c) => esc(c.title)).join(', ')}</p>` : '';
-    const body = rows.length ? rows.join('') : `<p class="x-empty">No classes this week.</p>`;
-    return `<div class="x-card" data-gccx-state="${cards.schedule.state}"><h3>${heading}<a class="x-aside" href="${SCHEDULE_URL}">Full schedule</a></h3>${body}${onlineNote}${staleNote('schedule')}</div>`;
+    const onlineNote = online.length ? `<div class="ux-card-foot">Online, no set meeting time: ${online.map((c) => esc(c.title)).join(', ')}</div>` : '';
+    const body = rows.length ? `<div class="ux-list">${rows.join('')}</div>` : `<p class="ux-state" data-kind="empty">No classes this week.</p>`;
+    return { title: heading, html: kcard('Classes', { aside: `<a class="ux-link" href="${SCHEDULE_URL}">Full schedule</a>`, state: cards.schedule.state, body: body + onlineNote + staleNote('schedule') }) };
   }
   function dur(m) {
     if (m < 60) return `${m} min`;
@@ -648,83 +684,92 @@
     const row = ({ b, s, card, rank }) => {
       const { day, min } = easternNow(now);
       const restricted = b.name === 'Pew Fine Arts Center' && day === 0 && min >= hm(13, 30) && min < hm(16, 30);
-      const state = rank === 0 ? ['open', 'Open'] : rank === 1 ? ['card', restricted ? 'Music students only' : 'Keycard only'] : ['closed', 'Closed'];
-      let lines = '';
+      const badge = rank === 0 ? '<span class="ux-badge is-ok">Open</span>' : rank === 1 ? '<span class="ux-badge is-info">Keycard</span>'
+        : s ? '<span class="ux-badge is-plain">Closed</span>' : '<span class="ux-badge is-plain">Hours vary</span>';
+      const subs = [];
       if (s) {
-        const pub = rank === 1 ? `Public: ${bldPhrase(s.text, false)}` : bldPhrase(s.text);
-        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-${state[0]}">${esc(state[1])}</span><span class="x-bld-when">${esc(pub)}</span></span>`;
-        if (card) lines += `<span class="x-bld-meta">Keycard: ${esc(bldPhrase(card.text, false))}</span>`;
-      } else {
-        lines = `<span class="x-bld-status"><span class="x-bld-badge x-bld-closed">Hours vary</span><a class="x-bld-when" href="${b.url}" target="_blank" rel="noopener">Check hours</a></span>`;
+        subs.push(rank === 1 ? `${restricted ? 'Music students only. ' : ''}Public: ${bldPhrase(s.text, false)}` : bldPhrase(s.text));
+        if (card) subs.push(`Keycard: ${bldPhrase(card.text, false)}`);
       }
-      const res = b.reserve ? `<a class="x-bld-res" href="${b.reserve}" target="_blank" rel="noopener" aria-label="Reserve a room in ${esc(b.name)}">Reserve a room</a>` : '';
-      return `<li class="is-${state[0]}"><div class="x-bld-main"><a class="x-bld-name" href="${b.url}" target="_blank" rel="noopener">${esc(b.name)}</a>
-        ${lines}${b.accessNote ? `<span class="x-bld-note-line">${esc(b.accessNote)}</span>` : ''}</div>${res}</li>`;
+      const sub = subs.map((t) => `<div class="ux-row-sub">${esc(t)}</div>`).join('')
+        + (s ? '' : `<div class="ux-row-sub"><a class="ux-link" href="${esc(b.url)}" target="_blank" rel="noopener">Check hours</a></div>`)
+        + (b.accessNote ? `<div class="ux-row-sub">${esc(b.accessNote)}</div>` : '');
+      const res = b.reserve ? `<div class="ux-row-end"><a class="ux-link" href="${esc(b.reserve)}" target="_blank" rel="noopener" aria-label="Reserve a room in ${esc(b.name)}">Reserve a room</a></div>` : '';
+      return `<div class="ux-row"><div class="ux-row-lead">${badge}</div><div class="ux-row-main"><a class="ux-row-title" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.name)}</a>${sub}</div>${res}</div>`;
     };
     const all = BUILDINGS.map(info);
     const openCount = all.filter(x => x.rank === 0).length;
     const byOpen = (list) => list.map((x, i) => [x, i]).sort((p, q) => p[0].rank - q[0].rank || p[1] - q[1]).map(p => p[0]);
     const TOP = ['Buhl Library', 'Staley Hall of Arts and Letters (SHAL)', 'STEM Hall'];
     const top = all.filter(x => TOP.includes(x.b.name)), rest = all.filter(x => !TOP.includes(x.b.name));
-    const rows = top.map(row).join('');
     const more = ['Academic', 'Administrative', 'Athletic', 'Dining'].map(group => {
       const items = byOpen(rest.filter(x => x.b.group === group));
       const n = items.filter(x => x.rank === 0).length;
-      return `<h4>${group} <span class="x-bld-count">${n} of ${items.length} open</span></h4><ul class="x-bld-list">${items.map(row).join('')}</ul>`;
+      return `<h4 class="me-group">${group} <span>${n} of ${items.length} open</span></h4><div class="ux-list">${items.map(row).join('')}</div>`;
     }).join('');
-    return `<div class="x-card x-bld" data-gccx-state="ready"><h3>Buildings<a class="x-aside" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a></h3>
-      <ul class="x-bld-list">${rows}</ul><details class="x-bld-more"><summary>All campus facility hours (${BUILDINGS.length}) &middot; ${openCount} open now</summary><p class="x-bld-hint">Open places are listed first in each group.</p>${more}</details><p class="x-bld-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p></div>`;
+    return kcard('Buildings', { aside: `<a class="ux-link" href="${FAC_URL}" target="_blank" rel="noopener">All hours</a>`, state: 'ready',
+      body: `<div class="ux-list">${top.map(row).join('')}</div>
+        <details class="ux-more"><summary>All campus facility hours (${BUILDINGS.length}) &middot; ${openCount} open now</summary><div><p class="ux-note">Open places are listed first in each group.</p>${more}</div></details>
+        <p class="ux-note">Normal in-session hours, published July 17, 2026. Breaks and athletic events may change access. Official hours require GCC sign-in.</p>` });
   }
 
-  function glanceCard() {
-    const parts = [];
+  // ---- stats row: the numbers a student would otherwise click to find ----
+  const statHTML = (o) => `<a class="ux-stat${o.tone ? ' is-' + o.tone : ''}" href="${o.href}" data-gccx-state="${o.state}">
+      <div class="ux-stat-label">${esc(o.label)}</div>
+      <div class="ux-stat-value">${o.value}${o.small ? `<small> ${esc(o.small)}</small>` : ''}</div>
+      ${o.meter != null ? `<div class="ux-meter"><i style="width:${Math.max(0, Math.min(100, o.meter))}%"></i></div>` : ''}
+      ${o.note ? `<div class="ux-stat-note">${esc(o.note)}</div>` : ''}</a>`;
+
+  function statsHTML() {
+    const tiles = [];
     // a source that could not be loaded and has no saved copy: say so instead of leaving it out
-    const failed = (label, href) => `<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${href}">${label}</a></span></div><div class="x-note">Couldn't load. Try Refresh below.</div></div>`;
+    const failed = (key, label, href) => tiles.push(statHTML({ label, href, state: cards[key].state, value: '&ndash;', note: "Couldn't load" }));
     const ch = state.chapel;
     if (ch && ch.required != null) {
       const done = (ch.attended || 0) + (ch.special || 0);
       const need = (ch.required || 0) + (ch.rollover || 0);
-      const pct = need ? Math.min(100, Math.round((done / need) * 100)) : 100;
       const rem = ch.remaining ?? Math.max(0, need - done);
-      parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${CHAPEL_URL}">Chapel</a></span>
-        <span class="x-value">${done}<small> of ${need}</small></span></div>
-        <div class="x-bar"><i style="width:${pct}%"></i></div>
-        <div class="x-note">${rem > 0 ? `${rem} more this semester` : '<span class="x-good">Complete for this semester</span>'}</div>${staleNote('chapel')}</div>`);
-    } else if (cards.chapel.state === 'error') parts.push(failed('Chapel', CHAPEL_URL));
+      tiles.push(statHTML({ label: 'Chapel', href: CHAPEL_URL, state: cards.chapel.state, value: esc(done), small: `of ${need}`,
+        meter: need ? Math.min(100, Math.round((done / need) * 100)) : 100, tone: rem > 0 ? '' : 'ok',
+        note: rem > 0 ? `${rem} more this semester` : 'Complete for this semester' }));
+    } else if (cards.chapel.state === 'error') failed('chapel', 'Chapel', CHAPEL_URL);
     const bal = state.balance;
     if (bal && bal.length) {
       const ar = bal.find((b) => /receivable/i.test(b.label)) || bal[0];
-      const fmt = (n) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
       const owed = ar.kind === 'Due' && ar.amount > 0;
-      parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${BALANCE_URL}">Student account</a></span>
-        <span class="x-value ${owed ? 'x-warn' : ''}">${fmt(ar.amount)}</span></div>
-        <div class="x-note">${ar.amount === 0 ? 'Nothing due' : owed ? 'Amount due' : 'Credit on your account'}</div>${staleNote('balance')}</div>`);
-    } else if (cards.balance.state === 'error') parts.push(failed('Student account', BALANCE_URL));
+      tiles.push(statHTML({ label: 'Student account', href: BALANCE_URL, state: cards.balance.state, tone: owed ? 'warn' : '',
+        value: esc(ar.amount.toLocaleString(undefined, { style: 'currency', currency: 'USD' })),
+        note: ar.amount === 0 ? 'Nothing due' : owed ? 'Amount due' : 'Credit on your account' }));
+    } else if (cards.balance.state === 'error') failed('balance', 'Student account', BALANCE_URL);
     const dg = state.degree;
     if (dg && dg.reqs.length) {
       const met = dg.reqs.filter((r) => r.met).length;
-      const open = dg.reqs.filter((r) => !r.met);
-      parts.push(`<div class="x-stat"><div class="x-row"><span class="x-label"><a href="${DEGREE_URL}">Degree requirements</a></span>
-        <span class="x-value">${met}<small> of ${dg.reqs.length} met</small></span></div>
-        ${open.length ? `<ul class="x-reqs">${open.map((r) => `<li>${esc(r.name.replace(/\s*=\s*/, ' '))}</li>`).join('')}</ul>` : ''}${staleNote('degree')}</div>`);
-    } else if (cards.degree.state === 'error') parts.push(failed('Degree requirements', DEGREE_URL));
-    const status = st('chapel', 'balance', 'degree');
-    if (!parts.length && !state.standing) return status === 'loading' ? `<div class="x-card" data-gccx-state="loading"><h3>At a glance</h3><p class="x-empty">Loading…</p></div>` : '';
-    return `<div class="x-card x-glance" data-gccx-state="${status}"><h3>At a glance</h3>${parts.join('')}<div class="x-progress-wrap" data-gccx-state="${st('standing', 'schedule')}">${progressHTML()}</div></div>`;
+      tiles.push(statHTML({ label: 'Degree', href: DEGREE_URL, state: cards.degree.state, value: esc(met), small: `of ${dg.reqs.length} met`,
+        meter: Math.round((met / dg.reqs.length) * 100), tone: met === dg.reqs.length ? 'ok' : '' }));
+    } else if (cards.degree.state === 'error') failed('degree', 'Degree', DEGREE_URL);
+    const s = state.schedule, sg = state.standing;
+    if (s && s.courses.length) {
+      const credits = s.courses.reduce((n, c) => n + (c.credits || 0), 0);
+      tiles.push(statHTML({ label: 'Credits this term', href: SCHEDULE_URL, state: cards.schedule.state, value: esc(credits),
+        note: sg && sg.earned != null ? `${sg.earned}${sg.needed > 0 ? ' of ' + sg.needed : ''} earned toward your degree` : '' }));
+    }
+    if (!tiles.length) return st('chapel', 'balance', 'degree', 'schedule') === 'loading' ? '<p class="ux-state" data-kind="loading">Loading your numbers…</p>' : '';
+    return `<div class="ux-stats">${tiles.join('')}</div>${staleNote('chapel', 'balance', 'degree')}`;
   }
 
   function diningCard(now) {
     const m = state.menu;
     const halls = [['hicks-cafe', 'Hicks'], ['map-cafe', 'MAP']];
-    const seg = `<span class="x-seg" role="group" aria-label="Dining hall">${halls.map(([slug, label]) => `<button type="button" data-hall="${slug}" aria-pressed="${settings.hall === slug}">${label}</button>`).join('')}</span>`;
-    if (!m) return cards.menu.state === 'error' ? `<div class="x-card" data-gccx-state="error"><h3>Dining${seg}</h3><p class="x-empty">Couldn't load the menu. Try Refresh below.</p></div>` : '';
+    const seg = `<div class="ux-seg" role="group" aria-label="Dining hall">${halls.map(([slug, label]) => `<button type="button" data-hall="${slug}" aria-pressed="${settings.hall === slug}">${label}</button>`).join('')}</div>`;
+    const wrap = (stateName, sub, body) => kcard('Dining', { aside: seg, state: stateName, sub, body });
+    if (!m) return cards.menu.state === 'error' ? wrap('error', '', `<p class="ux-state" data-kind="error" role="alert">Couldn't load the menu. Try Refresh below.</p>`) : '';
     let body;
-    if (m.closed) body = `<p class="x-empty">${esc(m.message || 'Closed right now.')}</p>`;
-    else if (!m.stations || !m.stations.length) body = `<p class="x-empty">No menu posted.</p>`;
-    else body = `<div class="x-stations">${m.stations.slice(0, 6).map((s) => `<div class="x-station"><h4>${esc(s.name)}</h4><p>${s.items.slice(0, 5).map(esc).join(', ')}</p></div>`).join('')}</div>`;
-    const sub = m.meal ? `<p class="x-meal">${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ', later today' : ''}</p>` : '';
-    const phone = `<p class="x-dining-phone"><a href="https://plate.mccants.link" target="_blank" rel="noopener noreferrer">Want to check the menu on your phone?</a></p>`;
-    return `<div class="x-card" data-gccx-state="${cards.menu.state}"><h3>Dining${seg}</h3>${sub}${body}${phone}</div>`;
+    if (m.closed) body = `<p class="ux-state" data-kind="empty">${esc(m.message || 'Closed right now.')}</p>`;
+    else if (!m.stations || !m.stations.length) body = `<p class="ux-state" data-kind="empty">No menu posted.</p>`;
+    else body = `<div class="me-stations">${m.stations.slice(0, 6).map((s) => `<div><div class="ux-row-title">${esc(s.name)}</div><div class="ux-row-sub">${s.items.slice(0, 5).map(esc).join(', ')}</div></div>`).join('')}</div>`;
+    const sub = m.meal ? `${esc(m.meal)}${m.until ? ' until ' + esc(m.until) : ''}${m.later ? ', later today' : ''}` : '';
+    const phone = `<div class="ux-card-foot"><a class="ux-link" href="https://plate.mccants.link" target="_blank" rel="noopener noreferrer">Check the menu on your phone</a></div>`;
+    return wrap(cards.menu.state, sub, body + phone);
   }
 
   // ---------------- search palette (Ctrl/Cmd+K or /) ----------------

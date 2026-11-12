@@ -1,36 +1,26 @@
-/* My Info (myinfo.js). Every rule waits for html.gccx-info, which the script sets only after its checks pass. */
+/* My Info (myinfo.js and the dashboard in content.js). Layout and parts come from the page kit (ui.css);
+   only what the kit lacks is here. */
 
-/* One gutter: 20px between columns and between stacked cards. */
-html.gccx-info #portlets { --gccx-gutter: 20px; }
-html.gccx-info #portlets .portlet-column { padding-left: calc(var(--gccx-gutter) / 2) !important; padding-right: calc(var(--gccx-gutter) / 2) !important; }
-html.gccx-info #portlets .portlet-column .portlet { margin-top: 0 !important; margin-bottom: var(--gccx-gutter) !important; }
-html.gccx-info #portlets .portlet-column .portlet:last-child { margin-bottom: 0 !important; }
-@media (max-width: 991px) {
-  html.gccx-info #portlets .portlet-column + .portlet-column { margin-top: var(--gccx-gutter); }
-}
-
-/* Chapel frame: fill the card; height comes from the frame (chapel.js) */
+/* Chapel / contact frames: fill the card; height comes from the frame (framefit.js) */
 html.gccx-info iframe.gccx-fit-frame {
   display: block; width: 100% !important; max-width: 100%; min-height: 320px;
   border: 0; border-radius: var(--x-radius-control); background: #fff; color-scheme: light;
 }
 
-/* Merged link card: no umbrella title, each section a card-level title */
-html.gccx-info .gccx-info-hidden { display: none !important; }
-html.gccx-info .gccx-info-merged > .portlet-header-bar,
-html.gccx-info .gccx-info-merged > .portlet-padding:not(.gccx-info-part .portlet-padding) { display: none !important; }
-html.gccx-info .gccx-info-merged .gccx-info-part { padding: 20px 0 20px; }
-html.gccx-info .gccx-info-merged .gccx-info-part + .gccx-info-part { border-top: 1px solid var(--x-rule); }
-html.gccx-info .gccx-info-merged .gccx-info-head {
-  margin: 0 0 10px !important; font: 600 20px/1.25 var(--x-display) !important; letter-spacing: -0.015em !important; color: var(--x-ink) !important;
-}
-html.gccx-info .gccx-info-merged .gccx-info-part > .portlet-padding { padding: 0 !important; margin: 0 !important; }
-html.gccx-info .gccx-info-merged .gccx-info-part a[href] { display: inline-block; margin: 2px 16px 2px 0; font-weight: 600; text-underline-offset: 3px; }
-
-/* Portal cards under the dashboard share its columns (3fr / 2fr, 20px gap), so every card edge lines up */
-html.gccx-info #portlet-grid, html.gccx-info #portlet-grid > .row { margin-inline: 0 !important; padding-inline: 0 !important; }
-html.gccx-info #portlet-grid > .row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0 20px; }
-html.gccx-info #portlet-grid > .row::before, html.gccx-info #portlet-grid > .row::after { content: none; }
-html.gccx-info #portlets #portlet-grid .portlet-column { width: auto !important; float: none !important; padding-inline: 0 !important; min-width: 0; }
-html.gccx-info #portlets { container: gccxinfo / inline-size; }
-@container gccxinfo (max-width: 760px) { html.gccx-info #portlet-grid > .row { grid-template-columns: minmax(0, 1fr); } } /* the dashboard stacks at the same width */
+/* Kit gap: dining stations as a wrapping grid of (name, items) pairs */
+html.gccx #gccx-dash .me-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--x-s3) var(--x-s4); }
+/* Kit gap: a .ux-row without a lead column (forum posts) */
+html.gccx .ux-row.me-plain { grid-template-columns: minmax(0, 1fr); }
+/* Kit gap: small group heading inside a card (building groups) */
+html.gccx #gccx-dash .me-group { margin: var(--x-s4) 0 var(--x-s2) !important; font-size: var(--x-fs-small); font-weight: 600; }
+html.gccx #gccx-dash .me-group span { color: var(--x-muted); font-weight: 400; margin-left: var(--x-s2); }
+/* Kit gap: vertical rhythm inside a card body that holds mixed parts */
+html.gccx #gccx-dash .me-stack, html.gccx #gccx-dash .ux-card-body > .ux-more { display: grid; gap: var(--x-s3); }
+html.gccx #gccx-dash .ux-card-body > .ux-more + .ux-note { margin-top: var(--x-s3) !important; }
+/* Footer: status text and the Refresh link on one line */
+html.gccx #gccx-dash .me-foot { display: flex; flex-wrap: wrap; gap: var(--x-s2) var(--x-s3); }
+html.gccx #gccx-dash .me-foot .ux-link { font-size: var(--x-fs-micro) !important; }
+html.gccx #gccx-dash .x-gpa-stat { display: inline-block; }
+/* Frames never push the page wider, even before framefit has measured them */
+html.gccx .ux-page iframe { max-width: 100% !important; }
+html.gccx .ux-portlets > .portlet { overflow-x: clip; }
