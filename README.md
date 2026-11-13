@@ -73,3 +73,14 @@ Click the extension's icon to turn the look, the dashboard or the promo banners 
 - [AGENTS.md](AGENTS.md): how to run the tests, the rules that are easy to break, and how to test in the demo.
 - [docs/STATE_MACHINES.md](docs/STATE_MACHINES.md): every state machine (registration job, dashboard data, AI setup, AI runs), the handoff keys and their expiry times, and known limitations.
 - Tests: `npm test`.
+
+## Development / Releasing
+
+Node 22 or newer; nothing to install.
+
+- `npm test`: the unit tests (`node --test tests/`).
+- `npm run check`: repository checks: every `.js` file parses; `manifest.json` is MV3 and every file it names exists; the script lists in `manifest.json`, `demo/index.html` and `FILES` in `src/devreload.js` agree; the four `DEFAULTS` copies are identical; `package.json` and `manifest.json` have the same version.
+- `npm run release -- <patch|minor|major|x.y.z> [--dry-run]`: needs a clean working tree and the `zip` command. Runs the tests and checks, sets the version in `manifest.json` and `package.json`, builds `dist/abettermygcc-<version>.zip`, commits `Release vX.Y.Z` and makes the tag `vX.Y.Z`. It does not push; it prints the push command. `--dry-run` shows what it would do without changing anything.
+- `node scripts/pack.js`: builds the zip for the current version without releasing.
+
+GitHub Actions runs the tests and checks on every pull request and push to `master` (`.github/workflows/ci.yml`). Pushing a `v*.*.*` tag runs them again, checks the tag matches `manifest.json`, and publishes a GitHub release with the zip (`.github/workflows/release.yml`).

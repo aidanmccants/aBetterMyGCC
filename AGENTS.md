@@ -4,6 +4,8 @@ Plain JavaScript, no build step, no runtime dependencies. Each file in `src/` is
 
 ## Tests
 - Run `npm test` (which runs `node --test tests/`). No install needed.
+- Run `npm run check` too (`scripts/check.js`): syntax, manifest files, script lists, `DEFAULTS`, versions. CI runs both and must pass.
+- Release with `npm run release -- patch` (see README, Development / Releasing). Do not edit the version by hand in only one of `manifest.json` / `package.json`.
 - `tests/helpers.js` loads the browser scripts unchanged. State tables are written out by hand in their tests, so a table change must be made in both places.
 
 ## Seeing state while it runs
