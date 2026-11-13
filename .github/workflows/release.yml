@@ -1,24 +1,104 @@
 name: Release
 
+# Two ways to release:
+#  - Actions tab > Release > Run workflow: pick the branch and patch/minor/major
+#    (or x.y.z). The "bump" job runs the tests and checks, bumps the version,
+#    commits "Release vX.Y.Z", tags it and pushes both; then "release" publishes.
+#  - Push a vX.Y.Z tag yourself (npm run release -- patch, then push): only
+#    "release" runs.
+# A tag pushed by GITHUB_TOKEN does not start another workflow run, so the
+# dispatch path publishes in this same run instead.
+
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'patch, minor, major, or an exact x.y.z'
+        required: true
+        default: patch
+      dry_run:
+        description: 'Dry run: run the checks and show the plan, change nothing'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  bump:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Only from a branch
+        if: github.ref_type != 'branch'
+        run: |
+          echo "::error::Run this workflow from a branch, not a tag."
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the bump input
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if ! [[ "$BUMP" =~ ^(patch|minor|major|[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::bump must be patch, minor, major or x.y.z (got '$BUMP')"
+            exit 1
+          fi
+      - name: Git identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898+github-actions[bot]@users.noreply.github.com'
+      - name: Release script (tests, checks, bump, commit, tag)
+        env:
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/release.js "$BUMP" --dry-run
+          else
+            node scripts/release.js "$BUMP"
+          fi
+      - name: Push the release commit and tag
+        id: tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          tag="v$(node -p "require('./manifest.json').version")"
+          # Full ref names, so a branch and a tag with the same name can't be confused.
+          git push --atomic origin "HEAD:refs/heads/${GITHUB_REF_NAME}" "refs/tags/${tag}:refs/tags/${tag}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: bump
+    # Runs on a tag push (bump skipped) or after a real (not dry-run) dispatch bump.
+    if: >-
+      always() &&
+      ((github.event_name == 'push' && needs.bump.result == 'skipped') ||
+       (github.event_name == 'workflow_dispatch' && needs.bump.result == 'success' && needs.bump.outputs.tag != ''))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.bump.outputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.bump.outputs.tag || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,10 +108,9 @@ jobs:
         run: npm run check
       - name: Tag matches manifest.json version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           manifest="$(node -p "require('./manifest.json').version")"
-          if [ "$tag" != "$manifest" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match manifest.json version $manifest"
+          if [ "${TAG#v}" != "$manifest" ]; then
+            echo "::error::Tag $TAG does not match manifest.json version $manifest"
             exit 1
           fi
       - name: Build zip
@@ -40,8 +119,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "dist/abettermygcc-${GITHUB_REF_NAME#v}.zip" \
+          gh release create "$TAG" "dist/abettermygcc-${TAG#v}.zip" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" \
+            --title "$TAG" \
             --verify-tag \
             --generate-notes

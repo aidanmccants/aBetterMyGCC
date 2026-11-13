@@ -82,3 +82,5 @@ Node 22 or newer; nothing to install.
 - `node scripts/pack.js`: builds the zip for the current version without releasing.
 
 GitHub Actions runs the tests and checks on every pull request and push to `master` (`.github/workflows/ci.yml`). Pushing a `v*.*.*` tag runs them again, checks the tag matches `manifest.json`, and publishes a GitHub release with the zip (`.github/workflows/release.yml`).
+
+To release from GitHub without a local checkout: Actions > Release > Run workflow, pick the branch (for example `release-1.2`) and `patch`, `minor`, `major` or an exact `x.y.z`. It runs the tests and checks, bumps the version, commits `Release vX.Y.Z`, tags and pushes both, then publishes the release with the zip. Tick **Dry run** to see the plan without changing anything. Branches are named `release-X.Y`, never `vX.Y.Z`, so they can't clash with tags.
