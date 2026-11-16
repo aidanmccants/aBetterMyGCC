@@ -62,7 +62,7 @@ extension ExtensionPageViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.allow); return }
-        switch url.scheme?.lowercased() {
+        switch url.scheme?.lowercased() ?? "" {
         case ExtensionHost.scheme, "about", "blob", "data", "javascript":
             if #available(iOS 14.5, *), navigationAction.shouldPerformDownload {
                 decisionHandler(.download); return
@@ -96,9 +96,9 @@ extension ExtensionPageViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url {
-            switch url.scheme?.lowercased() {
+            switch url.scheme?.lowercased() ?? "" {
             case "http", "https": openOutside(url)
-            case ExtensionHost.scheme, "about", "blob", "data", nil: webView.load(navigationAction.request)
+            case ExtensionHost.scheme, "about", "blob", "data", "": webView.load(navigationAction.request)
             default: UIApplication.shared.open(url)
             }
         }

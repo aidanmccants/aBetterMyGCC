@@ -252,12 +252,12 @@ extension BrowserViewController: WKUIDelegate {
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         // target=_blank and window.open: myGCC pages open here, anything else in Safari.
         if let url = navigationAction.request.url {
-            switch url.scheme?.lowercased() {
+            switch url.scheme?.lowercased() ?? "" {
             case "http", "https":
                 openWebURL(url)
             case ExtensionHost.scheme:
                 showExtensionPage(url)
-            case nil, "about", "blob", "data", "javascript":
+            case "", "about", "blob", "data", "javascript":
                 webView.load(navigationAction.request)
             default:
                 UIApplication.shared.open(url)
