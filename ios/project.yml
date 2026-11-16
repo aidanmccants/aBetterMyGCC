@@ -3,7 +3,7 @@ name: aBetterMyGCC
 options:
   bundleIdPrefix: io.github.aidanmccants
   deploymentTarget:
-    iOS: "15.0"
+    iOS: "16.0"
   createIntermediateGroups: true
 settings:
   base:

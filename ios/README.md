@@ -31,4 +31,4 @@ cd ios && xcodegen generate && open aBetterMyGCC.xcodeproj
 
 Pick your team under Signing & Capabilities, then run.
 
-Requires iOS 15 or later.
+Requires iOS 16 or later. The UI is SwiftUI; WKWebView is wrapped with `UIViewRepresentable`.

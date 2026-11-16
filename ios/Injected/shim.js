@@ -46,6 +46,21 @@
     return undefined;
   };
 
+  // ---------- errors go to the app's log (visible in Xcode / Console.app) ----------
+  const report = (level, parts) => {
+    try {
+      const message = parts.map((p) => (p && p.stack) || (typeof p === 'string' ? p : JSON.stringify(p))).join(' ').slice(0, 2000);
+      if (/aBetterMyGCC: not for this page/.test(message)) return;
+      call('console', { level, context: CONFIG.context, url: location.href.slice(0, 200), message }).catch(() => {});
+    } catch (e) { /* never let logging break the page */ }
+  };
+  window.addEventListener('error', (e) => report('error', [e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')']));
+  window.addEventListener('unhandledrejection', (e) => report('error', ['Unhandled rejection:', e.reason]));
+  for (const level of ['error', 'warn']) {
+    const orig = console[level].bind(console);
+    console[level] = (...args) => { report(level, args); orig(...args); };
+  }
+
   // ---------- storage ----------
   const changed = event();
   const local = {

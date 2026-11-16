@@ -353,6 +353,10 @@ extension ExtensionHost: WKScriptMessageHandlerWithReply {
                 }
             }
             reply(nil)
+        case "console":
+            NSLog("[gccx %@ %@] %@ — %@", object["context"] as? String ?? "?", object["level"] as? String ?? "log",
+                  object["message"] as? String ?? "", object["url"] as? String ?? "")
+            reply(nil)
         case "closePage":
             if let webView = message.webView { delegate?.extensionHost(self, closePageIn: webView) }
             reply(nil)
@@ -371,6 +375,7 @@ extension ExtensionHost: WKScriptMessageHandlerWithReply {
 extension ExtensionHost: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard webView === backgroundWebView else { return }
+        NSLog("[gccx] background page loaded")
         backgroundReady = true
         fireLifecycleEvents()
         let queued = backgroundQueue
