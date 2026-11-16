@@ -1,0 +1,97 @@
+name: iOS app
+
+on:
+  push:
+    branches: ['**']
+    tags: ['ios-v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build iOS app
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Check injected shim parses
+        run: node --check ios/Injected/shim.js
+
+      - name: Build for device (unsigned)
+        working-directory: ios
+        run: |
+          mkdir -p build
+          xcodebuild \
+            -project aBetterMyGCC.xcodeproj \
+            -scheme aBetterMyGCC \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build/device.log 2>&1 || {
+              echo "::group::Errors"; grep -E "error:" build/device.log | sort -u | head -60; echo "::endgroup::"
+              tail -n 150 build/device.log; exit 1; }
+          grep -E "warning:" build/device.log | sort -u | head -40 || true
+
+      - name: Package unsigned IPA
+        working-directory: ios
+        run: |
+          APP=build/device/Build/Products/Release-iphoneos/aBetterMyGCC.app
+          test -f "$APP/Extension/manifest.json"
+          test -f "$APP/Extension/__ios/shim.js"
+          mkdir -p dist/Payload
+          cp -R "$APP" dist/Payload/
+          (cd dist && zip -qry aBetterMyGCC-unsigned.ipa Payload)
+          ls -lh dist
+
+      - name: Build for Simulator
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project aBetterMyGCC.xcodeproj \
+            -scheme aBetterMyGCC \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO \
+            build > build/sim.log 2>&1 || {
+              echo "::group::Errors"; grep -E "error:" build/sim.log | sort -u | head -60; echo "::endgroup::"
+              tail -n 150 build/sim.log; exit 1; }
+          DIST="$PWD/dist"
+          (cd build/sim/Build/Products/Debug-iphonesimulator && zip -qry "$DIST/aBetterMyGCC-simulator.zip" aBetterMyGCC.app)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aBetterMyGCC-iOS-unsigned-ipa
+          path: ios/dist/aBetterMyGCC-unsigned.ipa
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aBetterMyGCC-iOS-simulator
+          path: ios/dist/aBetterMyGCC-simulator.zip
+          if-no-files-found: error
+
+      - name: Attach to release (tags ios-v*)
+        if: startsWith(github.ref, 'refs/tags/ios-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ios/dist/aBetterMyGCC-unsigned.ipa
+            ios/dist/aBetterMyGCC-simulator.zip

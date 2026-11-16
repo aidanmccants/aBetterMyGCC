@@ -1,0 +1,64 @@
+# XcodeGen spec. Generate the Xcode project with:  cd ios && xcodegen generate
+name: aBetterMyGCC
+options:
+  bundleIdPrefix: io.github.aidanmccants
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+targets:
+  aBetterMyGCC:
+    type: application
+    platform: iOS
+    sources:
+      - path: aBetterMyGCC
+      - path: Injected
+        buildPhase: none
+      - path: scripts
+        buildPhase: none
+    preBuildScripts:
+      - name: Bundle Chrome extension
+        script: '"${SRCROOT}/scripts/bundle-extension.sh"'
+        basedOnDependencyAnalysis: false
+    info:
+      path: aBetterMyGCC/Info.plist
+      properties:
+        CFBundleDisplayName: aBetterMyGCC
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities: [arm64]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationQueriesSchemes: [mailto, tg]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.aidanmccants.abettermygcc
+        PRODUCT_NAME: aBetterMyGCC
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  aBetterMyGCC:
+    build:
+      targets:
+        aBetterMyGCC: all
+    run:
+      config: Debug
+    archive:
+      config: Release

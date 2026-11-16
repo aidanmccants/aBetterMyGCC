@@ -1,0 +1,37 @@
+/* aBetterMyGCC for iOS: phone adjustments on top of the extension's own CSS.
+   Only applies in the app (the shim adds html.gccx-ios on myGCC pages). */
+
+/* No sideways page scroll; wide content scrolls inside its own box. */
+html.gccx-ios, html.gccx-ios body { max-width: 100%; overflow-x: hidden; }
+html.gccx-ios { -webkit-text-size-adjust: 100%; }
+
+/* Table wrappers are overflow:auto (scrollable). That also makes them shrink
+   beside floated header buttons, which squeezed the Add/Drop table into a
+   thin column. Start them below any float so they use the full width. */
+html.gccx-ios .portlet .pSection,
+html.gccx-ios .portlet div:has(> table) { clear: both; }
+html.gccx-ios .portlet div:has(> table) { -webkit-overflow-scrolling: touch; }
+
+/* Wide data grids: keep columns readable and let them scroll. */
+@media (max-width: 760px) {
+  html.gccx-ios .portlet table.groupedGrid { min-width: 100%; }
+  html.gccx-ios .portlet table.groupedGrid :is(td, th) { min-width: 4.5em; }
+
+  /* Main tabs scroll sideways instead of being cut off. */
+  html.gccx-ios #main-nav { overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  html.gccx-ios #main-nav::-webkit-scrollbar { display: none; }
+  html.gccx-ios #main-nav > li { flex: 0 0 auto; }
+
+  /* Touch-sized controls; 16px inputs stop iOS zooming in on focus. */
+  html.gccx-ios :is(input[type="text"], input[type="search"], input[type="email"], input[type="number"], input[type="password"], input:not([type]), select, textarea) { font-size: 16px !important; }
+  html.gccx-ios :is(button, .btn, input[type="submit"], input[type="button"]) { min-height: 36px; }
+
+  /* The floating Feedback button sits over content on a phone: make it small. */
+  html.gccx-ios .gccx-fb-btn { font-size: 12.5px !important; padding: 5px 10px !important; opacity: .92; }
+
+  /* Ctrl K hint makes no sense on a phone. */
+  html.gccx-ios #gccx-search-btn kbd { display: none; }
+}
+
+/* Room for the home indicator under fixed bottom elements. */
+html.gccx-ios .gccx-fb { padding-bottom: env(safe-area-inset-bottom); }
