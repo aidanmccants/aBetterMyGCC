@@ -127,15 +127,16 @@ jobs:
             limit 60 xcrun simctl io "$UDID" screenshot "dist/screenshots/$name.png" || echo "screenshot failed ($?)"
           }
           limit 30 xcrun simctl ui "$UDID" appearance light || true
-          shot 1-mygcc 30
+          shot 1-mygcc-welcome 40
           shot 2-settings 15 -gccxOpen settings
           shot 3-options 15 -gccxOpen options
-          shot 4-demo-home 20 -gccxOpen demo
-          shot 5-demo-home-again 20 -gccxOpen demo
-          shot 6-demo-planner 20 -gccxOpen 'demo/index.html?u=%2FICS%2FAcademics%2FHome.jnz%3Fportlet%3DAddDrop_Courses'
+          shot 4-mygcc 30 -gccxSkipWelcome YES
+          shot 5-demo-home 20 -gccxSkipWelcome YES -gccxOpen demo
+          shot 6-demo-planner 20 -gccxSkipWelcome YES -gccxOpen 'demo/index.html?u=%2FICS%2FAcademics%2FHome.jnz%3Fportlet%3DAddDrop_Courses'
+          shot 7-demo-schedule 20 -gccxSkipWelcome YES -gccxOpen 'demo/index.html?u=%2FICS%2FAcademics%2FHome.jnz%3Fportlet%3DStudent_Schedule'
           limit 30 xcrun simctl ui "$UDID" appearance dark || true
-          shot 7-demo-dark 20 -gccxOpen demo
-          shot 8-mygcc-dark 25
+          shot 8-demo-dark 20 -gccxSkipWelcome YES -gccxOpen demo
+          shot 9-settings-dark 15 -gccxOpen settings
           limit 120 xcrun simctl spawn "$UDID" log show --last 15m --style compact \
             --predicate 'process == "aBetterMyGCC" AND eventMessage CONTAINS "[gccx"' > dist/screenshots/app-log.txt || true
           echo "::group::App log"; tail -n 150 dist/screenshots/app-log.txt; echo "::endgroup::"

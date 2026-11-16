@@ -51,6 +51,7 @@ final class BrowserModel: NSObject, ObservableObject {
             },
         ]
 
+        if UserDefaults.standard.bool(forKey: "gccxSkipWelcome") { skipWelcomeForScreenshots() }
         webView.load(URLRequest(url: Self.homeURL))
         openLaunchScreenIfRequested()
     }
@@ -99,6 +100,14 @@ final class BrowserModel: NSObject, ObservableObject {
 
     private func showMessage(_ message: String) {
         dialog = WebDialog(title: "aBetterMyGCC", message: message, kind: .alert) { _, _ in }
+    }
+
+    /// For screenshots: `-gccxSkipWelcome YES` marks the welcome screen as seen,
+    /// on myGCC and in the demo, so pages are visible.
+    private func skipWelcomeForScreenshots() {
+        UserDefaults.standard.set(host.version, forKey: "gccx.installedVersion")
+        _ = host.storage.set(["onboarding": "done", "demo:onboarding": "done",
+                              "whatsnewSeen": host.version, "demo:whatsnewSeen": host.version])
     }
 
     /// For screenshots and testing: `-gccxOpen settings|options|demo` opens that page at launch.

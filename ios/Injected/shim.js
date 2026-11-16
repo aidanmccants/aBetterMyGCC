@@ -51,6 +51,7 @@
     try {
       const message = parts.map((p) => (p && p.stack) || (typeof p === 'string' ? p : JSON.stringify(p))).join(' ').slice(0, 2000);
       if (/aBetterMyGCC: not for this page/.test(message)) return;
+      if (level === 'error' && /^Script error\.? \(:0\)$/.test(message)) return; // masked cross-origin error
       call('console', { level, context: CONFIG.context, url: location.href.slice(0, 200), message }).catch(() => {});
     } catch (e) { /* never let logging break the page */ }
   };
@@ -198,6 +199,25 @@
       return res;
     };
     window.close = () => { call('closePage').catch(() => {}); };
+  }
+
+  if (CONFIG.context === 'page') {
+    // Extension pages were written for a desktop popup or tab: give them a phone
+    // viewport, and let the 300px-wide toolbar popup fill the sheet.
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!document.querySelector('meta[name="viewport"]')) {
+        const meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1';
+        document.head.appendChild(meta);
+      }
+      if (/^\/popup\//.test(location.pathname)) {
+        const style = document.createElement('style');
+        style.textContent = 'body{width:auto!important;max-width:520px;margin:0 auto!important;padding:20px 22px!important;font-size:17px!important}' +
+          '.row{min-height:44px}';
+        document.head.appendChild(style);
+      }
+    }, { once: true });
   }
 
   if (CONFIG.context === 'background') {
