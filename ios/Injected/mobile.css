@@ -35,3 +35,16 @@ html.gccx-ios .portlet div:has(> table) { -webkit-overflow-scrolling: touch; }
 
 /* Room for the home indicator under fixed bottom elements. */
 html.gccx-ios .gccx-fb { padding-bottom: env(safe-area-inset-bottom); }
+
+/* The plan drawer is width:100% under 480px but content-box with 22px side
+   padding, so it was 44px wider than the phone and clipped on the left. */
+@media (max-width: 480px) {
+  html.gccx-ios #gccx-plan { box-sizing: border-box; max-width: 100vw; }
+}
+
+/* On a phone, show the page first and myGCC's sidebar (section links,
+   My Courses) after it, instead of a screen of links before the content. */
+@media (max-width: 991px) {
+  html.gccx-ios #mainLayout .row > #sideBar { order: 2; }
+  html.gccx-ios #mainLayout .row > #portlets { order: 1; }
+}
