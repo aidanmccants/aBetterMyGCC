@@ -110,18 +110,25 @@ final class BrowserModel: NSObject, ObservableObject {
                               "whatsnewSeen": host.version, "demo:whatsnewSeen": host.version])
     }
 
-    /// For screenshots and testing: `-gccxOpen settings|options|demo` opens that page at launch.
+    /// For screenshots and testing: `-gccxOpen settings|options|demo|<extension path>`
+    /// opens that page in a sheet once the first page has loaded.
+    private var launchTarget: String?
+
     private func openLaunchScreenIfRequested() {
-        guard let target = UserDefaults.standard.string(forKey: "gccxOpen") else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self = self else { return }
-            switch target {
-            case "settings": self.showSettings()
-            case "options": if let url = self.host.optionsPageURL { self.openExtensionPage(url) }
-            default:
-                if let url = URL(string: ExtensionHost.baseURL + (target == "demo" ? "demo/index.html" : target)) {
-                    self.openExtensionPage(url)
-                }
+        launchTarget = UserDefaults.standard.string(forKey: "gccxOpen")
+        // Fallback in case myGCC is slow or unreachable.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak self] in self?.openLaunchTarget() }
+    }
+
+    fileprivate func openLaunchTarget() {
+        guard let target = launchTarget else { return }
+        launchTarget = nil
+        switch target {
+        case "settings": showSettings()
+        case "options": if let url = host.optionsPageURL { openExtensionPage(url) }
+        default:
+            if let url = URL(string: ExtensionHost.baseURL + (target == "demo" ? "demo/index.html" : target)) {
+                openExtensionPage(url)
             }
         }
     }
@@ -193,6 +200,12 @@ extension BrowserModel: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
         downloads.track(download)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if launchTarget != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.openLaunchTarget() }
+        }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {

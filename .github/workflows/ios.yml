@@ -126,6 +126,20 @@ jobs:
             sleep "$wait"
             limit 60 xcrun simctl io "$UDID" screenshot "dist/screenshots/$name.png" || echo "screenshot failed ($?)"
           }
+          # Right after boot, launches can fail while SpringBoard settles. Warm up
+          # until the app really starts (it logs once its background page loads).
+          for attempt in 1 2 3 4 5 6; do
+            echo "== warm-up launch $attempt"
+            limit 30 xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+            if limit 60 xcrun simctl launch "$UDID" "$BUNDLE"; then
+              sleep 20
+              if limit 60 xcrun simctl spawn "$UDID" log show --last 1m --style compact \
+                   --predicate 'process == "aBetterMyGCC" AND eventMessage CONTAINS "background page loaded"' | grep -q "background page loaded"; then
+                echo "App is running"; break
+              fi
+            fi
+            sleep 15
+          done
           limit 30 xcrun simctl ui "$UDID" appearance light || true
           shot 1-mygcc-welcome 40
           shot 2-settings 15 -gccxOpen settings

@@ -211,6 +211,15 @@
         meta.content = 'width=device-width, initial-scale=1';
         document.head.appendChild(meta);
       }
+      // The demo draws sample myGCC pages with the extension's own CSS; give it
+      // the same phone fixes the app adds on the real site.
+      if (/^\/demo\//.test(location.pathname)) {
+        document.documentElement.classList.add('gccx-ios');
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = CONFIG.base + '__ios/mobile.css';
+        document.head.appendChild(link);
+      }
       if (/^\/popup\//.test(location.pathname)) {
         const style = document.createElement('style');
         style.textContent = 'body{width:auto!important;max-width:520px;margin:0 auto!important;padding:20px 22px!important;font-size:17px!important}' +
